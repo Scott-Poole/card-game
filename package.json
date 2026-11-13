@@ -13,10 +13,10 @@
     "lint": "eslint src",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
-    "fix": "pnpm lint --fix && pnpm format",
+    "fix": "pnpm lint --fix; pnpm format",
     "test": "vitest run",
     "test:guardrail": "bash .claude/hooks/test-block-dangerous-git.sh",
-    "test:queue": "bash .agents/skills/tick/test/test-queue.sh",
+    "test:queue": "GIT_AUTHOR_NAME=queue-test GIT_AUTHOR_EMAIL=queue-test@example.invalid GIT_COMMITTER_NAME=queue-test GIT_COMMITTER_EMAIL=queue-test@example.invalid bash .agents/skills/tick/test/test-queue.sh",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm test:guardrail && pnpm test:queue"
   },
   "devDependencies": {
