@@ -50,4 +50,4 @@ Deduplicate overlapping findings, then write:
 - **PASS**: no high-severity findings. **CONTESTED**: high findings that reviewers disagree on. **REJECT**: high findings with consensus.
 - Lead judgment is yours (the judge tier): reviewers are adversarial by design, so call out false positives, overreach, and style mistaken for substance.
 
-Log each reviewer run in `docs/agents/delegation-log.md` per the `delegate` skill.
+When the diff is a PR, post the verdict on it: `gh pr comment <n> --body-file <file>`. Log each reviewer run in `docs/agents/delegation-log.md` per the `delegate` skill.
