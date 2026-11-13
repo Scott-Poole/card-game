@@ -13,7 +13,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 ## Commands
 
 - `pnpm check`: typecheck, lint, format check, unit tests, git guardrail, queue and boundary regression suites, with `CI=true` for parity with GitHub.
-- `pnpm install --frozen-lockfile` installs the Husky commit hook. Every commit formats staged files and runs the full check; run `pnpm check` before pushing too. GitHub repeats the same gate as independent verification.
+- `pnpm install --frozen-lockfile` installs Husky hooks. Commits format staged files; pushes run the full check; run `pnpm check` before pushing too. GitHub repeats the same gate as independent verification.
 - `pnpm fix`: format and lint auto-fix.
 - Tests live beside source in `src/`; Vitest config has its own tooling typecheck. ESLint configuration is executed by the lint gate and is not typechecked.
 - Each gate has its own script in `package.json`. Dev, build and start arrive with the server/client tickets.
@@ -24,6 +24,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 - **Landing**: an open PR reaches `main` (or Scott) through the `land` skill. Agents merge whatever fits its policy without asking. GitHub enforces PR-only, merge-commit-only, no force push on `main`.
 - **Ticket automation**: a scheduled `tick` claims the oldest unblocked `ready-for-agent` ticket and launches one `work-ticket` thread, which implements, lands, and merges its own PR. `ready-for-agent` means "an agent may take this unattended": leave it off a ticket, or assign it to someone, to hold it back. Caps and the off switch: the `tick` skill.
 - **Commits**: conventional commits, per the `commit` skill.
+- **Validation**: follow .agents/skills/validate/SKILL.md before opening or updating a PR: full local checks and direct interaction with changed behavior, including browser testing for UI changes.
 - **Prove it works**: claim done only with command output (tests, typecheck, lint, `git diff --stat`). A subagent's report is a claim, not evidence.
 - **Delegation**: before spawning any subagent or handing work to another model, load the `delegate` skill. It owns model routing.
 

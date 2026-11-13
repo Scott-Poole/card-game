@@ -53,7 +53,7 @@ Classify the diff `BASE...PIN`. The first matching row wins.
 **trivial**: go to step 4 with `PIN` unchanged.
 
 **significant**: run the `cross-review` skill over `BASE...PIN` in `WT`, passing the SHAs explicitly. Each brief states the intent and the **threat model** (what counts as high severity for this change; what is out of scope). Then loop:
-1. Fix every accepted finding in `WT`, each pinned by a regression test or check wherever one can exist (small fixes yourself; larger ones via the `delegate` skill's implement tier, in `WT`). Commit, `git push`, and set `PIN` to the new head.
+1. Fix every accepted finding in `WT`, each pinned by a regression test or check wherever one can exist (small fixes yourself; larger ones via the `delegate` skill's implement tier, in `WT`). Follow [validate](../validate/SKILL.md), commit, `git push`, and set `PIN` to the new head.
 2. **Re-check**: a fresh other-family reviewer, briefed with the previous findings and the fix range `<old PIN>..<PIN>`.
 3. Go to step 4 when a re-check passes. Keep fixing concrete, reproducible findings while each round makes progress; the number of failed rounds alone is not an escalation reason. If the same blocker survives two materially different fixes, diagnose it before another attempt. Escalate only for a direction decision, unavailable access or infrastructure, exhausted usage budget, or inability to make further progress. Include the evidence and the precise decision or access needed.
 

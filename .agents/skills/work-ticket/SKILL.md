@@ -27,7 +27,7 @@ Done when you can list every acceptance criterion and the seam each one is prove
 
 Work test-first at the seams the spec names ([`tdd`](../tdd/SKILL.md)). Commit each logical change per [`commit`](../commit/SKILL.md), with `Refs: #<n>`.
 
-Run the full local gate before each commit and push: `pnpm check` once it exists, before that the commands the ticket names. Use the pinned toolchain; the local gate must reproduce CI mode. Install the repo's commit hook through the package install. If CI still exposes an environment difference, fix local verification alongside the bug.
+Follow [validate](../validate/SKILL.md) before opening or updating the PR. Run relevant tests before committing and the full local gate before pushing: `pnpm check` once it exists, before that the commands the ticket names. Use the pinned toolchain; the local gate must reproduce CI mode. Install the repo's hooks through the package install. If CI still exposes an environment difference, fix local verification alongside the bug.
 
 Done when **every** acceptance criterion has evidence (command output, a test, a diff), and the full local gate passes. GitHub CI independently confirms this evidence before merge.
 
