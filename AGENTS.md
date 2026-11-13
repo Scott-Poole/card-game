@@ -6,7 +6,15 @@ The repo is equally a testbed for Scott's agent workflow: how work is planned, r
 
 ## Current state
 
-As of 2026-11-13, the root `*.ts` files and `game/` are a 2025 prototype that does not compile. Treat it as reference for intent only; the tooling reset (phase 1) replaces it with a pnpm workspace, and new code goes there.
+One pnpm-managed ESM TypeScript package. Source lives in `src/{engine,protocol,server,client}`; lint enforces their import boundaries. Protocol decoders are implemented; the other areas are placeholders for later tickets.
+
+Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 147 binary. Versions are pinned in `.node-version` and `package.json`.
+
+## Commands
+
+- `pnpm check`: typecheck, lint, format check, unit tests, git guardrail and queue regression suites.
+- `pnpm fix`: format and lint auto-fix.
+- Each gate has its own script in `package.json`. Dev, build and start arrive with the server/client tickets.
 
 ## Working rules
 

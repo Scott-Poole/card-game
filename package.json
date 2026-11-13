@@ -1,17 +1,32 @@
 {
   "name": "card-game",
-  "version": "1.0.0",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "ts-node test.ts"
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": "26.13.1",
+    "pnpm": "10.28.2"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.client.json && tsc -p tsconfig.engine.json",
+    "lint": "eslint src",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "fix": "pnpm lint --fix && pnpm format",
+    "test": "vitest run",
+    "test:guardrail": "bash .claude/hooks/test-block-dangerous-git.sh",
+    "test:queue": "bash .agents/skills/tick/test/test-queue.sh",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm test:guardrail && pnpm test:queue"
+  },
   "devDependencies": {
-    "@types/node": "^22.10.10",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2",
+    "vitest": "5.1.0"
   }
 }

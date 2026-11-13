@@ -16,7 +16,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
-The repo is `Scott-Poole/card-game` (private). File issues only there.
+The repo is `Scott-Poole/card-game` (public). File issues only there.
 
 ## Pull requests as a triage surface
 
