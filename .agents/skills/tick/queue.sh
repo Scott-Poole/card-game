@@ -8,7 +8,9 @@
 #   queue.sh note <n> <text>    comment on the issue
 #
 # `next` prints exactly one line on stdout: `LAUNCH <n> <title>` or `NOOP <reason>`.
-# Everything else goes to stderr. Any failure exits non-zero before reporting success.
+# Everything else goes to stderr. Any failure exits non-zero before reporting success:
+# every query is a standalone assignment, because set -e ignores a failing $(...) inside
+# `for ... in` or a test, which would read a failed query as "nothing found".
 # Config is read from TICK_REF (default origin/main), so a tick run from any checkout
 # obeys what has landed. Tests: test-queue.sh.
 set -euo pipefail
@@ -70,10 +72,11 @@ cmd_next() {
 	# Every in-progress ticket holds a slot, stale or not: a stale thread may still be
 	# alive, so its slot frees only when Scott clears the claim. Stale claims also get
 	# ready-for-human, once, so he hears about them.
-	local now n claimed_at labels wip=0
+	local now n claimed_at labels claimed wip=0
 	now=$(date -u +%s)
-	for n in $(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
-		--jq '.[] | select(.pull_request == null) | .number'); do
+	claimed=$(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
+		--jq '.[] | select(.pull_request == null) | .number')
+	for n in $claimed; do
 		wip=$((wip + 1))
 		labels=" $(labels_of "$n") "
 		[[ $labels == *" $HUMAN "* ]] && continue
@@ -93,10 +96,12 @@ cmd_next() {
 
 	# Tickets automation handed to Scott: ready-for-human with a claim in their history.
 	# Tickets planned for humans never carried a claim, so they don't count.
-	local escalated=0
-	for n in $(gh api "$API/issues?state=open&labels=$HUMAN&per_page=100" \
-		--jq '.[] | select(.pull_request == null) | .number'); do
-		if [[ $(ever_claimed "$n") == true ]]; then
+	local human was_claimed escalated=0
+	human=$(gh api "$API/issues?state=open&labels=$HUMAN&per_page=100" \
+		--jq '.[] | select(.pull_request == null) | .number')
+	for n in $human; do
+		was_claimed=$(ever_claimed "$n")
+		if [[ $was_claimed == true ]]; then
 			escalated=$((escalated + 1))
 		fi
 	done

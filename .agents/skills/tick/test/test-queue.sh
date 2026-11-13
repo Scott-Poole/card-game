@@ -112,6 +112,18 @@ setup "[$(issue 6 ready-for-agent)]" "{}" "[[{\"event\":\"closed\",\"created_at\
 REF=$(config_ref '.maxDailyClaims = 1') run next
 check "daily cap counts claims on later pages" is "$OUT" "NOOP 1 claim(s) today (cap 1, UTC day)"
 
+# Failed queries abort instead of reading as "nothing found" (re-check 1: caps failed open).
+setup "[$(issue 1 in-progress), $(issue 6 ready-for-agent)]" "{\"1\": [$(claimed_event "$TODAY")]}"
+FAKE_GH_FAIL="GET labels=in-progress" run next
+check "failed wip query aborts" is "$CODE:$OUT" "1:"
+setup "[$(issue 1 ready-for-human), $(issue 2 ready-for-human), $(issue 6 ready-for-agent)]" \
+	"{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$OLD")]}"
+FAKE_GH_FAIL="GET issues/2/events" run next
+check "failed escalation lookup aborts" is "$CODE:$OUT" "1:"
+setup "[$(issue 1 in-progress), $(issue 6 ready-for-agent)]" "{\"1\": [$(claimed_event "$TODAY")]}"
+FAKE_GH_FAIL="GET issues/1/events" run next
+check "failed claim-age lookup aborts" is "$CODE:$OUT" "1:"
+
 # --- transitions ------------------------------------------------------------------------
 setup "[$(issue 6 ready-for-agent)]"
 run claim 6
