@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""A stateful stand-in for the `gh api` calls queue.sh makes, for test-queue.sh.
+
+State lives in $FAKE_GH_STATE (JSON): {"issues": {"<n>": issue}, "events": {"<n>": [event]},
+"repo_event_pages": [[event]], "comments": [{"issue", "body"}]}. Every call is appended to
+$FAKE_GH_LOG. $FAKE_GH_FAIL="<METHOD> <path-substring>" makes matching calls fail with HTTP 503.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+from urllib.parse import parse_qs, urlsplit
+
+API = "repos/Scott-Poole/card-game/"
+
+
+def fail(msg, code=1):
+    print(msg, file=sys.stderr)
+    sys.exit(code)
+
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] != "api":
+        fail(f"fake-gh: unsupported command {args}")
+    args = args[1:]
+    method, path, jq, paginate, fields = "GET", None, None, False, {}
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a == "--method":
+            method = args[i + 1]; i += 2
+        elif a == "--jq":
+            jq = args[i + 1]; i += 2
+        elif a in ("-f", "-F"):
+            k, _, v = args[i + 1].partition("="); fields[k] = v; i += 2
+        elif a == "--paginate":
+            paginate = True; i += 1
+        elif a == "--silent":
+            i += 1
+        elif path is None:
+            path = a; i += 1
+        else:
+            fail(f"fake-gh: unexpected arg {a}")
+
+    with open(os.environ["FAKE_GH_LOG"], "a") as log:
+        log.write(f"{method} {path} {json.dumps(fields)}\n")
+    failing = os.environ.get("FAKE_GH_FAIL", "")
+    if failing:
+        f_method, _, f_sub = failing.partition(" ")
+        if method == f_method and f_sub in path:
+            fail("gh: Service Unavailable (HTTP 503)")
+
+    state_file = os.environ["FAKE_GH_STATE"]
+    with open(state_file) as f:
+        state = json.load(f)
+    pages = route(state, method, path, fields)
+    with open(state_file, "w") as f:
+        json.dump(state, f)
+
+    if not paginate:
+        pages = pages[:1]
+    for page in pages:
+        if page is None:
+            continue
+        if jq is None:
+            continue
+        out = subprocess.run(["jq", "-r", jq], input=json.dumps(page), capture_output=True, text=True)
+        if out.returncode:
+            fail(f"fake-gh: jq failed: {out.stderr}")
+        sys.stdout.write(out.stdout)
+
+
+def route(state, method, path, fields):
+    if not path.startswith(API):
+        fail(f"fake-gh: unknown path {path}")
+    url = urlsplit(path[len(API):])
+    q = {k: v[0] for k, v in parse_qs(url.query).items()}
+    issues = state["issues"]
+
+    if method == "GET" and url.path == "issues":
+        want = q.get("labels")
+        found = [
+            iss for _, iss in sorted(issues.items(), key=lambda kv: int(kv[0]))
+            if iss["state"] == q.get("state", "open")
+            and (want is None or want in [l["name"] for l in iss["labels"]])
+        ]
+        return [found]
+    if method == "GET" and url.path == "issues/events":
+        return state.get("repo_event_pages", [[]]) or [[]]
+    m = re.fullmatch(r"issues/(\d+)(/.*)?", url.path)
+    if not m or m.group(1) not in issues:
+        fail("gh: Not Found (HTTP 404)")
+    n, rest = m.group(1), m.group(2) or ""
+    iss = issues[n]
+    names = [l["name"] for l in iss["labels"]]
+
+    if method == "GET" and rest == "":
+        return [iss]
+    if method == "GET" and rest == "/events":
+        return [state.get("events", {}).get(n, [])]
+    if method == "POST" and rest == "/labels":
+        label = fields["labels[]"]
+        if label not in names:
+            iss["labels"].append({"name": label})
+        return [None]
+    if method == "DELETE" and rest.startswith("/labels/"):
+        label = rest[len("/labels/"):]
+        if label not in names:
+            fail("gh: Label does not exist (HTTP 404)")
+        iss["labels"] = [l for l in iss["labels"] if l["name"] != label]
+        return [None]
+    if method == "POST" and rest == "/comments":
+        state.setdefault("comments", []).append({"issue": int(n), "body": fields["body"]})
+        return [None]
+    fail(f"fake-gh: unrouted {method} {path}")
+
+
+main()

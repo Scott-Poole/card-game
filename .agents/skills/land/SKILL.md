@@ -69,7 +69,7 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
 2. **Verify**: `gh pr view <n> --json headRefOid` equals `PIN`. If not, someone pushed: restart at step 1, which re-pins and re-syncs `WT`; classify and review the whole PR again. Then `gh pr checks <n>` for that head (no checks configured → skip):
    - **green** → merge.
    - **pending** → T3 `watch_pull_request` on the PR, end your turn, and resume here when it wakes you.
-   - **failed** → author-run: fix in `WT`, push, and run it as a step-3 fix round (set `PIN`, re-check the fix range if the class is significant). Otherwise comment the failure and stop.
+   - **failed** → author-run, first failure: fix in `WT`, push, and run it as a step-3 fix round (set `PIN`, re-check the fix range if the class is significant). A second CI failure, or any failure on a run you didn't author: comment it and escalate (step 5).
 3. **Merge**, pinned. GitHub refuses if the head moved:
    ```sh
    gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=merge -f sha=$PIN

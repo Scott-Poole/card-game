@@ -14,10 +14,11 @@ The queue is label-driven, and the tick is the only writer of claims:
 
 ```text
 ready-for-agent ──claim──▶ in-progress ──PR merged──▶ closed
-                               └── escalated or stale ──▶ ready-for-human
+                               ├── escalated by its thread ──▶ ready-for-human
+                               └── stale ──▶ in-progress + ready-for-human (slot held until Scott clears it)
 ```
 
-Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress, claims per UTC day, PRs waiting on Scott, hours before a claim counts as stale. Tune them there (through a PR); `"enabled": false` stops dispatch, and pausing the T3 schedule stops the runs themselves.
+Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (stale ones included), claims per UTC day, tickets automation has handed to Scott, hours before a claim counts as stale. Tune them there (through a PR); `"enabled": false` stops dispatch, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
 
 ## 1. Ask the queue
 
@@ -27,7 +28,7 @@ Run the landed copy of the script, so a checkout on any branch obeys `main`:
 git fetch -q origin main && git show origin/main:.agents/skills/tick/queue.sh | bash -s -- next
 ```
 
-It prints one line. `NOOP <reason>` → reply with that line and stop. `LAUNCH <n> <title>` → continue. Stale claims it swept are on stderr; mention them in the reply.
+It prints one line. A non-zero exit means a GitHub call failed partway: reply with its stderr and stop, retrying nothing. `NOOP <reason>` → reply with that line and stop. `LAUNCH <n> <title>` → continue. Stale claims it swept are on stderr; mention them in the reply.
 
 ## 2. Claim
 

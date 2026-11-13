@@ -2,6 +2,6 @@
   "enabled": true,
   "maxInProgress": 1,
   "maxDailyClaims": 6,
-  "maxStalledPRs": 2,
+  "maxEscalated": 2,
   "staleHours": 8
 }
