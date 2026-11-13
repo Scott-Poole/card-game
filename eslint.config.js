@@ -15,20 +15,21 @@ export default tseslint.config(
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
   {
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.{ts,tsx}", "vitest.config.ts"],
     languageOptions: {
       parserOptions: {
         project: [
           "./tsconfig.node.json",
           "./tsconfig.client.json",
           "./tsconfig.engine.json",
+          "./tsconfig.tooling.json",
         ],
         tsconfigRootDir: import.meta.dirname,
       },
     },
   },
   ...areas.map((area) => ({
-    files: [`src/${area}/**/*.ts`],
+    files: [`src/${area}/**/*.{ts,tsx}`],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -63,7 +64,7 @@ export default tseslint.config(
     },
   })),
   ...["engine", "protocol"].map((area) => ({
-    files: [`src/${area}/**/*.test.ts`],
+    files: [`src/${area}/**/*.test.{ts,tsx}`],
     rules: {
       "no-restricted-imports": [
         "error",

@@ -14,6 +14,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 
 - `pnpm check`: typecheck, lint, format check, unit tests, git guardrail and queue regression suites.
 - `pnpm fix`: format and lint auto-fix.
+- Tests live beside source in `src/`; Vitest config has its own tooling typecheck. ESLint configuration is executed by the lint gate and is not typechecked.
 - Each gate has its own script in `package.json`. Dev, build and start arrive with the server/client tickets.
 
 ## Working rules

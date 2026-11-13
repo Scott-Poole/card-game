@@ -9,15 +9,16 @@
     "pnpm": "10.28.2"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.client.json && tsc -p tsconfig.engine.json",
-    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.client.json && tsc -p tsconfig.engine.json && tsc -p tsconfig.tooling.json",
+    "lint": "eslint src vitest.config.ts",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "fix": "pnpm lint --fix; pnpm format",
     "test": "vitest run",
     "test:guardrail": "bash .claude/hooks/test-block-dangerous-git.sh",
     "test:queue": "GIT_AUTHOR_NAME=queue-test GIT_AUTHOR_EMAIL=queue-test@example.invalid GIT_COMMITTER_NAME=queue-test GIT_COMMITTER_EMAIL=queue-test@example.invalid bash .agents/skills/tick/test/test-queue.sh",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm test:guardrail && pnpm test:queue"
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm test:guardrail && pnpm test:queue && pnpm test:boundaries",
+    "test:boundaries": "node scripts/test-boundaries.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

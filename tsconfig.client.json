@@ -2,7 +2,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
-    "types": []
+    "types": [],
+    "jsx": "preserve"
   },
-  "include": ["src/client/**/*.ts", "src/protocol/**/*.ts"]
+  "include": [
+    "src/client/**/*.ts",
+    "src/client/**/*.tsx",
+    "src/protocol/**/*.ts"
+  ]
 }

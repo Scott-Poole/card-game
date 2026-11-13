@@ -10,6 +10,11 @@ it("decodes a welcome message", () => {
 
 it.each([
   ["object", { type: "welcome" }, { ok: true, message: { type: "welcome" } }],
+  [
+    "nested welcome string",
+    JSON.stringify(JSON.stringify({ type: "welcome" })),
+    { ok: false, error: "invalid-message" },
+  ],
   ["wrong type", 42, { ok: false, error: "invalid-message" }],
   ["null", null, { ok: false, error: "invalid-message" }],
   ["missing fields", {}, { ok: false, error: "invalid-message" }],
