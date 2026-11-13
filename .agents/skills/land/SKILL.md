@@ -10,7 +10,9 @@ description: >-
 
 Owned by this repo. Scott's policy: **trivial** PRs merge without review and get audited later; **significant** PRs merge on agent consensus after a cross-family review; Scott hears only about **direction** decisions nobody can settle logically. Agents decide every merge that fits the policy without asking.
 
-`main` is protected on GitHub: PR required, no force push or deletion, merge commits only. The run may be unattended (a fresh thread per PR), so every step works from an explicit **pin**: the PR's head SHA you evaluated. Anything learned about one SHA says nothing about another.
+`main` is protected on GitHub: PR required, no force push or deletion, merge commits only. The run may be unattended, so every step works from an explicit **pin**: the PR's head SHA you evaluated. Anything learned about one SHA says nothing about another.
+
+**Author-run**: the PR's author may land its own PR (the `work-ticket` flow does), so the agent with the full context fixes the findings. Reviewers then come from the family that isn't the author's, and the author-run rules in steps 3 and 4 apply.
 
 ## 1. Read and pin
 
@@ -55,14 +57,19 @@ Classify the diff `BASE...PIN`. The first matching row wins.
 2. **Re-check**: a fresh other-family reviewer, briefed with the previous findings and the fix range `<old PIN>..<PIN>`.
 3. Go to step 4 when a re-check passes. **After two failed re-checks**, proceed only if every finding was fixed and pinned by a test and none is design-level; otherwise escalate (step 5). Record that judgement in the PR comment.
 
+**Author-run**: cross-review's lead judgment is yours, so rejections get checked. Each rejected finding gets a one-line reason in the verdict comment and goes, with that reason, into the next re-check brief. A rejected **high** finding always triggers a re-check, even when no fix was made. If the re-checker upholds it, escalate (step 5).
+
 A review **counts** only if **every** reviewer it called for (each lens, or the re-checker) is from the other family, finished, and returned its findings list. For each one that fails to launch or return: relaunch once, then try the `delegate` skill's review fallback. If any required reviewer still hasn't completed, add the `review-blocked` label, comment why, and stop: a significant PR never merges under-reviewed.
 
 **direction**: escalate (step 5). Merging is off the table until Scott answers.
 
 ## 4. Record, verify, merge
 
-1. **Record** (significant only): append each reviewer run to `docs/agents/delegation-log.md` in `WT`, commit (`docs(agents): log review of #<n>`), push. That record commit is the one change allowed after review: confirm `git diff --name-only <PIN> HEAD` lists only that file, then set `PIN` to the new head.
-2. **Verify**: `gh pr view <n> --json headRefOid` equals `PIN`. If not, someone pushed: restart at step 1, which re-pins and re-syncs `WT`; classify and review the whole PR again. Once CI exists, `gh pr checks <n>` is green for that head.
+1. **Record** (significant, or any author-run): append each reviewer run to `docs/agents/delegation-log.md` in `WT`; an author-run land also appends the author's own **implement** row, its outcome set by the review (`pass`: no accepted findings; `fixed`: you fixed some). Commit (`docs(agents): log review of #<n>`), push. That record commit is the one change allowed after review: confirm `git diff --name-only <PIN> HEAD` lists only that file, then set `PIN` to the new head.
+2. **Verify**: `gh pr view <n> --json headRefOid` equals `PIN`. If not, someone pushed: restart at step 1, which re-pins and re-syncs `WT`; classify and review the whole PR again. Then `gh pr checks <n>` for that head (no checks configured → skip):
+   - **green** → merge.
+   - **pending** → T3 `watch_pull_request` on the PR, end your turn, and resume here when it wakes you.
+   - **failed** → author-run, first failure: fix in `WT`, push, and run it as a step-3 fix round (set `PIN`, re-check the fix range if the class is significant). A second CI failure, or any failure on a run you didn't author: comment it and escalate (step 5).
 3. **Merge**, pinned. GitHub refuses if the head moved:
    ```sh
    gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=merge -f sha=$PIN
