@@ -10,7 +10,13 @@ const forbidden = {
   client: ["server"],
 };
 export default tseslint.config(
-  { ignores: ["node_modules/**", "dist/**"] },
+  {
+    ignores: ["node_modules/**", "dist/**"],
+    linterOptions: {
+      noInlineConfig: true,
+      reportUnusedDisableDirectives: "error",
+    },
+  },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,

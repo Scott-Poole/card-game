@@ -41,3 +41,14 @@ it.each([
 ])("client decoder rejects %s", (_name, input, error) => {
   expect(decodeClientMessage(input)).toEqual({ ok: false, error });
 });
+
+it("rejects an inherited welcome discriminator", () => {
+  const input: unknown = Object.create(
+    { type: "welcome" },
+    { extra: { value: 1, enumerable: true } },
+  );
+  expect(decodeServerMessage(input)).toEqual({
+    ok: false,
+    error: "invalid-message",
+  });
+});

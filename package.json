@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.client.json && tsc -p tsconfig.engine.json && tsc -p tsconfig.tooling.json",
-    "lint": "eslint src vitest.config.ts",
+    "lint": "eslint src vitest.config.ts --max-warnings 0",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "fix": "pnpm lint --fix; pnpm format",

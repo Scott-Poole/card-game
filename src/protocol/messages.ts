@@ -24,6 +24,7 @@ export function decodeServerMessage(
     typeof input === "object" &&
     input !== null &&
     "type" in input &&
+    Object.hasOwn(input, "type") &&
     input.type === "welcome" &&
     Object.keys(input).length === 1
   ) {

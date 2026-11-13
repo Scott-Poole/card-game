@@ -5,6 +5,11 @@ import { join } from "node:path";
 // Exercise the public lint gate on real files so typed parser settings also apply.
 const eslint = new ESLint();
 const cases = [
+  [
+    "engine",
+    '// eslint-disable-next-line no-restricted-imports\nimport "node:fs";',
+    "no-restricted-imports",
+  ],
   ["engine", 'import "../../server/index.ts";', "no-restricted-imports"],
   ["engine", 'await import("../../server/index.ts");', "no-restricted-syntax"],
   [
