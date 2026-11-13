@@ -11,6 +11,7 @@ As of 2026-11-13, the root `*.ts` files and `game/` are a 2025 prototype that do
 ## Working rules
 
 - **Branch and PR**: every change lands on `main` through a PR. Use `gh` for all GitHub work. `gh pr edit` fails here with a "Projects (classic) is being deprecated" GraphQL error; edit PRs through REST instead: `gh api -X PATCH repos/Scott-Poole/card-game/pulls/<n> -F body=@<file>`. Pass long text to `gh`/`git` by file (`--body-file`, `-F`).
+- **Landing**: an open PR reaches `main` (or Scott) through the `land` skill. Agents merge whatever fits its policy without asking. GitHub enforces PR-only, merge-commit-only, no force push on `main`.
 - **Commits**: conventional commits, per the `commit` skill.
 - **Prove it works**: claim done only with command output (tests, typecheck, lint, `git diff --stat`). A subagent's report is a claim, not evidence.
 - **Delegation**: before spawning any subagent or handing work to another model, load the `delegate` skill. It owns model routing.
