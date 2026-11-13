@@ -1,0 +1,76 @@
+# want|command   (run from a feature-branch checkout; see test-block-dangerous-git.sh)
+# Lines starting with "main:" run from a scratch repo checked out on main.
+
+# --- destructive: blocked ---
+block|git reset --hard HEAD~1
+block|git clean -fd
+block|git clean -xfd
+block|git clean --force -d
+block|git branch -D feature/x
+block|git branch --force --delete old
+block|git branch -df old
+block|git checkout .
+block|git checkout -- .
+block|git checkout -f other-branch
+block|git restore .
+block|git restore --worktree .
+block|git restore --staged --worktree .
+block|git switch --discard-changes other
+block|git stash clear
+block|gh repo delete Scott-Poole/card-game --yes
+block|git -C /tmp reset --hard
+block|cd /tmp && git reset --hard
+block|bash -c "git reset --hard"
+block|FOO=1 git clean -f
+
+# --- pushes: blocked ---
+block|git push --force origin feat/x
+block|git push -f
+block|git push -uf origin feat/x
+block|git push origin +feature
+block|git push origin +feat/x:feat/x
+block|git push --mirror origin
+block|git push --all origin
+block|git push origin main
+block|git push origin HEAD:main
+block|git push origin HEAD:refs/heads/main
+block|git push origin refs/heads/main
+block|git push origin feat/x:master
+block|git push -u origin main
+block|git push --delete origin main
+block|git push origin :main
+block|cd /x && git push origin main
+main:block|git push
+main:block|git push origin HEAD
+main:allow|git push origin feat/z
+
+# --- everyday work: allowed ---
+allow|git push -u origin chore/agent-environment
+allow|git push --force-with-lease origin feat/x
+allow|git push
+allow|git push origin HEAD
+allow|git push --delete origin old-feature
+allow|git push --tags
+allow|git status
+allow|git reset HEAD file.ts
+allow|git reset --soft HEAD~1
+allow|git clean -n
+allow|git clean -fn
+allow|git checkout -b feat/y
+allow|git checkout src/file.ts
+allow|git switch main
+allow|git restore --staged file.ts
+allow|git restore --staged .
+allow|git restore src/file.ts
+allow|git branch -d merged-branch
+allow|git stash drop
+allow|npm run clean
+allow|gh pr create --base main --title x
+
+# --- mentions, not invocations: allowed ---
+allow|git commit -m "fix: maintain domain types"
+allow|git commit -m 'docs: explain recovery' -m 'Avoid git reset --hard when preserving local work.'
+allow|echo "git push origin main"
+allow|gh pr create --title x --body "never run gh repo delete or git push --force"
+allow|cat <<'EOF' > body.md\ngit reset --hard\ngh repo delete foo\nEOF
+allow|gh pr create --body-file - <<'EOF'\ngit push origin main\nEOF
