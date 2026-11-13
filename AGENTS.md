@@ -12,7 +12,8 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 
 ## Commands
 
-- `pnpm check`: typecheck, lint, format check, unit tests, git guardrail and queue regression suites.
+- `pnpm check`: typecheck, lint, format check, unit tests, git guardrail, queue and boundary regression suites, with `CI=true` for parity with GitHub.
+- `pnpm install --frozen-lockfile` installs the Husky commit hook. Every commit formats staged files and runs the full check; run `pnpm check` before pushing too. GitHub repeats the same gate as independent verification.
 - `pnpm fix`: format and lint auto-fix.
 - Tests live beside source in `src/`; Vitest config has its own tooling typecheck. ESLint configuration is executed by the lint gate and is not typechecked.
 - Each gate has its own script in `package.json`. Dev, build and start arrive with the server/client tickets.
