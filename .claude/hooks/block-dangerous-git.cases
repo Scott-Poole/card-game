@@ -74,3 +74,29 @@ allow|echo "git push origin main"
 allow|gh pr create --title x --body "never run gh repo delete or git push --force"
 allow|cat <<'EOF' > body.md\ngit reset --hard\ngh repo delete foo\nEOF
 allow|gh pr create --body-file - <<'EOF'\ngit push origin main\nEOF
+
+# --- PR #1 re-check: shell constructs that still execute ---
+block|git status # ordinary comment\ngit reset --hard
+block|bash <<'EOF2'\ngit reset --hard\nEOF2
+block|cat <<EOF2 | bash\ngit reset --hard\nEOF2
+block|cat <<EOF2\n$(git reset --hard)\nEOF2
+block|echo "$(git reset --hard)"
+block|echo `git reset --hard`
+block|bash -lc "git reset --hard"
+block|sh -ec 'git clean -f'
+block|if true; then git reset --hard; fi
+block|for b in a; do git branch -D $b; done
+block|eval "git reset --hard"
+block|printf '%s' "<<EOF2" ; git reset --hard
+block|git push --repo origin HEAD:main
+block|git push --repo=origin HEAD:main
+block|git clean --force -- -n
+main:block|git -C /tmp status; git push
+main:allow|git push --tags
+
+# --- PR #1 re-check: still only mentions ---
+allow|cat <<'EOF2' > notes.md\n$(git reset --hard)\nEOF2
+allow|git commit -m 'never run $(git reset --hard)'
+allow|grep -n "reset --hard" notes.md # check docs mention it
+allow|cat <<< "git reset --hard"
+allow|git status\n# git reset --hard would be bad
