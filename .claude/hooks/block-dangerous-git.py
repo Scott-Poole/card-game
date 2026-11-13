@@ -83,6 +83,15 @@ def substitutions(text: str) -> list[str]:
     return found
 
 
+def command_word(segment: str) -> str:
+    """The program a simple-command segment runs, skipping prefixes and VAR=value assignments."""
+    for word in segment.split():
+        if word in PREFIXES or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", word):
+            continue
+        return word.rsplit("/", 1)[-1]
+    return ""
+
+
 def scan(cmd: str) -> tuple[str, list[str]]:
     """Return (cmd with comments and heredoc bodies removed, nested scripts that will execute)."""
     out: list[str] = []
@@ -100,7 +109,8 @@ def scan(cmd: str) -> tuple[str, list[str]]:
             i += 1
             continue
         if c == "\\" and i + 1 < n:
-            out.append(cmd[i:i + 2])
+            if cmd[i + 1] != "\n":  # backslash-newline is a line continuation: bash drops both
+                out.append(cmd[i:i + 2])
             i += 2
             continue
         if quote == '"':
@@ -144,8 +154,10 @@ def scan(cmd: str) -> tuple[str, list[str]]:
             i += m.end()
             continue
         if c == "\n":
-            words = re.split(r"[\s;&|()]+", "".join(out[line_start:]))
-            fed_to_shell = any(w.rsplit("/", 1)[-1] in SHELLS | {"eval", "source", "."} for w in words)
+            fed_to_shell = any(
+                command_word(seg) in SHELLS | {"eval", "source", "."}
+                for seg in re.split(r"[;&|()]+", "".join(out[line_start:]))
+            )
             out.append("\n")
             i += 1
             for tag, expands in pending:
@@ -181,7 +193,8 @@ def tokenize(cmd: str) -> list[str]:
 def split_commands(tokens: list[str]) -> list[list[str]]:
     cmds, cur = [], []
     for tok in tokens:
-        if tok in SEPARATORS:
+        # shlex merges adjacent punctuation (");", "&&(", ...): any run of these is a boundary
+        if tok in SEPARATORS or re.fullmatch(r"[;&|()]+", tok):
             if cur:
                 cmds.append(cur)
             cur = []
@@ -218,8 +231,10 @@ def current_branch(cwd: str) -> str:
         return ""
 
 
-def check_push(args: list[str], cwd: str) -> None:
+def check_push(args: list[str], cwds: list[str]) -> None:
     flags = short_flags(args)
+    if has(args, "--dry-run") or "n" in flags:
+        return  # a preview updates no remote refs
     if has(args, "--force") or "f" in flags:
         raise Blocked("force push (use --force-with-lease on a feature branch)")
     if has(args, "--mirror"):
@@ -238,24 +253,28 @@ def check_push(args: list[str], cwd: str) -> None:
             positional.append(a)
     refspecs = positional if explicit_repo else positional[1:]
 
-    branch = current_branch(cwd)
+    # Every directory the shell might be in (a cd inside a subshell may not persist): judge by
+    # the most dangerous one.
+    on_protected = any(current_branch(d) in PROTECTED for d in cwds)
     for spec in refspecs:
         if spec.startswith("+"):
             raise Blocked(f"'+' refspec force-pushes ({spec})")
+        if spec == ":" or "*" in spec:
+            raise Blocked(f"matching or wildcard refspec can include main ({spec})")
         dst = spec.split(":", 1)[1] if ":" in spec else spec
         dst = dst.removeprefix("refs/heads/")
-        if dst in PROTECTED or (dst == "HEAD" and branch in PROTECTED):
+        if dst in PROTECTED or (dst == "HEAD" and on_protected):
             raise Blocked("pushing to main; land changes through a PR")
     tags_only = has(args, "--tags")
-    if not refspecs and not tags_only and branch in PROTECTED:
-        raise Blocked(f"bare push while on {branch}; land changes through a PR")
+    if not refspecs and not tags_only and on_protected:
+        raise Blocked("bare push while on main; land changes through a PR")
 
 
-def check_git(argv: list[str], cwd: str) -> None:
+def check_git(argv: list[str], cwds: list[str]) -> None:
     i = 1
     while i < len(argv) and argv[i].startswith("-"):
         if argv[i] == "-C" and i + 1 < len(argv):
-            cwd = argv[i + 1]  # scoped to this invocation only
+            cwds = [argv[i + 1]]  # scoped to this invocation only
         i += 2 if argv[i] in GIT_VALUE_OPTS else 1
     if i >= len(argv):
         return
@@ -264,7 +283,7 @@ def check_git(argv: list[str], cwd: str) -> None:
     paths_all = any(a in ALL_PATHS for a in args)
 
     if sub == "push":
-        check_push(args, cwd)
+        check_push(args, cwds)
     elif sub == "reset" and has(args, "--hard"):
         raise Blocked("git reset --hard discards work")
     elif sub == "clean" and (has(args, "--force") or "f" in flags) \
@@ -296,12 +315,12 @@ def shell_script_arg(argv: list[str]) -> str | None:
     return None
 
 
-def check(cmd: str, cwd: str, depth: int = 0) -> None:
+def check(cmd: str, cwds: list[str], depth: int = 0) -> None:
     if depth > MAX_DEPTH:
         raise Blocked("command nesting too deep to inspect")
     text, nested = scan(cmd)
     for script in nested:
-        check(script, cwd, depth + 1)
+        check(script, cwds, depth + 1)
     for argv in split_commands(tokenize(text)):
         while argv and (argv[0] in PREFIXES or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", argv[0])):
             argv = argv[1:]
@@ -309,15 +328,15 @@ def check(cmd: str, cwd: str, depth: int = 0) -> None:
             continue
         prog = argv[0].rsplit("/", 1)[-1]
         if prog == "cd" and len(argv) > 1:
-            cwd = argv[1]
+            cwds = [*cwds, argv[1]]  # keep the old dir too: the cd may sit in a subshell
         elif prog in SHELLS:
             script = shell_script_arg(argv)
             if script:
-                check(script, cwd, depth + 1)
+                check(script, cwds, depth + 1)
         elif prog == "eval":
-            check(" ".join(argv[1:]), cwd, depth + 1)
+            check(" ".join(argv[1:]), cwds, depth + 1)
         elif prog == "git":
-            check_git(argv, cwd)
+            check_git(argv, cwds)
         elif prog == "gh" and argv[1:3] == ["repo", "delete"]:
             raise Blocked("deleting the repository")
 
@@ -327,7 +346,7 @@ def main() -> int:
     try:
         data = json.loads(raw)
         cmd = (data.get("tool_input") or {}).get("command") or ""
-        check(cmd, data.get("cwd") or ".")
+        check(cmd, [data.get("cwd") or "."])
     except Blocked as reason:
         print(
             f"BLOCKED by .claude/hooks/block-dangerous-git.py: {reason}. "

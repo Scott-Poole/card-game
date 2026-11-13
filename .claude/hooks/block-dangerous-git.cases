@@ -100,3 +100,14 @@ allow|git commit -m 'never run $(git reset --hard)'
 allow|grep -n "reset --hard" notes.md # check docs mention it
 allow|cat <<< "git reset --hard"
 allow|git status\n# git reset --hard would be bad
+
+# --- PR #1 re-check 2 ---
+block|git \\n  reset --hard
+block|git push origin :
+block|git push origin refs/heads/*:refs/heads/*
+main:block|(cd /tmp); git push
+main:allow|git push --dry-run origin main
+allow|git push -n origin main
+allow|cat <<'EOF2' | grep bash\ngit reset --hard\nEOF2
+block|(git reset --hard)
+block|true&&(git clean -f)
