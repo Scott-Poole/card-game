@@ -17,7 +17,7 @@ Complements `/code-review` (Standards + Spec axes against this repo's documents)
 
 State the **intent** (what the author is trying to achieve) in one or two sentences. Reviewers judge whether the work achieves the intent well, never whether the intent is right.
 
-Fix the diff range: `git diff --stat <base>...HEAD`. Size picks the reviewers (lenses in [LENSES.md](LENSES.md)):
+Fix the diff range. When the caller passes explicit base and head SHAs and a checkout path (as `land` does), use exactly those, and put them in every brief; otherwise use `<base>...HEAD` in the current checkout. `git diff --stat <base>...<head>`: size picks the reviewers (lenses in [LENSES.md](LENSES.md)):
 
 | Size | Reviewers |
 |---|---|
@@ -29,7 +29,7 @@ Fix the diff range: `git diff --stat <base>...HEAD`. Size picks the reviewers (l
 
 Use the `delegate` skill's **review** tier: the family that did *not* write the code. Launch all reviewers in parallel with `delegate_task`, `role: "review"`, `isolation: "shared"`.
 
-Each brief contains: the intent, the base ref and the `git diff` command to run, the full text of its one lens from LENSES.md, and this instruction:
+Each brief contains: the intent, the checkout path, the exact `git diff <base>...<head>` command to run, the full text of its one lens from LENSES.md, and this instruction:
 
 > You are an adversarial reviewer. Find real problems; do not validate the work. Read-only: change no files. Cite file:line and a concrete failure scenario for each finding. Rate each: **high** (blocks merge), **medium** (should fix), **low** (worth noting). Reply with a numbered markdown list as your final message.
 

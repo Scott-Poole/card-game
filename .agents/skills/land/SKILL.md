@@ -10,21 +10,27 @@ description: >-
 
 Owned by this repo. Scott's policy: **trivial** PRs merge without review and get audited later; **significant** PRs merge on agent consensus after a cross-family review; Scott hears only about **direction** decisions nobody can settle logically. Agents decide every merge that fits the policy without asking.
 
-`main` is protected on GitHub: PR required, no force push or deletion, merge commits only.
+`main` is protected on GitHub: PR required, no force push or deletion, merge commits only. The run may be unattended (a fresh thread per PR), so every step works from an explicit **pin**: the PR's head SHA you evaluated. Anything learned about one SHA says nothing about another.
 
-## 1. Read the PR
+## 1. Read and pin
 
 ```sh
-gh pr view <n> --json title,body,headRefName,baseRefName,commits,files,additions,deletions
-gh pr diff <n> --name-only
-gh pr checks <n>          # once CI exists, every check must be green before any merge
+gh pr view <n> --json number,state,isDraft,title,body,headRefName,headRefOid,baseRefName,files,additions,deletions
 ```
 
-Done when you can state the PR's **intent** in one sentence and list the paths it touches.
+Stop if it's closed or a draft. Record `PIN=<headRefOid>` and `BASE=origin/<baseRefName>`, then `git fetch origin <baseRefName> <headRefName>`. Find the **PR checkout** (call its path `WT`):
+
+- `git worktree list` shows a worktree on `<headRefName>` → use it.
+- Else, the local branch exists → `git worktree add .worktrees/pr-<n> <headRefName>`.
+- Else → `git worktree add --track -b <headRefName> .worktrees/pr-<n> origin/<headRefName>`.
+
+Then `git -C $WT merge --ff-only origin/<headRefName>` and confirm `git -C $WT rev-parse HEAD` equals `PIN`. If it can't fast-forward, or `HEAD` is ahead of `PIN` (unpushed local commits), stop and comment why: someone else is mid-change.
+
+Every later command (reviews, fixes, pushes) runs in `WT`. Done when you can state the PR's **intent** in one sentence, and `WT`'s `HEAD` equals `PIN`.
 
 ## 2. Classify
 
-The first matching row wins.
+Classify the diff `BASE...PIN`. The first matching row wins.
 
 | Class | Rule |
 |---|---|
@@ -40,32 +46,38 @@ The first matching row wins.
 
 ## 3. Act on the class
 
-**trivial**: merge (step 4), then add the `merged-unreviewed` label so the audit sees it.
+**trivial**: go to step 4 with `PIN` unchanged.
 
-**significant**: run the `cross-review` skill. In each brief, state the intent and the **threat model**: what counts as high severity for this change, and what is out of scope. Then loop:
-1. Fix every accepted finding on the PR branch, each with a regression test or check wherever one can exist. Small fixes yourself; larger ones go to the `delegate` skill's implement tier on the same branch.
-2. Run a **re-check**: a fresh reviewer from the other family, briefed with the previous findings and the fix commits.
-3. Merge when a re-check passes. **After two failed re-checks**, merge anyway only if every finding was fixed and pinned by a test, and none is design-level; otherwise escalate. Record that judgement in the PR comment.
+**significant**: run the `cross-review` skill over `BASE...PIN` in `WT`, passing the SHAs explicitly. Each brief states the intent and the **threat model** (what counts as high severity for this change; what is out of scope). Then loop:
+1. Fix every accepted finding in `WT`, each pinned by a regression test or check wherever one can exist (small fixes yourself; larger ones via the `delegate` skill's implement tier, in `WT`). Commit, `git push`, and set `PIN` to the new head.
+2. **Re-check**: a fresh other-family reviewer, briefed with the previous findings and the fix range `<old PIN>..<PIN>`.
+3. Go to step 4 when a re-check passes. **After two failed re-checks**, proceed only if every finding was fixed and pinned by a test and none is design-level; otherwise escalate (step 5). Record that judgement in the PR comment.
+
+A review **counts** only if an other-family reviewer finished and returned its findings list. If one fails to launch or return: relaunch once, then try the `delegate` skill's review fallback. If no other-family review completes, add the `review-blocked` label, comment why, and stop: a significant PR never merges unreviewed.
 
 **direction**: escalate (step 5). Merging is off the table until Scott answers.
 
-## 4. Merge
+## 4. Record, verify, merge
 
-```sh
-gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=merge
-git switch main && git pull --ff-only && git branch -d <head-branch>
-```
+1. **Record** (significant only): append each reviewer run to `docs/agents/delegation-log.md` in `WT`, commit (`docs(agents): log review of #<n>`), push. That record commit is the one change allowed after review: confirm `git diff --name-only <PIN> HEAD` lists only that file, then set `PIN` to the new head.
+2. **Verify**: `gh pr view <n> --json headRefOid` equals `PIN` (if not, someone pushed: go back to step 2 for the new commits). Once CI exists, `gh pr checks <n>` is green for that head.
+3. **Merge**, pinned. GitHub refuses if the head moved:
+   ```sh
+   gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=merge -f sha=$PIN
+   ```
+   (`gh pr merge` can hit the Projects-classic GraphQL bug noted in `AGENTS.md`; REST avoids it.)
+4. **Clean up**: if you created `.worktrees/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git pull --ff-only` on the checkout that holds `main`, and `git branch -d <headRefName>` if no worktree still uses it. Trivial merges also get the `merged-unreviewed` label.
 
-(`gh pr merge` can hit the Projects-classic GraphQL bug noted in `AGENTS.md`; REST avoids it.) Done when `main` contains the merge commit and the local branch is gone.
+Done when `main` contains the merge commit and step 4.4 is done.
 
 ## 5. Escalate
 
-Add the `ready-for-human` label and post one comment framed as a **decision**: the question, the options with their consequences, and your recommendation. Then stop; the PR waits for Scott.
+Add the `ready-for-human` label and post one comment framed as a **decision**: the question, the options with their consequences, and your recommendation. Then stop; the PR waits for Scott. Remove `.worktrees/pr-<n>` if you created it.
 
 ## Every outcome
 
-Post the verdict and the class on the PR (`gh pr comment <n> --body-file <file>`), and log each reviewer run per the `delegate` skill.
+Post the class and verdict on the PR (`gh pr comment <n> --body-file <file>`). Review records reach `main` only through the PR (step 4.1), never as a commit on `main`.
 
 ## Merge audit
 
-For PRs labelled `merged-unreviewed`: review each merged diff (`gh pr diff <n>`) with the cross-review Skeptic lens. A real problem becomes a GitHub issue that links the PR. Then remove the label. Done when no merged PR carries the label.
+For PRs labelled `merged-unreviewed`: review each merged diff (`gh pr diff <n>`) with the cross-review Skeptic lens. A real problem becomes a GitHub issue that links the PR. Remove the label. Log the audit's reviewer runs on a `chore/audit-<date>` branch and land that PR with this skill (it's trivial). Done when no merged PR carries the label.
