@@ -28,7 +28,7 @@ The first matching row wins.
 
 | Class | Rule |
 |---|---|
-| **direction** | The PR settles a question no spec, ADR, or issue answered: a new gameplay rule, a change to how the workflow itself works, or a contradiction of an ADR. |
+| **direction** | The PR settles a question nothing answered yet: a new gameplay rule, a contradiction of an ADR, or a workflow change Scott didn't ask for. A spec, ADR, issue, or Scott's request quoted in the PR body counts as an answer. |
 | **significant** | It touches an **important system** (below), adds a dependency, or changes more than ~200 lines (lockfiles excluded). |
 | **trivial** | Everything else: docs (not ADRs), comments, formatting, tests-only additions, small changes away from important systems, upstream skill refreshes (`npx skills update`). |
 
