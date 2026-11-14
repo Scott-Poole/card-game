@@ -201,3 +201,22 @@ it.each([
 function parse(text: string): unknown {
   return JSON.parse(text);
 }
+
+it.each([
+  {
+    ...view,
+    own: { staged: [], deckSize: 9, committed: false, lanes: [[], [], []] },
+  },
+  { ...view, opponent: { deckSize: 9, committed: false, lanes: [[], [], []] } },
+  {
+    ...view,
+    own: { ...view.own, hand: [{ id: "a", name: "Aster", cost: 1 }] },
+  },
+  { ...view, events: [{ type: "card-revealed", player: 0, lane: 0 }] },
+  { ...view, phase: "ended", result: { lanes: [0, 0, 0], power: [1, 0] } },
+])("rejects missing nested fields %j", (invalidView) => {
+  expect(decodeServerMessage({ type: "state", view: invalidView })).toEqual({
+    ok: false,
+    error: "invalid-message",
+  });
+});
