@@ -125,10 +125,10 @@ FAKE_GH_FAIL="GET labels=planning" run next
 check "failed planning query aborts" is "$CODE:$OUT" "1:"
 
 setup "[]"
-FAKE_GH_NOW=$TODAY run plan-open bug-hunt
+FAKE_GH_NOW=$TODAY run plan-open feature
 check "plan-open prints the new issue" is "$OUT" "1"
-check "plan-open labels and titles it" is "$(labels 1):$(jq -r '.issues["1"].title' "$WORK/state.json")" "planning:Plan: bug-hunt"
-run plan-open feature
+check "plan-open labels and titles it" is "$(labels 1):$(jq -r '.issues["1"].title' "$WORK/state.json")" "planning:Plan: feature"
+run plan-open game-content
 check "plan-open refuses while a planner is open" is "$CODE" "1"
 run plan-done 1 "filed #2, #3"
 check "plan-done closes as completed" is "$(jq -r '.issues["1"] | "\(.state) \(.state_reason)"' "$WORK/state.json")" "closed completed"
@@ -137,6 +137,27 @@ check "plan-done posts the summary" is "$(comments 1)" "1"
 setup "[]"
 run plan-open astrology
 check "plan-open refuses an unknown category" is "$CODE" "1"
+
+# plan-open re-runs next, so a stale PLAN line can't skip caps or rotation (review of #11).
+setup "[]"
+run plan-open bug-hunt
+check "plan-open refuses a category out of rotation" is "$CODE:$(jq '.issues | length' "$WORK/state.json")" "1:0"
+setup "[$(plan 1 feature "$TODAY"), $(plan 2 game-content "$TODAY"), $(plan 3 bug-hunt "$TODAY")]"
+run plan-open code-health
+check "plan-open re-checks the daily cap" is "$CODE" "1"
+setup "[$(issue 6 ready-for-agent)]"
+run plan-open feature
+check "plan-open refuses when a ticket is ready" is "$CODE" "1"
+
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$TODAY")]}"
+FAKE_GH_FAIL="GET issues/1/events" run plan-open feature
+check "plan-open aborts when next's queries fail" is "$CODE:$(jq '.issues | length' "$WORK/state.json")" "1:1"
+
+# Two ticks interleaving both create issues; the lower number wins.
+setup "[]"
+FAKE_GH_RACE=1 FAKE_GH_NOW=$TODAY run plan-open feature
+check "plan-open loses a race to a lower planner" is "$CODE" "1"
+check "the losing planner closes itself" is "$(jq -r '.issues["2"] | "\(.state) \(.state_reason)"' "$WORK/state.json")" "closed not_planned"
 
 setup "[$(issue 6 ready-for-agent)]"
 run plan-abort 6 "nope"
@@ -185,6 +206,14 @@ check "failed escalation lookup aborts" is "$CODE:$OUT" "1:"
 setup "[$(issue 1 in-progress), $(issue 6 ready-for-agent)]" "{\"1\": [$(claimed_event "$TODAY")]}"
 FAKE_GH_FAIL="GET issues/1/events" run next
 check "failed claim-age lookup aborts" is "$CODE:$OUT" "1:"
+
+# Every configured category has a lens in the plan skill: queue.sh would launch a planner
+# for any listed category, and one without a row would invent its own remit (review of #11).
+missing=$(jq -r '.planning.categories[]' "$HERE/../config.json" | while read -r c; do
+	grep -q "^| \`$c\` |" "$HERE/../../plan/SKILL.md" || echo "$c"
+done)
+OUT=$missing ERR= CODE=
+check "every planning category has a lens in plan/SKILL.md" is "$missing" ""
 
 # --- transitions ------------------------------------------------------------------------
 setup "[$(issue 6 ready-for-agent)]"

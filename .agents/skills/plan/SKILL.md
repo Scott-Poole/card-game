@@ -48,17 +48,18 @@ Done when you hold a ranked list of candidates, each checked against the dedup s
 
 ## 3. File
 
-File the top candidates, at most `maxTicketsPerRun`. A few sharp tickets beat a full quota of vague ones, and zero is a valid result when the lens comes up dry. Each ticket:
+File the top candidates, at most `maxTicketsPerRun`. A few sharp tickets beat a full quota of vague ones, and zero is a valid result when the lens comes up dry. Shape each ticket per [`to-tickets`](../to-tickets/SKILL.md) (its slicing rules, issue template, blocking edges, and spec link, published to the tracker), plus two planner rules:
 
-- uses the [`to-tickets`](../to-tickets/SKILL.md) issue template (What to build, Acceptance criteria, Blocked by), in `GLOSSARY.md` vocabulary;
-- fits one `work-ticket` thread, with every criterion provable by a command: `pnpm check`, a named test, a Playwright run;
-- opens with `Planned by #<planning issue>`;
-- carries `ready-for-agent`, native blocking edges per `docs/agents/issue-tracker.md`, and a sub-issue link to its spec when it has one.
+- every acceptance criterion is provable by a command: `pnpm check`, a named test, a Playwright run;
+- the body opens with `Planned by #<planning issue>`.
 
 Caps in `tick/config.json` and the review gates in `land` are Scott's throttle: they change only through Scott, so a planner's tickets leave them as they are.
 
+Your planning issue is your **lease**. Immediately before each ticket, confirm the lease is still open (a closed one means the tick reclaimed the slot: stop filing and end the run), then refresh the dedup set: `git fetch origin main`, re-list open issues and PRs, and drop a candidate that something merged or filed since orientation already covers.
+
 ```sh
-gh issue create --title "<title>" --label ready-for-agent --body-file <file>
+[[ $(gh issue view <n> --json state --jq .state) == OPEN ]] &&
+	gh issue create --title "<title>" --label ready-for-agent --body-file <file>
 ```
 
 Done when every filed ticket shows up in `gh issue list --label ready-for-agent`.
