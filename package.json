@@ -23,7 +23,7 @@
     "start": "node src/server/main.ts",
     "build": "vite build",
     "dev": "concurrently --kill-others \"node --watch src/server/main.ts\" \"vite\"",
-    "test:browser": "playwright test"
+    "test:browser": "pnpm build && playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

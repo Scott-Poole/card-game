@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { get } from "node:http";
+import { get, request as httpRequest } from "node:http";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import { startServer, type ServerHandle } from "./index.ts";
 let root: string;
@@ -86,4 +86,39 @@ test.each([
 });
 test("missing assets are 404", async () => {
   expect((await request("/missing.js")).status).toBe(404);
+});
+
+test("HEAD returns asset headers without a response body", async () => {
+  const response = await new Promise<{
+    status: number | undefined;
+    type: string | undefined;
+    body: string;
+  }>((resolve, reject) => {
+    const req = httpRequest(
+      {
+        hostname: "localhost",
+        port: server.port,
+        path: "/app.js",
+        method: "HEAD",
+      },
+      (res) => {
+        let body = "";
+        res.on("data", (chunk: Buffer) => {
+          body += chunk.toString();
+        });
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode,
+            type: res.headers["content-type"],
+            body,
+          });
+        });
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+  expect(response.status).toBe(200);
+  expect(response.type).toContain("text/javascript");
+  expect(response.body).toBe("");
 });

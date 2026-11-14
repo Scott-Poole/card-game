@@ -1,13 +1,40 @@
 import { test as base, expect } from "@playwright/test";
-import { startServer } from "../src/server/index.ts";
+import { spawn } from "node:child_process";
+import { createInterface } from "node:readline";
 const test = base.extend<{ address: string }>({
   address: async ({ browserName }, use) => {
-    if (browserName !== "chromium") throw new Error("Chromium required");
-    const server = await startServer({ port: 0, clientDirectory: "dist" });
+    // Keep the browser fixture dependent on a built-in Playwright fixture.
+    expect(browserName).toBe("chromium");
+    const server = spawn(process.execPath, ["src/server/main.ts"], {
+      env: { ...process.env, PORT: "0", CLIENT_DIRECTORY: "dist" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stopped = new Promise<void>((resolve) => {
+      server.once("exit", () => {
+        resolve();
+      });
+    });
+    let diagnostics = "";
+    server.stderr.on("data", (chunk: Buffer) => {
+      diagnostics += chunk.toString();
+    });
+    const lines = createInterface({ input: server.stdout });
     try {
-      await use(`http://localhost:${String(server.port)}`);
+      const address = await new Promise<string>((resolve, reject) => {
+        server.once("error", reject);
+        server.once("exit", () => {
+          reject(new Error(`Server exited before listening: ${diagnostics}`));
+        });
+        lines.on("line", (line: string) => {
+          const match = /^Listening on port (\d+)$/.exec(line);
+          if (match?.[1]) resolve(`http://localhost:${match[1]}`);
+        });
+      });
+      await use(address);
     } finally {
-      server.close();
+      lines.close();
+      server.kill("SIGTERM");
+      await stopped;
     }
   },
 });
@@ -27,15 +54,25 @@ test("stays connecting until a welcome arrives", async ({ page, address }) => {
     });
   });
   await page.goto(address);
+  // Allow the intercepted socket open event to run before checking initial state.
+  await page.waitForTimeout(100);
   await expect(page.getByRole("status")).toHaveText("connecting");
 });
-test("malformed server message displays error", async ({ page, address }) => {
-  await page.routeWebSocket("**/ws", (socket) => {
-    socket.send("not JSON");
+for (const message of [
+  "not JSON",
+  '{"type":"error","error":"invalid-message"}',
+]) {
+  test(`server message ${message} displays error`, async ({
+    page,
+    address,
+  }) => {
+    await page.routeWebSocket("**/ws", (socket) => {
+      socket.send(message);
+    });
+    await page.goto(address);
+    await expect(page.getByRole("status")).toHaveText("error");
   });
-  await page.goto(address);
-  await expect(page.getByRole("status")).toHaveText("error");
-});
+}
 test("socket closure displays error", async ({ page, address }) => {
   await page.routeWebSocket("**/ws", (socket) => {
     void socket.close();

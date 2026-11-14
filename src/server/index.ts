@@ -49,13 +49,21 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
       socket.send(JSON.stringify({ type: "welcome" } satisfies ServerMessage));
     },
   });
-  app.get("/*", (response, request) => {
+  app.any("/*", (response, request) => {
+    const method = request.getMethod();
+    if (method !== "get" && method !== "head") {
+      response
+        .writeStatus("405 Method Not Allowed")
+        .writeHeader("Allow", "GET, HEAD")
+        .end();
+      return;
+    }
     const file = staticResponse(options.clientDirectory, request.getUrl());
     response
       .writeStatus(file.status)
       .writeHeader("Content-Type", file.type)
       .writeHeader("X-Content-Type-Options", "nosniff")
-      .end(file.body);
+      .end(method === "head" ? undefined : file.body);
   });
   return new Promise((resolve, reject) => {
     app.listen(options.port, (socket) => {
