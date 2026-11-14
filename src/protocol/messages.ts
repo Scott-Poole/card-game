@@ -1,3 +1,12 @@
+// Phase 2 wire limits mirror #16. Keep independent of engine imports; rule
+// tuning must update this contract and its server integration together.
+const LANE_COUNT = 3;
+const LANE_CAPACITY = 4;
+const TURN_LIMIT = 6;
+const DECK_SIZE = 12;
+// Each player can reveal their full deck, then turn-ended and match-ended.
+const MAX_EVENTS = 2 * DECK_SIZE + 2;
+
 export type ServerMessage =
   | { type: "welcome" }
   | { type: "error"; error: DecodeError }
@@ -82,7 +91,7 @@ export function decodeClientMessage(
     if (
       input.type === "stage" &&
       exact(input, ["type", "plays"]) &&
-      isList(input.plays, isPlay, 12)
+      isList(input.plays, isPlay, DECK_SIZE)
     )
       return { ok: true, message: { type: "stage", plays: input.plays } };
     if (
@@ -176,7 +185,13 @@ function isList<T>(
   guard: (item: unknown) => item is T,
   max: number,
 ): v is T[] {
-  return Array.isArray(v) && v.length <= max && Array.from(v).every(guard);
+  // Array.from makes sparse holes explicit so every validates them too.
+  return (
+    Array.isArray(v) &&
+    v.length <= max &&
+    Reflect.ownKeys(v).length === v.length + 1 &&
+    Array.from(v).every((item, index) => Object.hasOwn(v, index) && guard(item))
+  );
 }
 function isPlayer(v: unknown): v is PlayerId {
   return v === 0 || v === 1;
@@ -199,15 +214,15 @@ function isPlay(v: unknown): v is Play {
     isRecord(v) &&
     exact(v, ["cardId", "lane"]) &&
     typeof v.cardId === "string" &&
-    integer(v.lane, 0, 2)
+    integer(v.lane, 0, LANE_COUNT - 1)
   );
 }
 function isScore(v: unknown): v is Score {
   return (
     isRecord(v) &&
     exact(v, ["lanes", "power", "winner"]) &&
-    isList(v.lanes, isWinner, 3) &&
-    v.lanes.length === 3 &&
+    isList(v.lanes, isWinner, LANE_COUNT) &&
+    v.lanes.length === LANE_COUNT &&
     isList(v.power, (n): n is number => integer(n), 2) &&
     v.power.length === 2 &&
     isWinner(v.winner)
@@ -220,11 +235,11 @@ function isEvent(v: unknown): v is MatchEvent {
       return (
         exact(v, ["type", "player", "lane", "card"]) &&
         isPlayer(v.player) &&
-        integer(v.lane, 0, 2) &&
+        integer(v.lane, 0, LANE_COUNT - 1) &&
         isCard(v.card)
       );
     case "turn-ended":
-      return exact(v, ["type", "turn"]) && integer(v.turn, 1, 6);
+      return exact(v, ["type", "turn"]) && integer(v.turn, 1, TURN_LIMIT);
     case "match-ended":
       return exact(v, ["type", "result"]) && isScore(v.result);
     default:
@@ -233,17 +248,20 @@ function isEvent(v: unknown): v is MatchEvent {
 }
 function isLanes(v: unknown): v is Card[][] {
   return (
-    isList(v, (lane): lane is Card[] => isList(lane, isCard, 4), 3) &&
-    v.length === 3
+    isList(
+      v,
+      (lane): lane is Card[] => isList(lane, isCard, LANE_CAPACITY),
+      LANE_COUNT,
+    ) && v.length === LANE_COUNT
   );
 }
 function isOwn(v: unknown): v is OwnPlayer {
   return (
     isRecord(v) &&
     exact(v, ["hand", "staged", "deckSize", "committed", "lanes"]) &&
-    isList(v.hand, isCard, 12) &&
-    isList(v.staged, isPlay, 12) &&
-    integer(v.deckSize, 0, 12) &&
+    isList(v.hand, isCard, DECK_SIZE) &&
+    isList(v.staged, isPlay, DECK_SIZE) &&
+    integer(v.deckSize, 0, DECK_SIZE) &&
     typeof v.committed === "boolean" &&
     isLanes(v.lanes)
   );
@@ -252,8 +270,8 @@ function isOpponent(v: unknown): v is Opponent {
   return (
     isRecord(v) &&
     exact(v, ["handSize", "deckSize", "committed", "lanes"]) &&
-    integer(v.handSize, 0, 12) &&
-    integer(v.deckSize, 0, 12) &&
+    integer(v.handSize, 0, DECK_SIZE) &&
+    integer(v.deckSize, 0, DECK_SIZE) &&
     typeof v.committed === "boolean" &&
     isLanes(v.lanes)
   );
@@ -272,11 +290,11 @@ function isView(v: unknown): v is PlayerView {
       "result",
     ]) &&
     isPlayer(v.player) &&
-    integer(v.turn, 1, 6) &&
-    integer(v.energy, 0, 6) &&
+    integer(v.turn, 1, TURN_LIMIT) &&
+    integer(v.energy, 0, TURN_LIMIT) &&
     isOwn(v.own) &&
     isOpponent(v.opponent) &&
-    isList(v.events, isEvent, 26) &&
+    isList(v.events, isEvent, MAX_EVENTS) &&
     ((v.phase === "planning" && v.result === null) ||
       (v.phase === "ended" && isScore(v.result)))
   );
