@@ -35,3 +35,6 @@ One row per delegated task, appended by the orchestrating session after it has v
 | 2026-11-13 | Cross-review PR #11, Minimalist lens | review | codex / gpt-6.1-sol / medium | pass | 0 | 1 high: plan skill restated to-tickets rules; 1 medium: config categories unpinned to lenses. Both accepted (pointer + test). |
 | 2026-11-13 | Re-check 1 PR #11 fixes | review | codex / gpt-6.1-sol / medium | pass | 1 | No high; 1 medium: dedup refresh fetched but never read merged work. Accepted and fixed. |
 | 2026-11-13 | Re-check 2 PR #11 dedup wording | review | codex / gpt-6.1-sol / medium | pass | 2 | PASS at cc76d3e. |
+| 2026-11-13 | Cross-review PR #9, Skeptic lens | review | codex / gpt-6.1-sol / medium | pass | 0 | 1 high, valid and reproduced: bare guard read effective config, so extensions.worktreeConfig could hide a shared core.bare=true flip. Fixed with `--local`. |
+| 2026-11-13 | Re-check PR #9 `--local` fix | review | codex / gpt-6.1-sol / medium | pass | 1 | No findings at aa628b3. |
+| 2026-11-13 | Bare-repo hardening, PR #9 (author-run, in-session) | implement | claudeAgent / claude-opus-5-5 / default | fixed | 1 | Root-caused #5's worktree failure to #8's guardrail suite running `git init` with a hook's GIT_DIR. Suites now unset git local env; check.mjs fails on shared core.bare=true. One review finding fixed. |

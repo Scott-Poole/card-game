@@ -2,6 +2,9 @@
 # Regression tests for queue.sh against a stateful fake `gh` (fake-gh). Each case pins a
 # behaviour, most of them a review finding from PR #7. Run: bash test-queue.sh
 set -uo pipefail
+# A git hook exports GIT_DIR and friends; drop them so every git call below resolves its own repo.
+# shellcheck disable=SC2046
+unset $(git rev-parse --local-env-vars)
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 QUEUE=$HERE/../queue.sh
