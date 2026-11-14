@@ -76,9 +76,71 @@ setup "[$(issue 3 ready-for-agent '{"sub_issues_summary":{"total":3}}'),
 run next
 check "frontier skips parents, assigned, blocked" is "$OUT" "LAUNCH 6 Ticket 6"
 
+# --- planning ---------------------------------------------------------------------------
+# plan <n> <category> <created_at> [state]: one planning issue.
+plan() { issue "$1" planning "{\"title\": \"Plan: $2\", \"created_at\": \"$3\", \"state\": \"${4:-closed}\"}"; }
+
 setup "[]"
 run next
-check "empty frontier" is "$OUT" "NOOP frontier empty"
+check "empty frontier plans the first category" is "$OUT" "PLAN feature"
+
+setup "[]"
+REF=$(config_ref '.planning.enabled = false') run next
+check "planning disabled" is "$OUT" "NOOP frontier empty; planning disabled in config"
+
+setup "[$(plan 1 feature "$OLD"), $(plan 2 game-content "$OLD")]"
+run next
+check "rotation picks a never-run category next" is "$OUT" "PLAN bug-hunt"
+
+setup "[$(plan 1 feature 2020-01-03T00:00:00Z), $(plan 2 game-content 2020-01-01T00:00:00Z)]"
+REF=$(config_ref '.planning.categories = ["feature", "game-content"]') run next
+check "rotation picks the least recently run" is "$OUT" "PLAN game-content"
+
+setup "[$(plan 1 feature "$TODAY" open)]"
+run next
+check "a running planner blocks another" is "$OUT" "NOOP frontier empty; planner #1 running"
+
+setup "[$(plan 1 feature "$OLD" open)]"
+run next
+check "a stale planner is closed" is "$(jq -r '.issues["1"].state' "$WORK/state.json")" "closed"
+check "a stale planner gets a comment" is "$(comments 1)" "1"
+check "planning resumes past a stale planner" is "$OUT" "PLAN game-content"
+
+setup "[$(plan 1 feature "$TODAY"), $(plan 2 game-content "$TODAY"), $(plan 3 bug-hunt "$TODAY")]"
+run next
+check "daily plan cap" is "$OUT" "NOOP frontier empty; 3 plan run(s) today (cap 3, UTC day)"
+
+# Planners refill the queue while an implementer works: WIP doesn't gate them.
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$TODAY")]}"
+run next
+check "planning ignores the wip cap" is "$OUT" "PLAN feature"
+
+setup "[$(issue 1 ready-for-human), $(issue 2 ready-for-human)]" \
+	"{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$OLD")]}"
+run next
+check "the escalation cap stops planning too" is "$OUT" "NOOP 2 ticket(s) waiting on Scott (cap 2)"
+
+setup "[]"
+FAKE_GH_FAIL="GET labels=planning" run next
+check "failed planning query aborts" is "$CODE:$OUT" "1:"
+
+setup "[]"
+FAKE_GH_NOW=$TODAY run plan-open bug-hunt
+check "plan-open prints the new issue" is "$OUT" "1"
+check "plan-open labels and titles it" is "$(labels 1):$(jq -r '.issues["1"].title' "$WORK/state.json")" "planning:Plan: bug-hunt"
+run plan-open feature
+check "plan-open refuses while a planner is open" is "$CODE" "1"
+run plan-done 1 "filed #2, #3"
+check "plan-done closes as completed" is "$(jq -r '.issues["1"] | "\(.state) \(.state_reason)"' "$WORK/state.json")" "closed completed"
+check "plan-done posts the summary" is "$(comments 1)" "1"
+
+setup "[]"
+run plan-open astrology
+check "plan-open refuses an unknown category" is "$CODE" "1"
+
+setup "[$(issue 6 ready-for-agent)]"
+run plan-abort 6 "nope"
+check "plan-abort refuses a non-planning issue" is "$CODE:$(jq -r '.issues["6"].state' "$WORK/state.json")" "1:open"
 
 # --- caps -------------------------------------------------------------------------------
 setup "[$(issue 6 ready-for-agent)]"
