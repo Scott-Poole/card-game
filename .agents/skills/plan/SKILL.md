@@ -57,8 +57,11 @@ File the top candidates, at most `maxTicketsPerRun`. A few sharp tickets beat a 
 
 Caps in `tick/config.json` and the review gates in `land` are Scott's throttle: they change only through Scott, so a planner's tickets leave them as they are.
 
+Your planning issue is your **lease**: immediately before each ticket, confirm it is still open. A closed one means the tick reclaimed the slot, so stop filing and end the run.
+
 ```sh
-gh issue create --title "<title>" --label ready-for-agent --body-file <file>
+[[ $(gh issue view <n> --json state --jq .state) == OPEN ]] &&
+	gh issue create --title "<title>" --label ready-for-agent --body-file <file>
 ```
 
 Done when every filed ticket shows up in `gh issue list --label ready-for-agent`.
