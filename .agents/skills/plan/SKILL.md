@@ -55,7 +55,7 @@ File the top candidates, at most `maxTicketsPerRun`. A few sharp tickets beat a 
 
 Caps in `tick/config.json` and the review gates in `land` are Scott's throttle: they change only through Scott, so a planner's tickets leave them as they are.
 
-Your planning issue is your **lease**. Immediately before each ticket, confirm the lease is still open (a closed one means the tick reclaimed the slot: stop filing and end the run), then refresh the dedup set: `git fetch origin main`, re-list open issues and PRs, and drop a candidate that something merged or filed since orientation already covers.
+Your planning issue is your **lease**. Immediately before each ticket, confirm the lease is still open (a closed one means the tick reclaimed the slot: stop filing and end the run), then refresh the dedup set: `git fetch origin main && git log --stat HEAD..origin/main` shows what merged since orientation; re-list open issues and PRs, plus `gh pr list --state merged --limit 10`; drop a candidate that any of it already covers.
 
 ```sh
 [[ $(gh issue view <n> --json state --jq .state) == OPEN ]] &&
