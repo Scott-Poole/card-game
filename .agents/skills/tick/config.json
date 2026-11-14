@@ -1,7 +1,7 @@
 {
   "enabled": true,
-  "maxInProgress": 1,
-  "maxDailyClaims": 6,
+  "maxInProgress": 4,
+  "maxDailyClaims": 12,
   "maxEscalated": 2,
   "staleHours": 8,
   "planning": {
