@@ -1,4 +1,9 @@
 /** Pure match API. Card IDs must be unique within each supplied deck. */
+const LANE_IDS = [0, 1, 2];
+const LANE_CAPACITY = 4;
+const OPENING_HAND = 3;
+const TURN_LIMIT = 6;
+
 export interface CardDefinition {
   readonly id: string;
   readonly name: string;
@@ -53,27 +58,30 @@ export type MatchEvent =
 function random(rng: number): number {
   return (Math.imul(rng, 1664525) + 1013904223) >>> 0;
 }
+/** Seeds normalize to uint32. RNG consumption: player 0 shuffle, player 1
+ * shuffle, then one sample for each tied initiative. Replay uses this ruleset. */
 export function createMatch(
   seed: number,
   decks: readonly [readonly CardDefinition[], readonly CardDefinition[]],
 ): MatchState {
   let rng = seed >>> 0;
   function player(deck: readonly CardDefinition[]): PlayerState {
-    const cards = [...deck];
+    const cards = deck.map((card) => ({ ...card }));
     for (let i = cards.length - 1; i > 0; i--) {
       rng = random(rng);
       const j = Math.floor((rng / 4294967296) * (i + 1));
       const a = cards[i];
       const b = cards[j];
+      // Both indices are inside the dense copied deck.
       if (a && b) {
         cards[i] = b;
         cards[j] = a;
       }
     }
     return {
-      hand: cards.slice(0, 3),
-      deck: cards.slice(3),
-      lanes: [[], [], []],
+      hand: cards.slice(0, OPENING_HAND),
+      deck: cards.slice(OPENING_HAND),
+      lanes: LANE_IDS.map(() => []),
       staged: [],
       committed: false,
     };
@@ -106,7 +114,11 @@ export function stage(
   const counts = player.lanes.map((l) => l.length);
   let cost = 0;
   for (const play of plays) {
-    if (!Number.isInteger(play.lane) || play.lane < 0 || play.lane > 2)
+    if (
+      !Number.isInteger(play.lane) ||
+      play.lane < 0 ||
+      play.lane >= LANE_IDS.length
+    )
       return { ok: false, error: "unknown-lane" };
     if (seen.has(play.cardId)) return { ok: false, error: "duplicate-card" };
     seen.add(play.cardId);
@@ -115,7 +127,7 @@ export function stage(
     cost += card.cost;
     const count = (counts[play.lane] ?? 0) + 1;
     counts[play.lane] = count;
-    if (count > 4) return { ok: false, error: "full-lane" };
+    if (count > LANE_CAPACITY) return { ok: false, error: "full-lane" };
   }
   if (cost > state.energy) return { ok: false, error: "overspend" };
   return {
@@ -144,7 +156,7 @@ function score(state: MatchState): Score {
   );
   const a = powers[0] ?? [];
   const b = powers[1] ?? [];
-  const lanes = [0, 1, 2].map((i) => winner(a[i] ?? 0, b[i] ?? 0));
+  const lanes = LANE_IDS.map((i) => winner(a[i] ?? 0, b[i] ?? 0));
   const power: [number, number] = [
     a.reduce((s, n) => s + n, 0),
     b.reduce((s, n) => s + n, 0),
@@ -180,6 +192,7 @@ export function resolve(state: MatchState): Result<{
     for (const play of player.staged) {
       const card = player.hand.find((c) => c.id === play.cardId);
       const lane = lanes[play.lane];
+      // stage validates both lookups; committed plays cannot change through this API.
       if (card && lane) {
         lane.push(card);
         events.push({
@@ -201,7 +214,7 @@ export function resolve(state: MatchState): Result<{
     });
   }
   events.push({ type: "turn-ended", turn: state.turn });
-  if (state.turn === 6) {
+  if (state.turn === TURN_LIMIT) {
     const result = score(next);
     next = { ...next, phase: "ended", result };
     events.push({ type: "match-ended", result });
