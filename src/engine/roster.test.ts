@@ -27,27 +27,88 @@ const first = valid[0];
 if (!first) throw new Error("Missing fixture");
 
 test.each([
-  ["id", { card: { ...first.card, id: "Bad_id" } }],
-  ["duplicate-id", { card: { ...first.card, id: "figure-1" } }],
-  ["duplicate-name", { card: { ...first.card, name: "fIGURE 1" } }],
-  ["cost", { card: { ...first.card, cost: 1.5 } }],
-  ["power", { card: { ...first.card, power: 4 } }],
-  ["cost", { card: { ...first.card, cost: 0 } }],
-  ["cost", { card: { ...first.card, cost: 7 } }],
-  ["cost", { card: { ...first.card, cost: NaN } }],
-  ["power", { card: { ...first.card, power: 0 } }],
-  ["power", { card: { ...first.card, power: 1.5 } }],
-  ["power", { card: { ...first.card, power: Infinity } }],
-  ["tradition", { tradition: "norse" }],
-  ["flavor", { flavor: "x".repeat(121) }],
-  ["flavor", { flavor: "   " }],
-  ["figure", { figure: "   " }],
-  ["flavor", { flavor: "" }],
-])("rejects %s and accepts the valid counterpart", (code, patch) => {
+  ["id", { card: { ...first.card, id: "Bad_id" } }, [{ code: "id", index: 0 }]],
+  [
+    "duplicate-id",
+    { card: { ...first.card, id: "figure-1" } },
+    [
+      { code: "duplicate-id", index: 0 },
+      { code: "duplicate-id", index: 1 },
+    ],
+  ],
+  [
+    "duplicate-name",
+    { card: { ...first.card, name: "fIGURE 1" } },
+    [
+      { code: "duplicate-name", index: 0 },
+      { code: "duplicate-name", index: 1 },
+    ],
+  ],
+  [
+    "cost",
+    { card: { ...first.card, cost: 1.5 } },
+    [
+      { code: "cost", index: 0 },
+      { code: "power", index: 0 },
+      { code: "cost-coverage", cost: 1 },
+    ],
+  ],
+  [
+    "power",
+    { card: { ...first.card, power: 4 } },
+    [{ code: "power", index: 0 }],
+  ],
+  [
+    "cost",
+    { card: { ...first.card, cost: 0 } },
+    [
+      { code: "cost", index: 0 },
+      { code: "power", index: 0 },
+      { code: "cost-coverage", cost: 1 },
+    ],
+  ],
+  [
+    "cost",
+    { card: { ...first.card, cost: 7 } },
+    [
+      { code: "cost", index: 0 },
+      { code: "power", index: 0 },
+      { code: "cost-coverage", cost: 1 },
+    ],
+  ],
+  [
+    "cost",
+    { card: { ...first.card, cost: NaN } },
+    [
+      { code: "cost", index: 0 },
+      { code: "cost-coverage", cost: 1 },
+    ],
+  ],
+  [
+    "power",
+    { card: { ...first.card, power: 0 } },
+    [{ code: "power", index: 0 }],
+  ],
+  [
+    "power",
+    { card: { ...first.card, power: 1.5 } },
+    [{ code: "power", index: 0 }],
+  ],
+  [
+    "power",
+    { card: { ...first.card, power: Infinity } },
+    [{ code: "power", index: 0 }],
+  ],
+  ["tradition", { tradition: "norse" }, [{ code: "tradition", index: 0 }]],
+  ["flavor", { flavor: "x".repeat(121) }, [{ code: "flavor", index: 0 }]],
+  ["flavor", { flavor: "   " }, [{ code: "flavor", index: 0 }]],
+  ["figure", { figure: "   " }, [{ code: "figure", index: 0 }]],
+  ["flavor", { flavor: "" }, [{ code: "flavor", index: 0 }]],
+])("rejects %s and accepts the valid counterpart", (_code, patch, expected) => {
   expect(validateRoster(valid)).toEqual([]);
-  expect(
-    validateRoster([{ ...first, ...patch }, ...valid.slice(1)]),
-  ).toContainEqual({ code, index: 0 });
+  expect(validateRoster([{ ...first, ...patch }, ...valid.slice(1)])).toEqual(
+    expected,
+  );
 });
 
 test.each(["greek", "roman"])(
@@ -84,4 +145,26 @@ test("accepts more than two cards at a cost", () => {
       },
     ]),
   ).toEqual([]);
+});
+
+test.each([2, 3, 4, 5, 6])("rejects power below cost %i", (cost) => {
+  // Keep the original coverage intact; add a separate invalid card.
+  expect(
+    validateRoster([
+      ...valid,
+      {
+        ...first,
+        card: { id: "weak-card", name: "Weak figure", cost, power: cost - 1 },
+      },
+    ]),
+  ).toEqual([{ code: "power", index: 12 }]);
+});
+
+test.each(["", "-a", "a-", "a--b"])("rejects malformed id %s", (id) => {
+  expect(
+    validateRoster([
+      { ...first, card: { ...first.card, id } },
+      ...valid.slice(1),
+    ]),
+  ).toEqual([{ code: "id", index: 0 }]);
 });
