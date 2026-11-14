@@ -3,6 +3,10 @@
 # Cases: block-dangerous-git.cases ("want|command"; "\n" in a command becomes a newline;
 # a "main:" prefix runs the case from a scratch repo checked out on main).
 set -uo pipefail
+# A git hook exports GIT_DIR and friends for the real repo; with them set, `git init` below
+# re-initialises that repo as bare instead of creating a scratch one. Drop them first.
+# shellcheck disable=SC2046
+unset $(git rev-parse --local-env-vars)
 
 here=$(cd "$(dirname "$0")" && pwd)
 hook="$here/block-dangerous-git.py"
