@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # The deterministic half of the tick skill: every GitHub query and label write.
 #
-#   queue.sh next               sweep stale claims, apply caps, print one action line
+#   queue.sh next [n...]        sweep stale claims, apply caps, print one action line; n... are
+#                               the tickets this run already claimed
 #   queue.sh claim <n>          ready-for-agent -> in-progress, with a claim comment
 #   queue.sh release <n> <why>  in-progress -> ready-for-agent (launch failed)
 #   queue.sh escalate <n> <c>   in-progress -> ready-for-human, posting comment <c>
 #   queue.sh note <n> <text>    comment on the issue
-#   queue.sh plan-open <cat>    open a planning issue for a planner run; prints its number
+#   queue.sh plan-open <cat> [n...]  open a planning issue (n... as for next); prints its number
 #   queue.sh plan-done <n> <s>  close a planning issue as completed, posting summary <s>
 #   queue.sh plan-abort <n> <w> close a planning issue as not planned (launch failed, stuck)
 #
@@ -17,6 +18,11 @@
 # `for ... in` or a test, which would read a failed query as "nothing found".
 # Config is read from TICK_REF (default origin/main), so a tick run from any checkout
 # obeys what has landed. Tests: test-queue.sh.
+#
+# A tick calls `next` repeatedly within one run, seconds apart, and GitHub's listings can
+# lag a label write. So the caller passes the tickets it claimed this run, and `next`
+# counts them itself: each holds a WIP slot and a daily claim whether or not the listings
+# show it yet, and none is offered again.
 set -euo pipefail
 shopt -s inherit_errexit # $(cmd_next) in plan-open must fail closed too
 
@@ -62,7 +68,12 @@ transition() {
 }
 
 cmd_next() {
-	local cfg enabled max_wip max_daily max_escalated stale_hours
+	local cfg enabled max_wip max_daily max_escalated stale_hours n run run_json
+	run=("$@")
+	for n in "${run[@]}"; do
+		[[ $n =~ ^[0-9]+$ ]] || { log "next: claimed ticket [$n] is not an issue number"; return 1; }
+	done
+	run_json=$(printf '%s\n' "${run[@]}" | jq -sc .)
 	cfg=$(config)
 	enabled=$(jq -r '.enabled' <<<"$cfg")
 	max_wip=$(jq -r '.maxInProgress' <<<"$cfg")
@@ -82,6 +93,9 @@ cmd_next() {
 	now=$(date -u +%s)
 	claimed=$(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
 		--jq '.[] | select(.pull_request == null) | .number')
+	for n in "${run[@]}"; do # claims this run made that the listing doesn't show yet
+		grep -qx "$n" <<<"$claimed" || wip=$((wip + 1))
+	done
 	for n in $claimed; do
 		wip=$((wip + 1))
 		labels=" $(labels_of "$n") "
@@ -115,8 +129,9 @@ cmd_next() {
 	# Specs carry the queue label too; having sub-issues marks them as parents.
 	local pick
 	pick=$(gh api "$API/issues?state=open&labels=$QUEUE&sort=created&direction=asc&per_page=100" --jq "
-		[.[] | select(
+		$run_json as \$run | [.[] | select(
 			.pull_request == null
+			and ((.number | IN(\$run[])) | not)
 			and (.assignees | length) == 0
 			and ((.sub_issues_summary.total // 0) == 0)
 			and ((.issue_dependencies_summary.blocked_by // 0) == 0)
@@ -132,10 +147,12 @@ cmd_next() {
 		return
 	fi
 
-	local today claims
+	# Today's claims, plus this run's claims the events listing doesn't show yet.
+	local today events claims
 	today=$(date -u +%Y-%m-%d)
-	claims=$(gh api --paginate "$API/issues/events?per_page=100" --jq \
-		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\" and (.created_at | startswith(\"$today\"))) | .id" | wc -l)
+	events=$(gh api --paginate "$API/issues/events?per_page=100" --jq \
+		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\" and (.created_at | startswith(\"$today\"))) | {issue: .issue.number}")
+	claims=$(jq -s --argjson run "$run_json" 'length + ($run - map(.issue) | length)' <<<"$events")
 	if ((claims >= max_daily)); then
 		echo "NOOP $claims claim(s) today (cap $max_daily, UTC day)"
 		return
@@ -200,7 +217,8 @@ planning_runs() {
 # closes itself before any planner launches.
 cmd_plan_open() {
 	local cat=$1 act n first
-	act=$(cmd_next)
+	shift
+	act=$(cmd_next "$@")
 	if [[ $act != "PLAN $cat" ]]; then
 		log "refusing to plan $cat: next says [$act]"
 		exit 1
@@ -255,16 +273,16 @@ cmd_escalate() {
 }
 
 case ${1:-} in
-next) cmd_next ;;
+next) shift; cmd_next "$@" ;;
 claim) cmd_claim "${2:?issue number}" ;;
 release) cmd_release "${2:?issue number}" "${3:?reason}" ;;
 escalate) cmd_escalate "${2:?issue number}" "${3:?comment}" ;;
 note) comment "${2:?issue number}" "${3:?text}" ;;
-plan-open) cmd_plan_open "${2:?category}" ;;
+plan-open) shift; cmd_plan_open "${1:?category}" "${@:2}" ;;
 plan-done) cmd_plan_close "${2:?issue number}" "${3:?summary}" completed ;;
 plan-abort) cmd_plan_close "${2:?issue number}" "${3:?reason}" not_planned ;;
 *)
-	log "usage: queue.sh next | claim <n> | release <n> <why> | escalate <n> <comment> | note <n> <text> | plan-open <category> | plan-done <n> <summary> | plan-abort <n> <why>"
+	log "usage: queue.sh next [n...] | claim <n> | release <n> <why> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
 	exit 2
 	;;
 esac
