@@ -33,6 +33,7 @@ export interface MatchState {
   readonly players: readonly [PlayerState, PlayerState];
   readonly phase: "planning" | "ended";
   readonly result: Score | null;
+  readonly events: readonly MatchEvent[];
 }
 export type EngineError =
   | "card-not-in-hand"
@@ -90,7 +91,15 @@ export function createMatch(
     player(decks[0]),
     player(decks[1]),
   ];
-  return { turn: 1, energy: 1, rng, players, phase: "planning", result: null };
+  return {
+    turn: 1,
+    energy: 1,
+    rng,
+    players,
+    phase: "planning",
+    result: null,
+    events: [],
+  };
 }
 function replace(
   state: MatchState,
@@ -233,5 +242,45 @@ export function resolve(state: MatchState): Result<{
       players: [draw(next.players[0]), draw(next.players[1])],
     };
   }
-  return { ok: true, value: { state: next, events } };
+  return { ok: true, value: { state: { ...next, events }, events } };
+}
+
+export interface PublicPlayerView {
+  readonly handSize: number;
+  readonly deckSize: number;
+  readonly lanes: readonly (readonly CardDefinition[])[];
+  readonly committed: boolean;
+}
+export interface PlayerView {
+  readonly own: PublicPlayerView & {
+    readonly hand: readonly CardDefinition[];
+    readonly staged: readonly Play[];
+  };
+  readonly opponent: PublicPlayerView;
+  readonly turn: number;
+  readonly energy: number;
+  readonly phase: MatchState["phase"];
+  readonly result: Score | null;
+  readonly events: readonly MatchEvent[];
+}
+/** Explicitly select public fields: never spread a full player or match state. */
+export function playerView(state: MatchState, id: PlayerId): PlayerView {
+  function publicPlayer(player: PlayerState): PublicPlayerView {
+    return {
+      handSize: player.hand.length,
+      deckSize: player.deck.length,
+      lanes: player.lanes,
+      committed: player.committed,
+    };
+  }
+  const own = state.players[id];
+  return {
+    own: { ...publicPlayer(own), hand: own.hand, staged: own.staged },
+    opponent: publicPlayer(state.players[id === 0 ? 1 : 0]),
+    turn: state.turn,
+    energy: state.energy,
+    phase: state.phase,
+    result: state.result,
+    events: state.events,
+  };
 }
