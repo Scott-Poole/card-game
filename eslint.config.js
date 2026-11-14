@@ -1,3 +1,4 @@
+import hooks from "eslint-plugin-react-hooks";
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
@@ -21,7 +22,7 @@ export default tseslint.config(
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
   {
-    files: ["src/**/*.{ts,tsx}", "vitest.config.ts"],
+    files: ["src/**/*.{ts,tsx}", "*.config.ts", "e2e/**/*.ts"],
     languageOptions: {
       parserOptions: {
         project: [
@@ -89,5 +90,10 @@ export default tseslint.config(
       ],
     },
   })),
+  {
+    files: ["src/client/**/*.{ts,tsx}"],
+    plugins: { "react-hooks": hooks },
+    rules: hooks.configs.recommended.rules,
+  },
   prettier,
 );

@@ -4,5 +4,5 @@
     "lib": ["ES2024"],
     "types": ["node"]
   },
-  "include": ["vitest.config.ts"]
+  "include": ["*.config.ts", "e2e/**/*.ts"]
 }
