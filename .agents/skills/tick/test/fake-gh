@@ -74,6 +74,7 @@ def main():
 
 
 def route(state, method, path, fields):
+    path = path.removeprefix("https://api.github.com/")
     if not path.startswith(API):
         fail(f"fake-gh: unknown path {path}")
     url = urlsplit(path[len(API):])
@@ -116,6 +117,8 @@ def route(state, method, path, fields):
 
     if method == "GET" and rest == "":
         return [iss]
+    if method == "GET" and rest == "/sub_issues":
+        return [[i for i in issues.values() if i.get("parent_issue_url") == f"https://api.github.com/{API}issues/{n}"]]
     if method == "GET" and rest == "/events":
         return [state.get("events", {}).get(n, [])]
     if method == "POST" and rest == "/labels":
@@ -132,8 +135,10 @@ def route(state, method, path, fields):
     if method == "PATCH" and rest == "":
         iss.update({k: fields[k] for k in ("state", "state_reason") if k in fields})
         return [iss]
+    if method == "GET" and rest == "/comments":
+        return [[c for c in state["comments"] if c["issue"] == int(n)]]
     if method == "POST" and rest == "/comments":
-        state.setdefault("comments", []).append({"issue": int(n), "body": fields["body"]})
+        state.setdefault("comments", []).append({"issue": int(n), "body": fields["body"], "author_association": "OWNER"})
         return [None]
     fail(f"fake-gh: unrouted {method} {path}")
 

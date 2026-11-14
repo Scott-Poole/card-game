@@ -3,6 +3,7 @@
 #
 #   queue.sh next [n...]        sweep stale claims, apply caps, print one action line; n... are
 #                               the tickets this run already claimed
+#   queue.sh parent-done <child> mark its completed parent ready-for-human, leaving it open
 #   queue.sh claim <n>          ready-for-agent -> in-progress, with a claim comment
 #   queue.sh release <n> <why>  in-progress -> ready-for-agent (launch failed)
 #   queue.sh escalate <n> <c>   in-progress -> ready-for-human, posting comment <c>
@@ -260,6 +261,32 @@ cmd_claim() {
 	log "claimed #$n"
 }
 
+# Completed specs remain open for Scott; only claimed tickets count toward escalation.
+cmd_parent_done() {
+	local child=$1 parent children labels comments marker state
+	parent=$(gh api "$API/issues/$child" --jq '.parent_issue_url // empty')
+	[[ -n $parent ]] || return 0
+	# Only accept a parent in this repository.
+	[[ $parent == "https://api.github.com/$API/issues/"* ]] || { log "foreign parent: $parent"; return 1; }
+	parent=${parent##*/}
+	state=$(gh api "$API/issues/$parent" --jq .state)
+	[[ $state == open ]] || return 0
+	children=$(gh api --paginate "$API/issues/$parent/sub_issues?per_page=100" --jq '.[] | .state')
+	[[ -n $children ]] || return 0
+	[[ $(grep -vc '^closed$' <<<"$children") == 0 ]] || return 0
+	labels=" $(labels_of "$parent") "
+	if [[ $labels != *" $HUMAN "* || $labels == *" $QUEUE "* ]]; then
+		transition "$parent" "$HUMAN" "$QUEUE"
+	fi
+	# A marker allows retries after a comment failure without repeating a posted comment.
+	marker="<!-- queue:parent-done -->"
+	comments=$(gh api --paginate "$API/issues/$parent/comments?per_page=100" --jq '.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR") | .body')
+	if [[ $comments != *"$marker"* ]]; then
+		comment "$parent" "$marker
+All sub-issues are closed. Close this spec when the outcome matches. This spec stays open for Scott's review."
+	fi
+}
+
 cmd_release() {
 	transition "$1" "$QUEUE" "$CLAIMED"
 	comment "$1" "tick: released claim, back in the queue. Reason: $2"
@@ -274,6 +301,7 @@ cmd_escalate() {
 
 case ${1:-} in
 next) shift; cmd_next "$@" ;;
+parent-done) cmd_parent_done "${2:?child issue number}" ;;
 claim) cmd_claim "${2:?issue number}" ;;
 release) cmd_release "${2:?issue number}" "${3:?reason}" ;;
 escalate) cmd_escalate "${2:?issue number}" "${3:?comment}" ;;
@@ -282,7 +310,7 @@ plan-open) shift; cmd_plan_open "${1:?category}" "${@:2}" ;;
 plan-done) cmd_plan_close "${2:?issue number}" "${3:?summary}" completed ;;
 plan-abort) cmd_plan_close "${2:?issue number}" "${3:?reason}" not_planned ;;
 *)
-	log "usage: queue.sh next [n...] | claim <n> | release <n> <why> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
+	log "usage: queue.sh parent-done <child> | next [n...] | claim <n> | release <n> <why> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
 	exit 2
 	;;
 esac

@@ -64,7 +64,7 @@ Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
-Do NOT close or modify any parent issue.
+Keep parent specs open for Scott. When all children are closed, `queue.sh parent-done <child>` swaps the parent’s `ready-for-agent` for `ready-for-human` and comments once asking Scott to close it when the outcome matches; nothing waits on that spec.
 
 <local-ticket-template>
 

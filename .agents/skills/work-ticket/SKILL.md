@@ -59,7 +59,7 @@ Use the landed queue script for every label change:
 Q() { git show origin/main:.agents/skills/tick/queue.sh | bash -s -- "$@"; }
 ```
 
-- **Merged**: the ticket closes itself. Done.
+- **Merged**: the ticket closes itself. Confirm the merged ticket is closed via `gh issue view <n> --json state` before running `Q parent-done <n>` (GitHub closure can lag the merge). Retry transient query/write failures; if unavailable infrastructure prevents reconciliation, report the failure and leave it for the planner backstop rather than escalating the closed ticket. The command: when all siblings are closed, the parent spec stays open, swaps `ready-for-agent` for `ready-for-human`, and gets one comment asking Scott to close it when the outcome matches. Nothing waits on the spec. Done.
 - **Escalated** by land (`ready-for-human` or `review-blocked` on the PR): `Q escalate <n> "<PR link>: <one-line why>"`.
 - **Stuck** (a criterion you can't meet, a ticket that contradicts the spec, a check you can't make pass): push what you have as a draft PR if you committed anything, then `Q escalate <n> "<what blocks it, what you tried, the draft PR>"`.
 
