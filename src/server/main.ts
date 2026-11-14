@@ -1,7 +1,8 @@
 import { startServer } from "./index.ts";
 
-const port = Number(process.env.PORT ?? 3000);
-if (!Number.isInteger(port) || port < 0 || port > 65535) {
+const portText = process.env.PORT ?? "3000";
+const port = Number(portText);
+if (!/^\d+$/.test(portText) || !Number.isInteger(port) || port > 65535) {
   throw new Error("PORT must be an integer between 0 and 65535");
 }
 const server = await startServer({
