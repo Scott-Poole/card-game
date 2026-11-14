@@ -89,12 +89,12 @@ REF=$(config_ref '.enabled = false') run next
 check "disabled" is "$OUT" "NOOP disabled in config"
 
 setup "[$(issue 1 in-progress), $(issue 6 ready-for-agent)]" "{\"1\": [$(claimed_event "$TODAY")]}"
-run next
+REF=$(config_ref '.maxInProgress = 1') run next
 check "wip cap holds" is "$OUT" "NOOP 1 ticket(s) in progress (cap 1)"
 
 # Stale claims keep their slot (finding: stale cleanup freed capacity while a thread lived).
 setup "[$(issue 1 in-progress), $(issue 6 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")]}"
-run next
+REF=$(config_ref '.maxInProgress = 1') run next
 check "stale claim still holds its slot" is "$OUT" "NOOP 1 ticket(s) in progress (cap 1)"
 check "stale claim gets ready-for-human, keeps in-progress" is "$(labels 1)" "in-progress,ready-for-human"
 check "stale claim comments once" is "$(comments 1)" "1"
