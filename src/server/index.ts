@@ -1,3 +1,4 @@
+import { matchHost } from "./match.ts";
 import { staticResponse } from "./static.ts";
 import { App, us_socket_local_port } from "uWebSockets.js";
 import { decodeClientMessage } from "../protocol/messages.ts";
@@ -24,6 +25,7 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
       new Error("port must be an integer between 0 and 65535"),
     );
   }
+  const matches = matchHost();
   const app = App().ws("/ws", {
     // Transport limits: oversize frames disconnect rather than enter the decoder.
     maxPayloadLength: 16 * 1024,
@@ -44,6 +46,10 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
             error: result.error,
           } satisfies ServerMessage),
         );
+      else matches.message(socket, result.message);
+    },
+    close(socket) {
+      matches.close(socket);
     },
     open(socket) {
       socket.send(JSON.stringify({ type: "welcome" } satisfies ServerMessage));
