@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile, symlink } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+  symlink,
+} from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -141,3 +148,16 @@ test("rejects symlinks instead of reading outside the art directory", async () =
     ),
   ).toEqual([{ code: "non-regular-file", index: 0 }]);
 });
+
+test.each(["extra.jpeg", "nested"])(
+  "rejects every unrecorded directory entry: %s",
+  async (file) => {
+    if (file === "nested") {
+      await mkdir(join(directory, file));
+      await writeFile(join(directory, file, "extra.png"), "abc");
+    } else await writeFile(join(directory, file), "abc");
+    expect(await validateArtManifest([valid], directory)).toEqual([
+      { code: "unrecorded-file", index: -1, file },
+    ]);
+  },
+);

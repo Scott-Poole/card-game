@@ -149,7 +149,7 @@ export async function validateArtManifest(
     }
   }
   for (const file of await readdir(directory)) {
-    if (/\.(webp|jpg|png)$/i.test(file) && !files.has(file))
+    if (file !== "manifest.json" && file !== "README.md" && !files.has(file))
       issues.push({ code: "unrecorded-file", index: -1, file });
   }
   return issues;
