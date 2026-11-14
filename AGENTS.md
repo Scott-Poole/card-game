@@ -1,6 +1,6 @@
 # card-game
 
-An original lane-based, simultaneous-turn strategy card game for the browser, served by an authoritative TypeScript game server over uWebSockets.js. Cards, locations, names, and art are our own.
+An original lane-based, simultaneous-turn strategy card game for the browser, served by an authoritative TypeScript game server over uWebSockets.js. Mechanics follow the lane-battler genre (lanes, simultaneous reveal, an energy curve, location effects); the content is ours. Cards are figures from Greek and Roman myth, with Creative Commons art tracked by license and attribution. Every card, location, name, ability, and visual is invented fresh, never carried over from an existing game.
 
 The repo is equally a testbed for Scott's agent workflow: how work is planned, routed across models, verified, and improved. When a process step goes badly, fixing the process (a skill, a lint rule, a check) is in scope.
 
@@ -22,7 +22,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 
 - **Branch and PR**: every change lands on `main` through a PR. Use `gh` for all GitHub work. `gh pr edit` fails here with a "Projects (classic) is being deprecated" GraphQL error; edit PRs through REST instead: `gh api -X PATCH repos/Scott-Poole/card-game/pulls/<n> -F body=@<file>`. Pass long text to `gh`/`git` by file (`--body-file`, `-F`).
 - **Landing**: an open PR reaches `main` (or Scott) through the `land` skill. Agents merge whatever fits its policy without asking. GitHub enforces PR-only, merge-commit-only, no force push on `main`.
-- **Ticket automation**: a scheduled `tick` claims the oldest unblocked `ready-for-agent` ticket and launches one `work-ticket` thread, which implements, lands, and merges its own PR. `ready-for-agent` means "an agent may take this unattended": leave it off a ticket, or assign it to someone, to hold it back. Caps and the off switch: the `tick` skill.
+- **Ticket automation**: a scheduled `tick` claims the oldest unblocked `ready-for-agent` ticket and launches one `work-ticket` thread, which implements, lands, and merges its own PR. When no ticket is ready, the tick launches a `plan` thread instead: one category per run, in rotation, filing fresh `ready-for-agent` tickets for later ticks. `ready-for-agent` means "an agent may take this unattended": leave it off a ticket, or assign it to someone, to hold it back. Caps and the off switch: the `tick` skill.
 - **Commits**: conventional commits, per the `commit` skill.
 - **Validation**: follow .agents/skills/validate/SKILL.md before opening or updating a PR: full local checks and direct interaction with changed behavior, including browser testing for UI changes.
 - **Prove it works**: claim done only with command output (tests, typecheck, lint, `git diff --stat`). A subagent's report is a claim, not evidence.
