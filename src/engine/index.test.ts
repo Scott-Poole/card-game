@@ -315,3 +315,13 @@ test("staging owns a copy of the caller play list", () => {
   plays.splice(0, plays.length);
   expect(state.players[0].staged).toEqual(play(initial, 0, 0));
 });
+
+test.each([
+  [2 ** 32 + 5, 5],
+  [-1, 4294967295],
+  [NaN, 0],
+])("normalizes seed %s to uint32 %s", (seed, normalized) => {
+  expect(createMatch(seed, [deck(), deck()])).toEqual(
+    createMatch(normalized, [deck(), deck()]),
+  );
+});

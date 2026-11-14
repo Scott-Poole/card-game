@@ -1,4 +1,3 @@
-/** Pure match API. Card IDs must be unique within each supplied deck. */
 const LANE_IDS = [0, 1, 2];
 const LANE_CAPACITY = 4;
 const OPENING_HAND = 3;
@@ -58,7 +57,8 @@ export type MatchEvent =
 function random(rng: number): number {
   return (Math.imul(rng, 1664525) + 1013904223) >>> 0;
 }
-/** Seeds normalize to uint32. RNG consumption: player 0 shuffle, player 1
+/** Card IDs must be unique within each supplied deck.
+ * Seeds normalize to uint32. RNG consumption: player 0 shuffle, player 1
  * shuffle, then one sample for each tied initiative. Replay uses this ruleset. */
 export function createMatch(
   seed: number,
