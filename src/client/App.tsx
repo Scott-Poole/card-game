@@ -7,9 +7,14 @@ export default function App() {
   const [status, setStatus] = useState<"connecting" | "connected" | "error">(
     "connecting",
   );
+  const [notice, setNotice] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [view, setView] = useState<PlayerView | null>(null);
   const [pending, setPending] = useState(false);
+  const requestRef = useRef<{
+    message: ClientMessage;
+    turn: number | null;
+  } | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   useEffect(() => {
     const socket = new WebSocket(
@@ -17,9 +22,11 @@ export default function App() {
     );
     socketRef.current = socket;
     let failed = false;
+    let welcomed = false;
     const fail = () => {
       failed = true;
       setStatus("error");
+      requestRef.current = null;
       setPending(false);
     };
     socket.onmessage = (event: MessageEvent<unknown>) => {
@@ -32,19 +39,51 @@ export default function App() {
       const message = decoded.message;
       switch (message.type) {
         case "welcome":
+          welcomed = true;
           setStatus("connected");
           break;
         case "waiting":
           setWaiting(true);
+          requestRef.current = null;
           setPending(false);
           break;
         case "state":
           setView(message.view);
           setWaiting(false);
-          setPending(false);
+          {
+            const request = requestRef.current;
+            const acknowledged =
+              !request ||
+              request.message.type === "join" ||
+              message.view.phase === "ended" ||
+              message.view.turn !== request.turn ||
+              (request.message.type === "commit"
+                ? message.view.own.committed
+                : request.message.plays.length ===
+                    message.view.own.staged.length &&
+                  request.message.plays.every((play, index) => {
+                    const staged = message.view.own.staged[index];
+                    return (
+                      staged?.cardId === play.cardId &&
+                      staged.lane === play.lane
+                    );
+                  }));
+            if (acknowledged) {
+              requestRef.current = null;
+              setPending(false);
+            }
+          }
           break;
         case "error":
-          fail();
+          if (!welcomed) {
+            fail();
+            break;
+          }
+          requestRef.current = null;
+          setPending(false);
+          setNotice(
+            `Request rejected: ${message.error}. You can revise and try again.`,
+          );
           break;
         default: {
           const exhaustive: never = message;
@@ -66,9 +105,11 @@ export default function App() {
     if (
       socketRef.current?.readyState !== WebSocket.OPEN ||
       status !== "connected" ||
-      pending
+      requestRef.current
     )
       return;
+    requestRef.current = { message, turn: view?.turn ?? null };
+    setNotice(null);
     setPending(true);
     socketRef.current.send(JSON.stringify(message));
   }
@@ -90,6 +131,7 @@ export default function App() {
     <main>
       <h1>Card game</h1>
       <p role="status">{status}</p>
+      {notice && <p role="alert">{notice}</p>}
       {!view && !waiting && (
         <button
           disabled={status !== "connected" || pending}
@@ -230,10 +272,15 @@ export default function App() {
           {view.phase === "ended" && (
             <section aria-label="Match result">
               <h2>Match result</h2>
-              <p aria-label="Winner">{outcome(view.result.winner)}</p>
-              {view.events.every((event) => event.type === "match-ended") && (
-                <p>Forfeit: opponent left the match</p>
-              )}
+              <div role="group" aria-label="Winner">
+                {outcome(view.result.winner)}
+              </div>
+              {/* The current server emits only match-ended for a forfeit; normal endings include turn-ended. */}
+              {view.events.length === 1 &&
+                view.events[0]?.type === "match-ended" && (
+                  <p>Forfeit: opponent left the match</p>
+                )}
+              <p>Lane scores on the final board:</p>
               <ul>
                 {view.result.lanes.map((winner, lane) => (
                   <li key={lane}>
