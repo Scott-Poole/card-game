@@ -1,0 +1,1 @@
+export type T = typeof import("../../client/index.ts");

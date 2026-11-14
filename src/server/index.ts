@@ -4,10 +4,12 @@ import type { ServerMessage } from "../protocol/messages.ts";
 
 export interface ServerOptions {
   port: number;
+  /** Reserved for built-client serving in the client ticket; unused here. */
   clientDirectory: string;
 }
 export interface ServerHandle {
   port: number;
+  /** Abruptly disconnect all clients and stop listening; safe to call again. */
   close(): void;
 }
 
