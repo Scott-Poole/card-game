@@ -8,7 +8,7 @@ description: >-
 
 # Tick
 
-Owned by this repo. The scheduled dispatcher: each run claims **at most one** ticket and starts one thread to take it from claim to merge (the `work-ticket` skill). [`queue.sh`](queue.sh) does every query and label write, so a run is a few commands; spend nothing beyond them.
+Owned by this repo. The scheduled dispatcher: each run claims **at most one** ticket and starts one thread to take it from claim to merge (the `work-ticket` skill). When no ticket is ready, it starts a **planner** instead (the `plan` skill), so an empty queue refills itself. [`queue.sh`](queue.sh) does every query and label write, so a run is a few commands; spend nothing beyond them.
 
 The queue is label-driven, and the tick is the only writer of claims:
 
@@ -18,7 +18,9 @@ ready-for-agent ──claim──▶ in-progress ──PR merged──▶ closed
                                └── stale ──▶ in-progress + ready-for-human (slot held until Scott clears it)
 ```
 
-Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (stale ones included), claims per UTC day, tickets automation has handed to Scott, hours before a claim counts as stale. Tune them there (through a PR); `"enabled": false` stops dispatch, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
+Planners run beside implementers: one at a time, tracked by an open `planning` issue, rotating through `planning.categories` least recently run first. They skip the WIP and daily-claim caps (they only file tickets) but stop with everything else when tickets waiting on Scott hit `maxEscalated`.
+
+Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (stale ones included), claims per UTC day, tickets automation has handed to Scott, hours before a claim counts as stale. The `planning` block holds the planner's own: on/off, runs per UTC day, tickets per run, and the category rotation. Tune them there (through a PR); `"enabled": false` stops dispatch and planning, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
 
 ## 1. Ask the queue
 
@@ -28,7 +30,7 @@ Run the landed copy of the script, so a checkout on any branch obeys `main`:
 git fetch -q origin main && git show origin/main:.agents/skills/tick/queue.sh | bash -s -- next
 ```
 
-It prints one line. A non-zero exit means a GitHub call failed partway: reply with its stderr and stop, retrying nothing. `NOOP <reason>` → reply with that line and stop. `LAUNCH <n> <title>` → continue. Stale claims it swept are on stderr; mention them in the reply.
+It prints one line. A non-zero exit means a GitHub call failed partway: reply with its stderr and stop, retrying nothing. `NOOP <reason>` → reply with that line and stop. `PLAN <category>` → go to **Plan** below. `LAUNCH <n> <title>` → continue. Stale claims it swept are on stderr; mention them in the reply.
 
 ## 2. Claim
 
@@ -60,3 +62,28 @@ git show origin/main:.agents/skills/tick/queue.sh | bash -s -- note <n> "work-ti
 ```
 
 Done when the issue carries `in-progress`, a claim comment, and the thread link, and your reply names the ticket and links the thread.
+
+## Plan
+
+When step 1 printed `PLAN <category>`:
+
+1. Open the planning issue. It prints the issue number; a refusal means another planner is open, so reply with it and stop.
+
+   ```sh
+   git show origin/main:.agents/skills/tick/queue.sh | bash -s -- plan-open <category>
+   ```
+
+2. Pick the model from the `delegate` skill's **plan** tier, primary column, and `t3_thread_launch` it:
+
+   - `title`: `Plan: <category> (#<n>)`
+   - `workspaceStrategy`: `{type: "worktree", baseRef: "origin/main", startFromOrigin: true, branch: "plan/<n>-<category>"}`
+   - `modelSelection`: the plan-tier model and its options
+   - `message`:
+
+     > Run a `<category>` planner for planning issue #&lt;n&gt; on `Scott-Poole/card-game`. Read `.agents/skills/plan/SKILL.md` in this checkout and follow it exactly; the tick has already opened the planning issue.
+
+   If the launch fails, `... | bash -s -- plan-abort <n> "<error>"` and stop.
+
+3. Record the thread: `... | bash -s -- note <n> "planner thread: <link>"`.
+
+Done when the planning issue is open with the thread link, and your reply names the category and links the thread.
