@@ -83,7 +83,6 @@ run parent-done 4
 check "second completion changes nothing" is "$(cat "$WORK/before.json")" "$(jq -S . "$WORK/state.json")"
 
 # One claimed escalation plus a completed spec must still allow work (cap is two).
-run note 4 "fixture"
 jq '.issues["1"] = {number:1,title:"Escalated",state:"open",labels:[{name:"ready-for-human"}]} |
     .events["1"] = [{event:"labeled",label:{name:"in-progress"}}] |
     .issues["6"] = {number:6,title:"Ticket 6",state:"open",labels:[{name:"ready-for-agent"}],assignees:[]}' "$WORK/state.json" >"$WORK/new.json"
@@ -102,6 +101,23 @@ jq -S . "$WORK/state.json" >"$WORK/before.json"
 run parent-done 4
 check "no parent succeeds without changes" is "$CODE" "0"
 check "no parent changes nothing" is "$(cat "$WORK/before.json")" "$(jq -S . "$WORK/state.json")"
+
+setup "[$(issue 3 ready-for-agent), $(issue 4 '' '{"state":"closed","parent_issue_url":"https://api.github.com/repos/Scott-Poole/card-game/issues/3"}')]"
+FAKE_GH_FAIL="POST comments" run parent-done 4
+check "comment failure reports failure" is "$CODE:$(comments 3)" "1:0"
+run parent-done 4
+run parent-done 4
+check "retry after failed comment posts exactly once" is "$CODE:$(comments 3)" "0:1"
+
+setup "[$(issue 3 ready-for-agent '{"state":"closed"}'), $(issue 4 '' '{"state":"closed","parent_issue_url":"https://api.github.com/repos/Scott-Poole/card-game/issues/3"}')]"
+run parent-done 4
+check "closed parent is untouched" is "$CODE:$(labels 3):$(comments 3)" "0:ready-for-agent:0"
+
+setup "[$(issue 3 ready-for-agent), $(issue 4 '' '{"state":"closed","parent_issue_url":"https://api.github.com/repos/Scott-Poole/card-game/issues/3"}')]"
+jq '.comments = [{issue:3,body:"<!-- queue:parent-done -->",author_association:"NONE"}]' "$WORK/state.json" >"$WORK/new.json"
+mv "$WORK/new.json" "$WORK/state.json"
+run parent-done 4
+check "untrusted marker cannot suppress notice" is "$CODE:$(comments 3)" "0:2"
 
 # --- frontier ---------------------------------------------------------------------------
 setup "[$(issue 3 ready-for-agent '{"sub_issues_summary":{"total":3}}'),

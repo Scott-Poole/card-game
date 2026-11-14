@@ -138,7 +138,7 @@ def route(state, method, path, fields):
     if method == "GET" and rest == "/comments":
         return [[c for c in state["comments"] if c["issue"] == int(n)]]
     if method == "POST" and rest == "/comments":
-        state.setdefault("comments", []).append({"issue": int(n), "body": fields["body"]})
+        state.setdefault("comments", []).append({"issue": int(n), "body": fields["body"], "author_association": "OWNER"})
         return [None]
     fail(f"fake-gh: unrouted {method} {path}")
 

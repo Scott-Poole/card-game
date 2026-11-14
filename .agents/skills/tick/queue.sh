@@ -263,12 +263,14 @@ cmd_claim() {
 
 # Completed specs remain open for Scott; only claimed tickets count toward escalation.
 cmd_parent_done() {
-	local child=$1 parent children labels comments marker
+	local child=$1 parent children labels comments marker state
 	parent=$(gh api "$API/issues/$child" --jq '.parent_issue_url // empty')
 	[[ -n $parent ]] || return 0
 	# Only accept a parent in this repository.
 	[[ $parent == "https://api.github.com/$API/issues/"* ]] || { log "foreign parent: $parent"; return 1; }
 	parent=${parent##*/}
+	state=$(gh api "$API/issues/$parent" --jq .state)
+	[[ $state == open ]] || return 0
 	children=$(gh api --paginate "$API/issues/$parent/sub_issues?per_page=100" --jq '.[] | .state')
 	[[ -n $children ]] || return 0
 	[[ $(grep -vc '^closed$' <<<"$children") == 0 ]] || return 0
@@ -278,7 +280,7 @@ cmd_parent_done() {
 	fi
 	# A marker allows retries after a comment failure without repeating a posted comment.
 	marker="<!-- queue:parent-done -->"
-	comments=$(gh api --paginate "$API/issues/$parent/comments?per_page=100" --jq '.[].body')
+	comments=$(gh api --paginate "$API/issues/$parent/comments?per_page=100" --jq '.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR") | .body')
 	if [[ $comments != *"$marker"* ]]; then
 		comment "$parent" "$marker
 All sub-issues are closed. Close this spec when the outcome matches. This spec stays open for Scott's review."
