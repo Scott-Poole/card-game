@@ -2,7 +2,8 @@
 """A stateful stand-in for the `gh api` calls queue.sh makes, for test-queue.sh.
 
 State lives in $FAKE_GH_STATE (JSON): {"issues": {"<n>": issue}, "events": {"<n>": [event]},
-"repo_event_pages": [[event]], "comments": [{"issue", "body"}]}. Every call is appended to
+"repo_event_pages": [[event]], "comments": [{"issue", "body"}]}. Issues GET sorts by number,
+which stands in for created order. POST issues stamps created_at from $FAKE_GH_NOW. Every call is appended to
 $FAKE_GH_LOG. $FAKE_GH_FAIL="<METHOD> <path-substring>" makes matching calls fail with HTTP 503.
 """
 import json
@@ -80,13 +81,30 @@ def route(state, method, path, fields):
     issues = state["issues"]
 
     if method == "GET" and url.path == "issues":
-        want = q.get("labels")
+        want, st = q.get("labels"), q.get("state", "open")
         found = [
             iss for _, iss in sorted(issues.items(), key=lambda kv: int(kv[0]))
-            if iss["state"] == q.get("state", "open")
+            if (st == "all" or iss["state"] == st)
             and (want is None or want in [l["name"] for l in iss["labels"]])
         ]
+        if q.get("direction") == "desc":
+            found.reverse()
         return [found]
+    if method == "POST" and url.path == "issues":
+        # $FAKE_GH_RACE: a planning issue number another tick creates just before this one.
+        race = os.environ.get("FAKE_GH_RACE")
+        if race and race not in issues:
+            issues[race] = {"number": int(race), "title": "Plan: rival", "state": "open",
+                            "pull_request": None, "assignees": [], "created_at": "2099-01-01T00:00:00Z",
+                            "labels": [{"name": "planning"}]}
+        n = max([int(k) for k in issues] + [0]) + 1
+        issues[str(n)] = {
+            "number": n, "title": fields["title"], "body": fields.get("body", ""),
+            "state": "open", "pull_request": None, "assignees": [],
+            "created_at": os.environ.get("FAKE_GH_NOW", "2099-01-01T00:00:00Z"),
+            "labels": [{"name": fields["labels[]"]}] if "labels[]" in fields else [],
+        }
+        return [issues[str(n)]]
     if method == "GET" and url.path == "issues/events":
         return state.get("repo_event_pages", [[]]) or [[]]
     m = re.fullmatch(r"issues/(\d+)(/.*)?", url.path)
@@ -111,6 +129,9 @@ def route(state, method, path, fields):
             fail("gh: Label does not exist (HTTP 404)")
         iss["labels"] = [l for l in iss["labels"] if l["name"] != label]
         return [None]
+    if method == "PATCH" and rest == "":
+        iss.update({k: fields[k] for k in ("state", "state_reason") if k in fields})
+        return [iss]
     if method == "POST" and rest == "/comments":
         state.setdefault("comments", []).append({"issue": int(n), "body": fields["body"]})
         return [None]

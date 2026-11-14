@@ -3,5 +3,11 @@
   "maxInProgress": 4,
   "maxDailyClaims": 12,
   "maxEscalated": 2,
-  "staleHours": 8
+  "staleHours": 8,
+  "planning": {
+    "enabled": true,
+    "maxDailyRuns": 3,
+    "maxTicketsPerRun": 5,
+    "categories": ["feature", "game-content", "bug-hunt", "code-health", "verification", "process", "docs"]
+  }
 }
