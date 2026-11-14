@@ -19,7 +19,8 @@
     "test:queue": "GIT_AUTHOR_NAME=queue-test GIT_AUTHOR_EMAIL=queue-test@example.invalid GIT_COMMITTER_NAME=queue-test GIT_COMMITTER_EMAIL=queue-test@example.invalid bash .agents/skills/tick/test/test-queue.sh",
     "check": "node scripts/check.mjs",
     "test:boundaries": "node scripts/test-boundaries.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "start": "node src/server/main.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -32,5 +33,13 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",
     "vitest": "5.1.0"
+  },
+  "dependencies": {
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.71.0"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "uWebSockets.js": "patches/uWebSockets.js.patch"
+    }
   }
 }
