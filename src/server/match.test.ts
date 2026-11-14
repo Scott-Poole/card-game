@@ -4,10 +4,13 @@ import {
   type ServerMessage,
 } from "../protocol/messages.ts";
 import { startServer, type ServerHandle } from "./index.ts";
+const entropy = vi.hoisted(() => ({
+  integer: vi.fn((max: number) => max - 1),
+}));
 // Fix only the external entropy source; engine and transport stay real.
 vi.mock("node:crypto", () => ({
   randomBytes: () => Buffer.alloc(4),
-  randomInt: (max: number) => max - 1,
+  randomInt: entropy.integer,
 }));
 let server: ServerHandle | undefined;
 afterEach(() => server?.close());
@@ -144,6 +147,8 @@ test("requests before joining fail; a departed waiter is removed; disconnect for
   expect((await departed.next()).type).toBe("error");
   departed.send({ type: "join" });
   await departed.next();
+  departed.send({ type: "join" });
+  expect((await departed.next()).type).toBe("error");
   const closed = new Promise<void>((resolve) => {
     departed.socket.addEventListener(
       "close",
@@ -231,6 +236,8 @@ test("both players' raw frames contain only revealed opponent card ids", async (
     for (const frame of peer.frames)
       for (const card of hidden) expect(frame).not.toContain(card.id);
   }
+  a.send({ type: "stage", plays: [{ cardId: "unknown", lane: 0 }] });
+  expect(await a.next()).toEqual({ type: "error", error: "invalid-message" });
   a.send({ type: "commit" });
   await states(a, b);
   b.send({ type: "commit" });
@@ -239,4 +246,20 @@ test("both players' raw frames contain only revealed opponent card ids", async (
   expect(views[1].opponent.lanes[0]).toContainEqual(first);
   a.socket.close();
   b.socket.close();
+});
+
+test("with the same engine seed, independent entropy changes only the opponent's draw order", async () => {
+  const first = await pair();
+  server?.close();
+  let calls = 0;
+  entropy.integer.mockImplementation((max) => (++calls <= 11 ? max - 1 : 0));
+  try {
+    const second = await pair();
+    expect(second.views[0].own.hand).toEqual(first.views[0].own.hand);
+    expect(second.views[1].own.hand).not.toEqual(first.views[1].own.hand);
+    expect(second.views[1].own.deckSize).toBe(9);
+    expect(new Set(second.views[1].own.hand.map((c) => c.id)).size).toBe(3);
+  } finally {
+    entropy.integer.mockImplementation((max) => max - 1);
+  }
 });
