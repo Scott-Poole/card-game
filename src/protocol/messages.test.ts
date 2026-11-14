@@ -64,3 +64,236 @@ it.each(["invalid-json", "invalid-message", "unrecognized-message"])(
     });
   },
 );
+
+it.each(["join", "commit"])("accepts %s", (type) => {
+  expect(decodeClientMessage(JSON.stringify({ type }))).toEqual({
+    ok: true,
+    message: { type },
+  });
+});
+it("accepts a full staged list", () => {
+  expect(
+    decodeClientMessage({ type: "stage", plays: [{ cardId: "a", lane: 2 }] }),
+  ).toEqual({
+    ok: true,
+    message: { type: "stage", plays: [{ cardId: "a", lane: 2 }] },
+  });
+});
+
+const card = { id: "a", name: "Aster", cost: 1, power: 2 };
+const score = { lanes: [0, null, 1], power: [2, 2], winner: null };
+const view = {
+  player: 0,
+  turn: 1,
+  energy: 1,
+  phase: "planning",
+  result: null,
+  own: {
+    hand: [card],
+    staged: [{ cardId: "a", lane: 0 }],
+    deckSize: 9,
+    committed: false,
+    lanes: [[], [], []],
+  },
+  opponent: {
+    handSize: 3,
+    deckSize: 9,
+    committed: false,
+    lanes: [[card], [], []],
+  },
+  events: [
+    { type: "card-revealed", player: 1, lane: 0, card },
+    { type: "turn-ended", turn: 1 },
+    { type: "match-ended", result: score },
+  ],
+};
+it.each([
+  { type: "waiting" },
+  { type: "state", view },
+  { type: "state", view: { ...view, phase: "ended", result: score } },
+])("decodes $type", (message) => {
+  expect(decodeServerMessage(JSON.stringify(message))).toEqual({
+    ok: true,
+    message,
+  });
+});
+it.each(["join", "commit", "stage", "waiting", "state"])(
+  "strict %s envelopes",
+  (type) => {
+    const decode = ["join", "commit", "stage"].includes(type)
+      ? decodeClientMessage
+      : decodeServerMessage;
+    const message =
+      type === "stage"
+        ? { type, plays: [] }
+        : type === "state"
+          ? { type, view }
+          : { type };
+    for (const input of [
+      { ...message, extra: true },
+      { ...message, constructor: {} },
+      JSON.stringify(message).replace(/}$/, ',"__proto__":{}}'),
+      { ...message, type: 42 },
+      {},
+      null,
+      "{",
+    ]) {
+      expect(decode(input).ok).toBe(false);
+    }
+  },
+);
+it.each(
+  [
+    undefined,
+    null,
+    2,
+    {},
+    [null],
+    [{ cardId: 1, lane: 0 }],
+    [{ cardId: "a" }],
+    [{ cardId: "a", lane: "0" }],
+    ...[-1, 0.5, 1e100, 3, NaN, Infinity].map((lane) => [
+      { cardId: "a", lane },
+    ]),
+    Array.from({ length: 13 }, () => ({ cardId: "a", lane: 0 })),
+    [{ cardId: "a", lane: 0, extra: true }],
+    parse('[{"cardId":"a","lane":0,"__proto__":{}}]'),
+    [{ cardId: "a", lane: 0, constructor: {} }],
+  ].map((plays) => ({ plays })),
+)("rejects invalid plays %j", ({ plays }) => {
+  expect(decodeClientMessage({ type: "stage", plays })).toEqual({
+    ok: false,
+    error: "invalid-message",
+  });
+});
+it.each([
+  { ...view, opponent: { ...view.opponent, hand: [card] } },
+  { ...view, own: { ...view.own, deck: [card] } },
+  { ...view, own: { ...view.own, hand: [{ ...card, secret: true }] } },
+  { ...view, own: { ...view.own, lanes: [[], []] } },
+  { ...view, opponent: { ...view.opponent, lanes: [[], [], [], []] } },
+  { ...view, opponent: { ...view.opponent, lanes: [[null], [], []] } },
+  {
+    ...view,
+    opponent: { ...view.opponent, lanes: [Array(5).fill(card), [], []] },
+  },
+  { ...view, own: { ...view.own, committed: 0 } },
+  { ...view, opponent: { ...view.opponent, handSize: -1 } },
+  { ...view, events: [{ type: "card-revealed", player: 2, lane: 0, card }] },
+  { ...view, events: [{ type: "card-revealed", player: 0, lane: -1, card }] },
+  { ...view, events: [{ type: "turn-ended", turn: 0 }] },
+  {
+    ...view,
+    events: [{ type: "match-ended", result: { ...score, power: [1] } }],
+  },
+  { ...view, events: [{ type: "unknown" }] },
+  { ...view, events: {} },
+  { ...view, phase: "ended" },
+  { ...view, result: score },
+  { ...view, turn: 1.5 },
+  { ...view, energy: Infinity },
+  { ...view, player: 3 },
+  { ...view, constructor: {} },
+  parse(JSON.stringify(view).replace(/}$/, ',"__proto__":{}}')),
+])("rejects malformed or hidden view %j", (invalidView) => {
+  expect(decodeServerMessage({ type: "state", view: invalidView })).toEqual({
+    ok: false,
+    error: "invalid-message",
+  });
+});
+
+function parse(text: string): unknown {
+  return JSON.parse(text);
+}
+
+it.each([
+  {
+    ...view,
+    own: { staged: [], deckSize: 9, committed: false, lanes: [[], [], []] },
+  },
+  { ...view, opponent: { deckSize: 9, committed: false, lanes: [[], [], []] } },
+  {
+    ...view,
+    own: { ...view.own, hand: [{ id: "a", name: "Aster", cost: 1 }] },
+  },
+  { ...view, events: [{ type: "card-revealed", player: 0, lane: 0 }] },
+  { ...view, phase: "ended", result: { lanes: [0, 0, 0], power: [1, 0] } },
+])("rejects missing nested fields %j", (invalidView) => {
+  expect(decodeServerMessage({ type: "state", view: invalidView })).toEqual({
+    ok: false,
+    error: "invalid-message",
+  });
+});
+
+it.each(
+  [
+    [],
+    Array.from({ length: 12 }, (_, i) => ({ cardId: String(i), lane: i % 3 })),
+  ].map((plays) => ({ plays })),
+)("accepts clearing and maximum staging", ({ plays }) => {
+  expect(decodeClientMessage({ type: "stage", plays })).toEqual({
+    ok: true,
+    message: { type: "stage", plays },
+  });
+});
+it.each([{ type: "state" }, { type: "stage" }])(
+  "rejects missing payload $type",
+  (message) => {
+    const decode =
+      message.type === "state" ? decodeServerMessage : decodeClientMessage;
+    expect(decode(message)).toEqual({ ok: false, error: "invalid-message" });
+  },
+);
+it("accepts full hand and lane capacity", () => {
+  const fullView = {
+    ...view,
+    own: {
+      ...view.own,
+      hand: Array(12).fill(card),
+      lanes: [Array(4).fill(card), [], []],
+    },
+  };
+  expect(decodeServerMessage({ type: "state", view: fullView })).toEqual({
+    ok: true,
+    message: { type: "state", view: fullView },
+  });
+});
+it.each([
+  "player",
+  "turn",
+  "energy",
+  "own",
+  "opponent",
+  "events",
+  "phase",
+  "result",
+])("rejects missing view %s", (key) => {
+  const incomplete = Object.fromEntries(
+    Object.entries(view).filter(([k]) => k !== key),
+  );
+  expect(decodeServerMessage({ type: "state", view: incomplete })).toEqual({
+    ok: false,
+    error: "invalid-message",
+  });
+});
+it.each(["__proto__", "constructor"])("rejects nested %s keys", (key) => {
+  const extra = { [key]: {} };
+  for (const invalidView of [
+    { ...view, own: { ...view.own, ...extra } },
+    { ...view, opponent: { ...view.opponent, ...extra } },
+    { ...view, own: { ...view.own, hand: [{ ...card, ...extra }] } },
+    { ...view, events: [{ type: "turn-ended", turn: 1, ...extra }] },
+    { ...view, phase: "ended", result: { ...score, ...extra } },
+  ]) {
+    expect(
+      decodeServerMessage(JSON.stringify({ type: "state", view: invalidView })),
+    ).toEqual({ ok: false, error: "invalid-message" });
+  }
+});
+it("rejects extra properties on parsed arrays", () => {
+  const plays = Object.assign([{ cardId: "a", lane: 0 }], { secret: true });
+  expect(decodeClientMessage({ type: "stage", plays })).toEqual({
+    ok: false,
+    error: "invalid-message",
+  });
+});
