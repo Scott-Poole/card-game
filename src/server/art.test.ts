@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm, writeFile, symlink } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -36,6 +37,8 @@ test.each([
   ["sourceUrl", { sourceUrl: "http://example.com" }],
   ["licenseUrl", { licenseUrl: "invalid" }],
   ["attribution", { attribution: " " }],
+  ["attribution", { attribution: undefined }],
+  ["attribution", { attribution: null, license: "CC-BY-SA-4.0" }],
   ["retrievedOn", { retrievedOn: "2026-02-30" }],
   ["retrievedOn", { retrievedOn: "not-a-date" }],
   ["missing-file", { file: "missing.jpg" }],
@@ -50,7 +53,9 @@ test.each([
   "reports %s for incomplete or invalid metadata (%j)",
   async (code, patch) => {
     expect(
-      await validateArtManifest([{ ...valid, ...patch }], directory),
+      (await validateArtManifest([{ ...valid, ...patch }], directory)).filter(
+        (issue) => issue.code !== "unrecorded-file",
+      ),
     ).toEqual([{ code, index: 0 }]);
   },
 );
@@ -65,14 +70,12 @@ test.each([400_000, 400_001])(
   "enforces the 400 KB byte limit (%i)",
   async (size) => {
     await writeFile(join(directory, "image.png"), Buffer.alloc(size));
-    const issues = await validateArtManifest([valid], directory);
+    const sha256 = createHash("sha256")
+      .update(Buffer.alloc(size))
+      .digest("hex");
+    const issues = await validateArtManifest([{ ...valid, sha256 }], directory);
     expect(issues).toEqual(
-      size === 400_000
-        ? [{ code: "sha256", index: 0 }]
-        : [
-            { code: "oversize-file", index: 0 },
-            { code: "sha256", index: 0 },
-          ],
+      size === 400_000 ? [] : [{ code: "oversize-file", index: 0 }],
     );
   },
 );
@@ -103,9 +106,11 @@ test("reports malformed JSON shapes without throwing", async () => {
   expect(await validateArtManifest({}, directory)).toEqual([
     { code: "manifest", index: -1 },
   ]);
-  expect(await validateArtManifest([null], directory)).toEqual([
-    { code: "entry", index: 0 },
-  ]);
+  expect(
+    (await validateArtManifest([null], directory)).filter(
+      (issue) => issue.code !== "unrecorded-file",
+    ),
+  ).toEqual([{ code: "entry", index: 0 }]);
 });
 
 test("shipped manifest has no issues", async () => {
@@ -116,4 +121,23 @@ test("shipped manifest has no issues", async () => {
   expect(await validateArtManifest(manifest, fileURLToPath(directory))).toEqual(
     [],
   );
+});
+
+test("rejects art files without a manifest record", async () => {
+  expect(await validateArtManifest([], directory)).toEqual([
+    { code: "unrecorded-file", index: -1, file: "image.png" },
+  ]);
+});
+
+test("rejects symlinks instead of reading outside the art directory", async () => {
+  await symlink("image.png", join(directory, "link.png"));
+  expect(
+    await validateArtManifest(
+      [
+        { ...valid, file: "link.png" },
+        { ...valid, cardId: "janus-dawnhinge" },
+      ],
+      directory,
+    ),
+  ).toEqual([{ code: "non-regular-file", index: 0 }]);
 });
