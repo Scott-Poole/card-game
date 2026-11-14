@@ -23,7 +23,7 @@ const state: MatchState = {
 function player(id: PlayerId) {
   return {
     hand: [card(`hand-secret-${String(id)}`)],
-    deck: [card(`deck-secret-${String(id)}`)],
+    deck: [card(`deck-secret-${String(id)}`), card(`deck-tail-${String(id)}`)],
     staged: [{ cardId: `hand-secret-${String(id)}`, lane: id }],
     lanes: [[card(`board-${String(id)}`)], [], []],
     committed: false,
@@ -47,16 +47,18 @@ test.each([0, 1] satisfies PlayerId[])(
       expect(view.own.lanes).toEqual(state.players[id].lanes);
       expect(view.opponent).toEqual({
         handSize: 1,
-        deckSize: 1,
+        deckSize: 2,
         committed,
         lanes: state.players[opponent].lanes,
       });
-      expect(view.own.deckSize).toBe(1);
+      expect(view.own.deckSize).toBe(2);
       const json = JSON.stringify(view);
       for (const secret of [
         `hand-secret-${String(opponent)}`,
         "deck-secret-0",
         "deck-secret-1",
+        "deck-tail-0",
+        "deck-tail-1",
         String(state.rng),
       ])
         expect(json).not.toContain(secret);
@@ -75,14 +77,16 @@ function unwrap<T>(result: Result<T>): T {
   return result.value;
 }
 test("views retain ordered resolved events through staging and commit, and carry the final result", () => {
-  let match = createMatch(42, [[card("a")], [card("b")]]);
+  let match = createMatch(42, [[card("a"), card("c")], [card("b")]]);
   expect(playerView(match, 0).events).toEqual([]);
   for (let turn = 1; turn <= 6; turn++) {
+    const previous = playerView(match, 0).events;
+    if (turn === 2) match = unwrap(stage(match, 0, [{ cardId: "c", lane: 0 }]));
+    expect(playerView(match, 0).events).toEqual(previous);
     if (turn === 1) {
       match = unwrap(stage(match, 0, [{ cardId: "a", lane: 0 }]));
       match = unwrap(stage(match, 1, [{ cardId: "b", lane: 1 }]));
     }
-    const previous = playerView(match, 0).events;
     match = unwrap(commit(match, 0));
     expect(playerView(match, 1).events).toEqual(previous);
     match = unwrap(commit(match, 1));
@@ -90,11 +94,15 @@ test("views retain ordered resolved events through staging and commit, and carry
     match = resolved.state;
     for (const id of [0, 1] satisfies PlayerId[])
       expect(playerView(match, id).events).toEqual(resolved.events);
+    if (turn > 2 && turn < 6)
+      expect(playerView(match, 0).events).toEqual([
+        { type: "turn-ended", turn },
+      ]);
     if (turn === 1) {
-      expect(resolved.events).toHaveLength(3);
-      expect(resolved.events.slice(0, 2).map((e) => e.type)).toEqual([
-        "card-revealed",
-        "card-revealed",
+      expect(playerView(match, 1).events).toEqual([
+        { type: "card-revealed", player: 0, lane: 0, card: card("a") },
+        { type: "card-revealed", player: 1, lane: 1, card: card("b") },
+        { type: "turn-ended", turn: 1 },
       ]);
       expect(resolved.events[2]).toEqual({ type: "turn-ended", turn: 1 });
     }
@@ -102,22 +110,30 @@ test("views retain ordered resolved events through staging and commit, and carry
   for (const id of [0, 1] satisfies PlayerId[])
     expect(playerView(match, id).result).toEqual({
       lanes: [0, 1, null],
-      power: [2, 2],
-      winner: null,
+      power: [4, 2],
+      winner: 0,
     });
 });
 test("views swap own and opponent while preserving shared match information", () => {
   const a = playerView(state, 0);
   const b = playerView(state, 1);
   expect(a.own).toEqual({
-    ...b.opponent,
+    deckSize: b.opponent.deckSize,
+    committed: b.opponent.committed,
+    lanes: b.opponent.lanes,
     hand: state.players[0].hand,
     staged: state.players[0].staged,
   });
   expect(b.own).toEqual({
-    ...a.opponent,
+    deckSize: a.opponent.deckSize,
+    committed: a.opponent.committed,
+    lanes: a.opponent.lanes,
     hand: state.players[1].hand,
     staged: state.players[1].staged,
   });
-  expect({ ...a, own: b.own, opponent: b.opponent }).toEqual(b);
+  expect(a.player).toBe(0);
+  expect(b.player).toBe(1);
+  expect({ ...a, player: b.player, own: b.own, opponent: b.opponent }).toEqual(
+    b,
+  );
 });

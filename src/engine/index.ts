@@ -33,6 +33,7 @@ export interface MatchState {
   readonly players: readonly [PlayerState, PlayerState];
   readonly phase: "planning" | "ended";
   readonly result: Score | null;
+  /** Ordered events from the most recent resolved turn; empty before resolution. */
   readonly events: readonly MatchEvent[];
 }
 export type EngineError =
@@ -246,17 +247,17 @@ export function resolve(state: MatchState): Result<{
 }
 
 export interface PublicPlayerView {
-  readonly handSize: number;
   readonly deckSize: number;
   readonly lanes: readonly (readonly CardDefinition[])[];
   readonly committed: boolean;
 }
 export interface PlayerView {
+  readonly player: PlayerId;
   readonly own: PublicPlayerView & {
     readonly hand: readonly CardDefinition[];
     readonly staged: readonly Play[];
   };
-  readonly opponent: PublicPlayerView;
+  readonly opponent: PublicPlayerView & { readonly handSize: number };
   readonly turn: number;
   readonly energy: number;
   readonly phase: MatchState["phase"];
@@ -267,16 +268,17 @@ export interface PlayerView {
 export function playerView(state: MatchState, id: PlayerId): PlayerView {
   function publicPlayer(player: PlayerState): PublicPlayerView {
     return {
-      handSize: player.hand.length,
       deckSize: player.deck.length,
       lanes: player.lanes,
       committed: player.committed,
     };
   }
   const own = state.players[id];
+  const opponent = state.players[id === 0 ? 1 : 0];
   return {
+    player: id,
     own: { ...publicPlayer(own), hand: own.hand, staged: own.staged },
-    opponent: publicPlayer(state.players[id === 0 ? 1 : 0]),
+    opponent: { ...publicPlayer(opponent), handSize: opponent.hand.length },
     turn: state.turn,
     energy: state.energy,
     phase: state.phase,
