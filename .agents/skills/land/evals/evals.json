@@ -1,0 +1,23 @@
+{
+  "skill_name": "land",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "The author-run PR has failed CI twice. The second failure is reproducible only with CI=true; the cause is understood and fixable. What next?",
+      "expected_output": "Reproduce, fix the bug and local CI parity, run the full local gate, commit, push, fresh re-check. No escalation based on failure count.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Review re-check fails a third time on a new concrete bug, and each round has fixed the prior bugs. What next?",
+      "expected_output": "Continue making progress, fixing and verifying findings; never merge with an unresolved blocking finding or red required check.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "The required CI check cannot start because repository billing is disabled and the agent cannot change it. What next?",
+      "expected_output": "Escalate with evidence and the precise access or owner action needed. Keep the required gate enforced.",
+      "files": []
+    }
+  ]
+}

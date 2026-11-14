@@ -6,7 +6,17 @@ The repo is equally a testbed for Scott's agent workflow: how work is planned, r
 
 ## Current state
 
-As of 2026-11-13, the root `*.ts` files and `game/` are a 2025 prototype that does not compile. Treat it as reference for intent only; the tooling reset (phase 1) replaces it with a pnpm workspace, and new code goes there.
+One pnpm-managed ESM TypeScript package. Source lives in `src/{engine,protocol,server,client}`; lint enforces their import boundaries. Protocol decoders are implemented; the other areas are placeholders for later tickets.
+
+Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 147 binary. Versions are pinned in `.node-version` and `package.json`.
+
+## Commands
+
+- `pnpm check`: typecheck, lint, format check, unit tests, git guardrail, queue and boundary regression suites, with `CI=true` for parity with GitHub.
+- `pnpm install --frozen-lockfile` installs Husky hooks. Commits format staged files; pushes run the full check; run `pnpm check` before pushing too. GitHub repeats the same gate as independent verification.
+- `pnpm fix`: format and lint auto-fix.
+- Tests live beside source in `src/`; Vitest config has its own tooling typecheck. ESLint configuration is executed by the lint gate and is not typechecked.
+- Each gate has its own script in `package.json`. Dev, build and start arrive with the server/client tickets.
 
 ## Working rules
 
@@ -14,6 +24,7 @@ As of 2026-11-13, the root `*.ts` files and `game/` are a 2025 prototype that do
 - **Landing**: an open PR reaches `main` (or Scott) through the `land` skill. Agents merge whatever fits its policy without asking. GitHub enforces PR-only, merge-commit-only, no force push on `main`.
 - **Ticket automation**: a scheduled `tick` claims the oldest unblocked `ready-for-agent` ticket and launches one `work-ticket` thread, which implements, lands, and merges its own PR. `ready-for-agent` means "an agent may take this unattended": leave it off a ticket, or assign it to someone, to hold it back. Caps and the off switch: the `tick` skill.
 - **Commits**: conventional commits, per the `commit` skill.
+- **Validation**: follow .agents/skills/validate/SKILL.md before opening or updating a PR: full local checks and direct interaction with changed behavior, including browser testing for UI changes.
 - **Prove it works**: claim done only with command output (tests, typecheck, lint, `git diff --stat`). A subagent's report is a claim, not evidence.
 - **Delegation**: before spawning any subagent or handing work to another model, load the `delegate` skill. It owns model routing.
 

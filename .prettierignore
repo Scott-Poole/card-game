@@ -1,0 +1,6 @@
+.agents/
+.claude/
+CLAUDE.md
+skills-lock.json
+pnpm-lock.yaml
+docs/agents/delegation-log.md
