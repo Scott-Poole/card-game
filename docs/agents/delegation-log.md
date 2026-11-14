@@ -22,3 +22,6 @@ One row per delegated task, appended by the orchestrating session after it has v
 | 2026-11-13 | Cross-review PR #7, Minimalist lens | review | codex / gpt-6.1-sol / medium | pass | 0 | 2 high + 1 medium, all overlapping the others; argued for simpler stale handling, which shaped the fix. |
 | 2026-11-13 | Re-check 1 PR #7 | review | codex / gpt-6.1-sol / medium | pass | 1 | FAIL: 1 high, valid: `for n in $(gh …)` fails open under set -e, bypassing the WIP and escalation caps. |
 | 2026-11-13 | Re-check 2 PR #7 | review | codex / gpt-6.1-sol / medium | pass | 2 | PASS, no findings. Brief asked it to hunt every fail-open path, not just the fixed one. |
+| 2026-11-13 | Cross-review PR #12 (raise tick caps), Skeptic lens | review | codex / gpt-6.1-sol / medium | pass | 0 | 1 medium, valid: cap tests hardcoded one slot and failed under the new config. |
+| 2026-11-13 | Re-check PR #12 | review | codex / gpt-6.1-sol / medium | pass | 1 | PASS, no findings; ran the test suite (26/26). |
+| 2026-11-13 | Author-run implement PR #12 (tick caps + test pin) | implement | claude / sonnet-5-5 / medium | fixed | 0 | Two-number config change; I missed the tests that hardcode the cap, review caught it. |
