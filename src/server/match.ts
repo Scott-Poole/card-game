@@ -14,7 +14,7 @@ import type {
   ServerMessage,
   PlayerView,
 } from "../protocol/messages.ts";
-import { starterDeck } from "./placeholder-roster.ts";
+import { starterDeck } from "./roster.ts";
 
 interface Peer {
   send(message: string): unknown;
