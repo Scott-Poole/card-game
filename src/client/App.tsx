@@ -16,7 +16,8 @@ export default function App() {
     socket.onmessage = (event: MessageEvent<unknown>) => {
       const decoded = decodeServerMessage(event.data);
       if (!decoded.ok || decoded.message.type === "error") fail();
-      else if (!failed) setStatus("connected");
+      else if (decoded.message.type === "welcome" && !failed)
+        setStatus("connected");
     };
     socket.onerror = fail;
     socket.onclose = fail;
