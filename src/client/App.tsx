@@ -10,6 +10,10 @@ export default function App() {
   const [waiting, setWaiting] = useState(false);
   const [view, setView] = useState<PlayerView | null>(null);
   const [pending, setPending] = useState(false);
+  const requestRef = useRef<{
+    message: ClientMessage;
+    turn: number | null;
+  } | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   useEffect(() => {
     const socket = new WebSocket(
@@ -20,6 +24,7 @@ export default function App() {
     const fail = () => {
       failed = true;
       setStatus("error");
+      requestRef.current = null;
       setPending(false);
     };
     socket.onmessage = (event: MessageEvent<unknown>) => {
@@ -36,12 +41,35 @@ export default function App() {
           break;
         case "waiting":
           setWaiting(true);
+          requestRef.current = null;
           setPending(false);
           break;
         case "state":
           setView(message.view);
           setWaiting(false);
-          setPending(false);
+          {
+            const request = requestRef.current;
+            const acknowledged =
+              !request ||
+              request.message.type === "join" ||
+              message.view.phase === "ended" ||
+              message.view.turn !== request.turn ||
+              (request.message.type === "commit"
+                ? message.view.own.committed
+                : request.message.plays.length ===
+                    message.view.own.staged.length &&
+                  request.message.plays.every((play, index) => {
+                    const staged = message.view.own.staged[index];
+                    return (
+                      staged?.cardId === play.cardId &&
+                      staged.lane === play.lane
+                    );
+                  }));
+            if (acknowledged) {
+              requestRef.current = null;
+              setPending(false);
+            }
+          }
           break;
         case "error":
           fail();
@@ -66,9 +94,10 @@ export default function App() {
     if (
       socketRef.current?.readyState !== WebSocket.OPEN ||
       status !== "connected" ||
-      pending
+      requestRef.current
     )
       return;
+    requestRef.current = { message, turn: view?.turn ?? null };
     setPending(true);
     socketRef.current.send(JSON.stringify(message));
   }
@@ -231,6 +260,7 @@ export default function App() {
             <section aria-label="Match result">
               <h2>Match result</h2>
               <p aria-label="Winner">{outcome(view.result.winner)}</p>
+              {/* The current server emits only match-ended for a forfeit; normal endings include turn-ended. */}
               {view.events.every((event) => event.type === "match-ended") && (
                 <p>Forfeit: opponent left the match</p>
               )}
