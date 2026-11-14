@@ -24,6 +24,8 @@ Caps live in [`config.json`](config.json) and are read from `origin/main`: ticke
 
 Steps 1–4 are a loop: after recording a launch, go back to step 1. Keep the list of tickets this run has claimed (`<claimed>` below, space-separated, empty at first) and pass it to every `next` and `plan-open`: GitHub's listings can lag a label write by more than the seconds between calls, so `queue.sh` counts those claims against the caps itself and never offers them again. The caps end the loop: every claim uses an in-progress slot and a daily claim, and once a planner is open, `next` returns `NOOP`. Your reply covers the whole run: every ticket launched, the planner if one started, and the `NOOP` line that ended it.
 
+Completed parent specs stay open for Scott: `queue.sh parent-done <child>` swaps `ready-for-agent` for `ready-for-human` and comments once after all children close. Nothing waits on the spec. These unclaimed specs do not count toward `maxEscalated`, which counts claim history.
+
 ## 1. Ask the queue
 
 Run the landed copy of the script, so a checkout on any branch obeys `main`:
