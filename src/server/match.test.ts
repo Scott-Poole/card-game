@@ -192,3 +192,38 @@ test("a fifth card in a lane fails privately and a revised legal play succeeds",
   a.socket.close();
   b.socket.close();
 });
+
+test("both players' raw frames contain only revealed opponent card ids", async () => {
+  const { a, b, views: initial } = await pair();
+  let views = initial;
+  const first = views[0].own.hand.find((c) => c.cost === 1);
+  const second = views[1].own.hand.find((c) => c.cost <= 2);
+  if (!first || !second) throw new Error("fixture missing cards");
+  // Advance to turn two so both players can stage known affordable cards.
+  a.send({ type: "commit" });
+  await states(a, b);
+  b.send({ type: "commit" });
+  views = await states(a, b);
+  a.send({ type: "stage", plays: [{ cardId: first.id, lane: 0 }] });
+  await states(a, b);
+  b.send({ type: "stage", plays: [{ cardId: second.id, lane: 1 }] });
+  await states(a, b);
+  for (const [peer, hidden] of [
+    [a, views[1].own.hand],
+    [b, views[0].own.hand],
+  ] satisfies readonly (readonly [
+    typeof a,
+    (typeof views)[0]["own"]["hand"],
+  ])[]) {
+    for (const frame of peer.frames)
+      for (const card of hidden) expect(frame).not.toContain(card.id);
+  }
+  a.send({ type: "commit" });
+  await states(a, b);
+  b.send({ type: "commit" });
+  views = await states(a, b);
+  expect(views[0].opponent.lanes[1]).toContainEqual(second);
+  expect(views[1].opponent.lanes[0]).toContainEqual(first);
+  a.socket.close();
+  b.socket.close();
+});
