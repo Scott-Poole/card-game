@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, test } from "vitest";
+import { roster } from "./roster.ts";
 import { validateArtManifest } from "./art.ts";
 
 let directory: string;
@@ -118,6 +119,23 @@ test("reports malformed JSON shapes without throwing", async () => {
       (issue) => issue.code !== "unrecorded-file",
     ),
   ).toEqual([{ code: "entry", index: 0 }]);
+});
+
+test("shipped manifest covers every roster card exactly once", async () => {
+  const manifest: unknown = JSON.parse(
+    await readFile(
+      new URL("../../content/art/manifest.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  expect(Array.isArray(manifest)).toBe(true);
+  if (!Array.isArray(manifest)) return;
+  const ids = manifest.map((entry: unknown) =>
+    typeof entry === "object" && entry !== null && "cardId" in entry
+      ? entry.cardId
+      : undefined,
+  );
+  expect(ids.sort()).toEqual(roster.map(({ card }) => card.id).sort());
 });
 
 test("shipped manifest has no issues", async () => {
