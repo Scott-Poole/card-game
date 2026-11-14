@@ -18,6 +18,7 @@
 # Config is read from TICK_REF (default origin/main), so a tick run from any checkout
 # obeys what has landed. Tests: test-queue.sh.
 set -euo pipefail
+shopt -s inherit_errexit # $(cmd_next) in plan-open must fail closed too
 
 REPO=Scott-Poole/card-game
 API=repos/$REPO
@@ -193,21 +194,26 @@ planning_runs() {
 		--jq '[.[] | select(.pull_request == null) | {number, state, title, created_at}]'
 }
 
+# plan-open re-runs the whole `next` decision instead of trusting an earlier one, so the
+# switches, caps, and rotation hold even when two ticks interleave. GitHub has no lock, so
+# a race can still create two issues; the lowest-numbered open one wins and the other
+# closes itself before any planner launches.
 cmd_plan_open() {
-	local cat=$1 valid open n
-	valid=$(config | jq --arg c "$cat" '.planning.categories | index($c) != null')
-	if [[ $valid != true ]]; then
-		log "refusing to plan: '$cat' is not a category in config.json"
-		exit 1
-	fi
-	open=$(planning_runs | jq -r '[.[] | select(.state == "open") | .number] | first // empty')
-	if [[ -n $open ]]; then
-		log "refusing to plan: planner #$open is still open"
+	local cat=$1 act n first
+	act=$(cmd_next)
+	if [[ $act != "PLAN $cat" ]]; then
+		log "refusing to plan $cat: next says [$act]"
 		exit 1
 	fi
 	n=$(gh api --method POST "$API/issues" -f "title=Plan: $cat" -f "labels[]=$PLANNING" \
-		-f "body=tick: a \`$cat\` planner run, opened $(date -u +%Y-%m-%dT%H:%MZ). The planner files tickets per the \`plan\` skill, lists them here, and closes this issue." \
+		-f "body=tick: a \`$cat\` planner run, opened $(date -u +%Y-%m-%dT%H:%MZ). The planner files tickets per the \`plan\` skill, lists them here, and closes this issue. A closed planning issue means its planner stops filing." \
 		--jq .number)
+	first=$(planning_runs | jq -r '[.[] | select(.state == "open") | .number] | min // empty')
+	if [[ -n $first && $first != "$n" ]]; then
+		cmd_plan_close "$n" "tick: lost a race to planner #$first; closing before launch." not_planned
+		log "refusing to plan $cat: planner #$first opened first"
+		exit 1
+	fi
 	log "planning issue #$n opened for $cat"
 	echo "$n"
 }
