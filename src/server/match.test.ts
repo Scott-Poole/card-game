@@ -1,3 +1,4 @@
+import { roster } from "./roster.ts";
 import { afterEach, expect, test, vi } from "vitest";
 import {
   decodeServerMessage,
@@ -132,7 +133,11 @@ test("six turns resolve, reject illegal actions privately, and never expose hidd
         ]);
         expect(frame).not.toContain('"deck":');
         expect(frame).not.toContain('"rng":');
-        if (peer === a) expect(frame).not.toContain("1:");
+        for (const field of ["figure", "tradition", "flavor"])
+          expect(frame).not.toContain(JSON.stringify(field) + ":");
+        if (peer === a)
+          for (const { card } of roster)
+            expect(frame).not.toContain(JSON.stringify(`1:${card.id}`));
       }
     }
   a.socket.close();

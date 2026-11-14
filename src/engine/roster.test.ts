@@ -73,3 +73,15 @@ test.each([1, 2, 3, 4, 5, 6])("requires two cards at cost %i", (cost) => {
     { code: "cost-coverage", cost },
   ]);
 });
+
+test("accepts more than two cards at a cost", () => {
+  expect(
+    validateRoster([
+      ...valid,
+      {
+        ...first,
+        card: { ...first.card, id: "extra-card", name: "Extra figure" },
+      },
+    ]),
+  ).toEqual([]);
+});
