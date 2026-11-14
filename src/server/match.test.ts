@@ -132,7 +132,7 @@ test("six turns resolve, reject illegal actions privately, and never expose hidd
         ]);
         expect(frame).not.toContain('"deck":');
         expect(frame).not.toContain('"rng":');
-        if (peer === a) expect(frame).not.toContain("1:placeholder-");
+        if (peer === a) expect(frame).not.toContain("1:");
       }
     }
   a.socket.close();
