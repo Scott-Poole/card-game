@@ -26,16 +26,11 @@ function turn(
   a: readonly Play[] = [],
   b: readonly Play[] = [],
 ) {
-  return unwrap(
-    resolve(
-      unwrap(
-        commit(
-          unwrap(commit(unwrap(stage(unwrap(stage(state, 0, a)), 1, b)), 0)),
-          1,
-        ),
-      ),
-    ),
-  );
+  let next = unwrap(stage(state, 0, a));
+  next = unwrap(stage(next, 1, b));
+  next = unwrap(commit(next, 0));
+  next = unwrap(commit(next, 1));
+  return unwrap(resolve(next));
 }
 function play(state: MatchState, id: 0 | 1, lane: number): Play[] {
   const card = state.players[id].hand[0];
@@ -50,8 +45,8 @@ test("creates a seeded match with three opening cards and one energy", () => {
   ]);
   expect(state.energy).toBe(1);
   expect(state).toEqual(createMatch(42, [deck(), deck()]));
-  expect(state.players[0].hand).not.toEqual(
-    createMatch(43, [deck(), deck()]).players[0].hand,
+  expect(state.players[0]).not.toEqual(
+    createMatch(43, [deck(), deck()]).players[0],
   );
 });
 
@@ -227,5 +222,37 @@ test("reveals each staged card in list order, removes it from hand, and resets e
   expect(resolved.state.players[0].lanes[0]?.length).toBe(2);
   expect(resolved.state.players[0].staged).toEqual([]);
   expect(resolved.state.energy).toBe(3);
+  expect(JSON.stringify(state)).toBe(before);
+});
+
+test.each([0, 1])(
+  "turn 2 has exactly two energy after spending %i on turn 1",
+  (spent) => {
+    let state = createMatch(42, [deck(1, 1), deck()]);
+    state = turn(state, spent ? play(state, 0, 0) : []).state;
+    const plays = state.players[0].hand
+      .slice(0, 3)
+      .map((c) => ({ cardId: c.id, lane: 0 }));
+    expect(stage(state, 0, plays)).toEqual({ ok: false, error: "overspend" });
+    expect(stage(state, 0, plays.slice(0, 2)).ok).toBe(true);
+  },
+);
+
+test("equal non-empty lanes are tied", () => {
+  let state = createMatch(42, [deck(3), deck(3)]);
+  state = turn(state, play(state, 0, 0), play(state, 1, 0)).state;
+  for (let n = 1; n < 6; n++) state = turn(state).state;
+  expect(state.result).toEqual({
+    lanes: [null, null, null],
+    power: [3, 3],
+    winner: null,
+  });
+});
+
+test("caller changes to deck definitions do not change a created match", () => {
+  const cards = deck();
+  const state = createMatch(42, [cards, cards]);
+  const before = JSON.stringify(state);
+  Object.assign(cards[0] ?? {}, { power: 999 });
   expect(JSON.stringify(state)).toBe(before);
 });
