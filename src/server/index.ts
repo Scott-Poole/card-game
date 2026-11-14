@@ -14,11 +14,35 @@ export interface ServerHandle {
 }
 
 export function startServer(options: ServerOptions): Promise<ServerHandle> {
+  if (
+    !Number.isInteger(options.port) ||
+    options.port < 0 ||
+    options.port > 65535
+  ) {
+    return Promise.reject(
+      new Error("port must be an integer between 0 and 65535"),
+    );
+  }
   const app = App().ws("/ws", {
-    message(socket, buffer) {
-      const result = decodeClientMessage(Buffer.from(buffer).toString("utf8"));
+    // Transport limits: oversize frames disconnect rather than enter the decoder.
+    maxPayloadLength: 16 * 1024,
+    idleTimeout: 120,
+    maxBackpressure: 64 * 1024,
+    closeOnBackpressureLimit: true,
+    message(socket, buffer, isBinary) {
+      const result = isBinary
+        ? ({ ok: false, error: "invalid-message" } satisfies {
+            ok: false;
+            error: "invalid-message";
+          })
+        : decodeClientMessage(Buffer.from(buffer).toString("utf8"));
       if (!result.ok)
-        socket.send(JSON.stringify({ type: "error", error: result.error }));
+        socket.send(
+          JSON.stringify({
+            type: "error",
+            error: result.error,
+          } satisfies ServerMessage),
+        );
     },
     open(socket) {
       socket.send(JSON.stringify({ type: "welcome" } satisfies ServerMessage));

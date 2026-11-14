@@ -52,3 +52,15 @@ it("rejects an inherited welcome discriminator", () => {
     error: "invalid-message",
   });
 });
+
+it.each(["invalid-json", "invalid-message", "unrecognized-message"])(
+  "decodes error %s",
+  (error) => {
+    expect(
+      decodeServerMessage(JSON.stringify({ type: "error", error })),
+    ).toEqual({
+      ok: true,
+      message: { type: "error", error },
+    });
+  },
+);

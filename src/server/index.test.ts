@@ -45,12 +45,13 @@ test.each(["{", '{"type":"unknown"}'])(
     for (const message of [input, input]) {
       const reply = nextMessage(socket);
       socket.send(message);
-      expect(await reply).toBe(
-        JSON.stringify({
+      expect(decodeServerMessage(await reply)).toEqual({
+        ok: true,
+        message: {
           type: "error",
           error: input === "{" ? "invalid-json" : "unrecognized-message",
-        }),
-      );
+        },
+      });
       expect(socket.readyState).toBe(WebSocket.OPEN);
     }
     socket.close();
@@ -74,4 +75,41 @@ test("close disconnects active clients and stops accepting connections", async (
   server.close();
   await closed;
   await expect(fetch(`http://localhost:${String(port)}/`)).rejects.toThrow();
+});
+
+test.each([NaN, 65536, -1, 1.5])("rejects invalid port %s", async (port) => {
+  await expect(startServer({ port, clientDirectory: "dist" })).rejects.toThrow(
+    "port",
+  );
+});
+
+test("rejects binary frames without closing the connection", async () => {
+  server = await startServer({ port: 0, clientDirectory: "dist" });
+  const socket = new WebSocket(`ws://localhost:${String(server.port)}/ws`);
+  await nextMessage(socket);
+  const reply = nextMessage(socket);
+  socket.send(new Uint8Array([255, 254]));
+  expect(decodeServerMessage(await reply)).toEqual({
+    ok: true,
+    message: { type: "error", error: "invalid-message" },
+  });
+  socket.close();
+});
+
+test("disconnects oversized frames at the transport limit", async () => {
+  server = await startServer({ port: 0, clientDirectory: "dist" });
+  const socket = new WebSocket(`ws://localhost:${String(server.port)}/ws`);
+  await nextMessage(socket);
+  const closed = new Promise<void>((resolve) => {
+    socket.addEventListener(
+      "close",
+      () => {
+        resolve();
+      },
+      { once: true },
+    );
+  });
+  socket.send("x".repeat(20_000));
+  await closed;
+  expect(socket.readyState).toBe(WebSocket.CLOSED);
 });
