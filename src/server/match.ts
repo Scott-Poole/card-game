@@ -1,6 +1,7 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import {
   createMatch,
+  forfeit,
   stage,
   commit,
   resolve,
@@ -31,13 +32,38 @@ function send(peer: Peer, message: ServerMessage) {
 }
 function wireView(state: MatchState, player: PlayerId): PlayerView {
   const view = playerView(state, player);
-  if (view.phase === "ended" && view.result)
-    return { ...view, phase: "ended", result: view.result };
-  return { ...view, phase: "planning", result: null };
+  const fields = {
+    player: view.player,
+    turn: view.turn,
+    energy: view.energy,
+    own: view.own,
+    opponent: view.opponent,
+    events: view.events,
+  };
+  if (view.phase === "ended") {
+    if (!view.result) throw new Error("Ended match has no result");
+    return { ...fields, phase: "ended", result: view.result };
+  }
+  return { ...fields, phase: "planning", result: null };
 }
 function broadcast(match: Match) {
   send(match.peers[0], { type: "state", view: wireView(match.state, 0) });
   send(match.peers[1], { type: "state", view: wireView(match.state, 1) });
+}
+// Independent cryptographic permutations keep opponent draws secret even if
+// the engine's replay seed is guessed from a player's own draw order.
+function privateDeck(player: PlayerId) {
+  const cards = [...starterDeck(player)];
+  for (let i = cards.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    const a = cards[i],
+      b = cards[j];
+    if (a && b) {
+      cards[i] = b;
+      cards[j] = a;
+    }
+  }
+  return cards;
 }
 /** Owns the queue and match lifecycle for a single server instance. */
 export function matchHost() {
@@ -61,8 +87,8 @@ export function matchHost() {
         }
         const match: Match = {
           state: createMatch(randomBytes(4).readUInt32LE(), [
-            starterDeck(0),
-            starterDeck(1),
+            privateDeck(0),
+            privateDeck(1),
           ]),
           peers: [waiting, peer],
         };
@@ -88,7 +114,8 @@ export function matchHost() {
       match.state = result.value;
       if (match.state.players.every((p) => p.committed)) {
         const resolved = resolve(match.state);
-        if (resolved.ok) match.state = resolved.value.state;
+        if (!resolved.ok) throw new Error("Committed match could not resolve");
+        match.state = resolved.value.state;
       }
       broadcast(match);
     },
@@ -99,36 +126,7 @@ export function matchHost() {
       if (!seat || seat.match.state.phase === "ended") return;
       const { match, player } = seat;
       const winner = player === 0 ? 1 : 0;
-      const result = {
-        lanes: [0, 1, 2].map((lane) => {
-          const a =
-            match.state.players[0].lanes[lane]?.reduce(
-              (sum, card) => sum + card.power,
-              0,
-            ) ?? 0;
-          const b =
-            match.state.players[1].lanes[lane]?.reduce(
-              (sum, card) => sum + card.power,
-              0,
-            ) ?? 0;
-          return a === b ? null : a > b ? 0 : 1;
-        }),
-        power: [
-          match.state.players[0].lanes
-            .flat()
-            .reduce((sum, card) => sum + card.power, 0),
-          match.state.players[1].lanes
-            .flat()
-            .reduce((sum, card) => sum + card.power, 0),
-        ],
-        winner,
-      } satisfies NonNullable<MatchState["result"]>;
-      match.state = {
-        ...match.state,
-        phase: "ended",
-        result,
-        events: [{ type: "match-ended", result }],
-      };
+      match.state = forfeit(match.state, player);
       send(match.peers[winner], {
         type: "state",
         view: wireView(match.state, winner),

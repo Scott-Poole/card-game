@@ -20,6 +20,8 @@ export const placeholderRoster: readonly CardDefinition[] = [
   cost: Math.floor(index / 2) + 1,
   power: (Math.floor(index / 2) + 1) * 2,
 }));
+// Distinct instance ids let raw-frame tests detect cross-player leaks, even
+// when both decks use the same card definitions.
 export function starterDeck(player: PlayerId): readonly CardDefinition[] {
   return placeholderRoster.map((card) => ({
     ...card,
