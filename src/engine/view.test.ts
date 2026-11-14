@@ -110,14 +110,22 @@ test("views swap own and opponent while preserving shared match information", ()
   const a = playerView(state, 0);
   const b = playerView(state, 1);
   expect(a.own).toEqual({
-    ...b.opponent,
+    deckSize: b.opponent.deckSize,
+    committed: b.opponent.committed,
+    lanes: b.opponent.lanes,
     hand: state.players[0].hand,
     staged: state.players[0].staged,
   });
   expect(b.own).toEqual({
-    ...a.opponent,
+    deckSize: a.opponent.deckSize,
+    committed: a.opponent.committed,
+    lanes: a.opponent.lanes,
     hand: state.players[1].hand,
     staged: state.players[1].staged,
   });
-  expect({ ...a, own: b.own, opponent: b.opponent }).toEqual(b);
+  expect(a.player).toBe(0);
+  expect(b.player).toBe(1);
+  expect({ ...a, player: b.player, own: b.own, opponent: b.opponent }).toEqual(
+    b,
+  );
 });
