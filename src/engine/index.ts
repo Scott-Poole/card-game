@@ -286,3 +286,18 @@ export function playerView(state: MatchState, id: PlayerId): PlayerView {
     events: state.events,
   };
 }
+
+/** A disconnect ends planning immediately; board scores remain descriptive. */
+export function forfeit(state: MatchState, loser: PlayerId): MatchState {
+  if (state.phase === "ended") return state;
+  const result = {
+    ...score(state),
+    winner: loser === 0 ? 1 : 0,
+  } satisfies Score;
+  return {
+    ...state,
+    phase: "ended",
+    result,
+    events: [{ type: "match-ended", result }],
+  };
+}
