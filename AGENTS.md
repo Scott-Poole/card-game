@@ -8,7 +8,7 @@ The repo is equally a testbed for Scott's agent workflow: how work is planned, r
 
 One pnpm-managed ESM TypeScript package. Source lives in `src/{engine,protocol,server,client}`; lint enforces their import boundaries. Protocol decoders, the WebSocket server and a React connection-status client are implemented.
 
-Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 147 binary. Versions are pinned in `.node-version` and `package.json`.
+Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 147 binary. Versions are pinned in `.nvmrc` and `package.json`.
 
 ## Commands
 
