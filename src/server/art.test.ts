@@ -50,7 +50,9 @@ test.each([
   "reports %s for incomplete or invalid metadata (%j)",
   async (code, patch) => {
     expect(
-      await validateArtManifest([{ ...valid, ...patch }], directory),
+      (await validateArtManifest([{ ...valid, ...patch }], directory)).filter(
+        (issue) => issue.code !== "unrecorded-file",
+      ),
     ).toEqual([{ code, index: 0 }]);
   },
 );
@@ -103,9 +105,11 @@ test("reports malformed JSON shapes without throwing", async () => {
   expect(await validateArtManifest({}, directory)).toEqual([
     { code: "manifest", index: -1 },
   ]);
-  expect(await validateArtManifest([null], directory)).toEqual([
-    { code: "entry", index: 0 },
-  ]);
+  expect(
+    (await validateArtManifest([null], directory)).filter(
+      (issue) => issue.code !== "unrecorded-file",
+    ),
+  ).toEqual([{ code: "entry", index: 0 }]);
 });
 
 test("shipped manifest has no issues", async () => {
@@ -116,4 +120,10 @@ test("shipped manifest has no issues", async () => {
   expect(await validateArtManifest(manifest, fileURLToPath(directory))).toEqual(
     [],
   );
+});
+
+test("rejects art files without a manifest record", async () => {
+  expect(await validateArtManifest([], directory)).toEqual([
+    { code: "unrecorded-file", index: -1, file: "image.png" },
+  ]);
 });
