@@ -3,7 +3,7 @@
   "compilerOptions": {
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "types": [],
-    "jsx": "preserve"
+    "jsx": "react-jsx"
   },
   "include": [
     "src/client/**/*.ts",

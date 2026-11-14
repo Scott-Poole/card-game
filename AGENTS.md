@@ -6,17 +6,21 @@ The repo is equally a testbed for Scott's agent workflow: how work is planned, r
 
 ## Current state
 
-One pnpm-managed ESM TypeScript package. Source lives in `src/{engine,protocol,server,client}`; lint enforces their import boundaries. Protocol decoders are implemented; the other areas are placeholders for later tickets.
+One pnpm-managed ESM TypeScript package. Source lives in `src/{engine,protocol,server,client}`; lint enforces their import boundaries. Protocol decoders, the WebSocket server and a React connection-status client are implemented.
 
 Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 147 binary. Versions are pinned in `.node-version` and `package.json`.
 
 ## Commands
 
-- `pnpm check`: typecheck, lint, format check, unit tests, git guardrail, queue and boundary regression suites, with `CI=true` for parity with GitHub.
+- `pnpm check`: typecheck, lint, format check, unit tests, git guardrail, queue and boundary regression suites, production build and Chromium browser tests, with `CI=true` for parity with GitHub.
 - `pnpm install --frozen-lockfile` installs Husky hooks. Commits format staged files; pushes run the full check; run `pnpm check` before pushing too. GitHub repeats the same gate as independent verification.
 - `pnpm fix`: format and lint auto-fix.
 - Tests live beside source in `src/`; Vitest config has its own tooling typecheck. ESLint configuration is executed by the lint gate and is not typechecked.
-- Each gate has its own script in `package.json`. Dev, build and start arrive with the server/client tickets.
+- `pnpm dev`: Vite HMR and Node server watch mode, with a WebSocket proxy.
+- `pnpm build`: build the React client into `dist`.
+- `pnpm start`: serve `dist` and `/ws` together (`PORT` defaults to 3000).
+- Agents can drive the running app with Playwright to verify UI work. `pnpm test:browser` tests the production build on a free port.
+- Each gate has its own script in `package.json`.
 
 ## Working rules
 

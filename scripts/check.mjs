@@ -20,6 +20,7 @@ const gates = [
   "test:guardrail",
   "test:queue",
   "test:boundaries",
+  "test:browser",
 ];
 for (const gate of gates) {
   const result = spawnSync("pnpm", [gate], {

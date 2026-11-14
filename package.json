@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.client.json && tsc -p tsconfig.engine.json && tsc -p tsconfig.tooling.json",
-    "lint": "eslint src vitest.config.ts --max-warnings 0",
+    "lint": "eslint src e2e *.config.ts --max-warnings 0",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "fix": "pnpm lint --fix; pnpm format",
@@ -20,21 +20,33 @@
     "check": "node scripts/check.mjs",
     "test:boundaries": "node scripts/test-boundaries.mjs",
     "prepare": "husky",
-    "start": "node src/server/main.ts"
+    "start": "node src/server/main.ts",
+    "build": "vite build",
+    "dev": "concurrently --kill-others \"node --watch src/server/main.ts\" \"vite\"",
+    "test:browser": "pnpm build && playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^10.0.7",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "9.1.7",
     "lint-staged": "17.6.0",
     "prettier": "3.10.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",
+    "vite": "^8.3.8",
     "vitest": "5.1.0"
   },
   "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.71.0"
   },
   "pnpm": {

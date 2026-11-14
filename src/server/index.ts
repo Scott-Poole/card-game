@@ -1,10 +1,11 @@
+import { staticResponse } from "./static.ts";
 import { App, us_socket_local_port } from "uWebSockets.js";
 import { decodeClientMessage } from "../protocol/messages.ts";
 import type { ServerMessage } from "../protocol/messages.ts";
 
 export interface ServerOptions {
   port: number;
-  /** Reserved for built-client serving in the client ticket; unused here. */
+  /** Directory containing the production client. */
   clientDirectory: string;
 }
 export interface ServerHandle {
@@ -47,6 +48,22 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
     open(socket) {
       socket.send(JSON.stringify({ type: "welcome" } satisfies ServerMessage));
     },
+  });
+  app.any("/*", (response, request) => {
+    const method = request.getMethod();
+    if (method !== "get" && method !== "head") {
+      response
+        .writeStatus("405 Method Not Allowed")
+        .writeHeader("Allow", "GET, HEAD")
+        .end();
+      return;
+    }
+    const file = staticResponse(options.clientDirectory, request.getUrl());
+    response
+      .writeStatus(file.status)
+      .writeHeader("Content-Type", file.type)
+      .writeHeader("X-Content-Type-Options", "nosniff")
+      .end(method === "head" ? undefined : file.body);
   });
   return new Promise((resolve, reject) => {
     app.listen(options.port, (socket) => {
