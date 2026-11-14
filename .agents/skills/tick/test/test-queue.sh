@@ -218,6 +218,49 @@ done)
 OUT=$missing ERR= CODE=
 check "every planning category has a lens in plan/SKILL.md" is "$missing" ""
 
+# --- dispatch loop ----------------------------------------------------------------------
+# A tick repeats next -> claim until next says NOOP, so several tickets run at once. Each
+# claim must move next on to a fresh ticket, and the caps alone must end the loop.
+setup "[$(issue 6 ready-for-agent), $(issue 7 ready-for-agent), $(issue 8 ready-for-agent)]"
+seen=()
+for _ in 1 2 3 4 5; do
+	REF=$(config_ref '.maxInProgress = 2') run next
+	seen+=("$OUT")
+	[[ $OUT == LAUNCH* ]] || break
+	run claim "$(cut -d' ' -f2 <<<"$OUT")"
+done
+OUT=$(printf '%s|' "${seen[@]}")
+check "the loop launches up to the wip cap, then stops" is "$OUT" "LAUNCH 6 Ticket 6|LAUNCH 7 Ticket 7|NOOP 2 ticket(s) in progress (cap 2)|"
+check "the loop leaves the ticket past the cap queued" is "$(labels 8)" "ready-for-agent"
+
+setup "[$(issue 6 ready-for-agent), $(issue 7 ready-for-agent)]"
+seen=()
+for _ in 1 2 3 4 5; do
+	REF=$(config_ref '.maxDailyClaims = 1') run next
+	seen+=("$OUT")
+	[[ $OUT == LAUNCH* ]] || break
+	run claim "$(cut -d' ' -f2 <<<"$OUT")"
+	# fake-gh does not log repo events for claims; record today's claim by hand.
+	jq --argjson e "$(claimed_event "$TODAY")" '.repo_event_pages[0] += [$e]' "$WORK/state.json" >"$WORK/s" && mv "$WORK/s" "$WORK/state.json"
+done
+OUT=$(printf '%s|' "${seen[@]}")
+check "the loop stops at the daily claim cap" is "$OUT" "LAUNCH 6 Ticket 6|NOOP 1 claim(s) today (cap 1, UTC day)|"
+
+# Draining the queue hands over to one planner, which then ends the loop.
+setup "[$(issue 6 ready-for-agent)]"
+seen=()
+for _ in 1 2 3 4 5; do
+	FAKE_GH_NOW=$TODAY run next
+	seen+=("$OUT")
+	case $OUT in
+	LAUNCH*) run claim "$(cut -d' ' -f2 <<<"$OUT")" ;;
+	PLAN*) FAKE_GH_NOW=$TODAY run plan-open "${OUT#PLAN }" ;;
+	*) break ;;
+	esac
+done
+OUT=$(printf '%s|' "${seen[@]}")
+check "a drained queue starts one planner, then stops" is "$OUT" "LAUNCH 6 Ticket 6|PLAN feature|NOOP frontier empty; planner #7 running|"
+
 # --- transitions ------------------------------------------------------------------------
 setup "[$(issue 6 ready-for-agent)]"
 run claim 6

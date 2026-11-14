@@ -1,14 +1,14 @@
 ---
 name: tick
 description: >-
-  One pass of the ticket queue: claim the next ready ticket and launch a work-ticket thread for
-  it, within the usage caps. Use when the scheduled tick fires, or when asked to run the tick or
-  dispatch the next ticket.
+  One pass of the ticket queue: claim every ready ticket the usage caps allow and launch a
+  work-ticket thread for each, then a planner if the queue runs dry. Use when the scheduled tick
+  fires, or when asked to run the tick or dispatch the next ticket.
 ---
 
 # Tick
 
-Owned by this repo. The scheduled dispatcher: each run claims **at most one** ticket and starts one thread to take it from claim to merge (the `work-ticket` skill). When no ticket is ready, it starts a **planner** instead (the `plan` skill), so an empty queue refills itself. [`queue.sh`](queue.sh) does every query and label write, so a run is a few commands; spend nothing beyond them.
+Owned by this repo. The scheduled dispatcher: each run **drains the queue up to the caps**, claiming ready tickets one after another and starting one thread per ticket to take it from claim to merge (the `work-ticket` skill). When no ticket is ready, including after the run has claimed the last one, it starts a **planner** (the `plan` skill), so an empty queue refills itself while the implementers work. [`queue.sh`](queue.sh) does every query and label write, so a run is a few commands; spend nothing beyond them.
 
 The queue is label-driven, and the tick is the only writer of claims:
 
@@ -22,6 +22,8 @@ Planners run beside implementers: one at a time, tracked by an open `planning` i
 
 Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (stale ones included), claims per UTC day, tickets automation has handed to Scott, hours before a claim counts as stale. The `planning` block holds the planner's own: on/off, runs per UTC day, tickets per run, and the category rotation. Tune them there (through a PR); `"enabled": false` stops dispatch and planning, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
 
+Steps 1–4 are a loop: after recording a launch, go back to step 1. The caps end it: every claim uses an in-progress slot and a daily claim, and once a planner is open, `next` returns `NOOP`. Your reply covers the whole run: every ticket launched, the planner if one started, and the `NOOP` line that ended it.
+
 ## 1. Ask the queue
 
 Run the landed copy of the script, so a checkout on any branch obeys `main`:
@@ -30,7 +32,7 @@ Run the landed copy of the script, so a checkout on any branch obeys `main`:
 git fetch -q origin main && git show origin/main:.agents/skills/tick/queue.sh | bash -s -- next
 ```
 
-It prints one line. A non-zero exit means a GitHub call failed partway: reply with its stderr and stop, retrying nothing. `NOOP <reason>` → reply with that line and stop. `PLAN <category>` → go to **Plan** below. `LAUNCH <n> <title>` → continue. Stale claims it swept are on stderr; mention them in the reply.
+It prints one line. A non-zero exit means a GitHub call failed partway: reply with its stderr and stop, retrying nothing. `NOOP <reason>` → the run is over: reply and stop. `PLAN <category>` → go to **Plan** below. `LAUNCH <n> <title>` → continue, unless this run already launched `<n>`: GitHub's issue listings can lag a label write, so a repeat means stop and report it, not claim again. Stale claims it swept are on stderr; mention them in the reply.
 
 ## 2. Claim
 
@@ -38,11 +40,11 @@ It prints one line. A non-zero exit means a GitHub call failed partway: reply wi
 git show origin/main:.agents/skills/tick/queue.sh | bash -s -- claim <n>
 ```
 
-A refusal means someone else holds the ticket: reply with the refusal and stop.
+A refusal means someone else holds the ticket: reply with the refusal and stop. Another tick is running, so leave the rest of the queue to it.
 
 ## 3. Launch
 
-Pick the model from the `delegate` skill's **implement** tier, primary column, and copy its ids from `orchestrator_capabilities`. Then `t3_thread_launch`:
+Pick the model from the `delegate` skill's **implement** tier, primary column, and copy its ids from `orchestrator_capabilities` (once per run; reuse them for later launches). Then `t3_thread_launch`:
 
 - `title`: `#<n> <title>`
 - `workspaceStrategy`: `{type: "worktree", baseRef: "origin/main", startFromOrigin: true, branch: "ticket/<n>-<slug>"}`, slug = 3–5 kebab-case words from the title
@@ -61,7 +63,7 @@ If the launch fails, release the claim (`... | bash -s -- release <n> "<error>"`
 git show origin/main:.agents/skills/tick/queue.sh | bash -s -- note <n> "work-ticket thread: <link>"
 ```
 
-Done when the issue carries `in-progress`, a claim comment, and the thread link, and your reply names the ticket and links the thread.
+This ticket is done when it carries `in-progress`, a claim comment, and the thread link. Go back to step 1.
 
 ## Plan
 
@@ -86,4 +88,4 @@ When step 1 printed `PLAN <category>`:
 
 3. Record the thread: `... | bash -s -- note <n> "planner thread: <link>"`.
 
-Done when the planning issue is open with the thread link, and your reply names the category and links the thread.
+Done when the planning issue is open with the thread link. That ends the run (only one planner runs at a time): reply with every ticket launched, and name the category and link the planner thread.
