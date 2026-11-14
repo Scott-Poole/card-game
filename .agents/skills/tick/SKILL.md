@@ -22,17 +22,17 @@ Planners run beside implementers: one at a time, tracked by an open `planning` i
 
 Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (stale ones included), claims per UTC day, tickets automation has handed to Scott, hours before a claim counts as stale. The `planning` block holds the planner's own: on/off, runs per UTC day, tickets per run, and the category rotation. Tune them there (through a PR); `"enabled": false` stops dispatch and planning, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
 
-Steps 1–4 are a loop: after recording a launch, go back to step 1. The caps end it: every claim uses an in-progress slot and a daily claim, and once a planner is open, `next` returns `NOOP`. Your reply covers the whole run: every ticket launched, the planner if one started, and the `NOOP` line that ended it.
+Steps 1–4 are a loop: after recording a launch, go back to step 1. Keep the list of tickets this run has claimed (`<claimed>` below, space-separated, empty at first) and pass it to every `next` and `plan-open`: GitHub's listings can lag a label write by more than the seconds between calls, so `queue.sh` counts those claims against the caps itself and never offers them again. The caps end the loop: every claim uses an in-progress slot and a daily claim, and once a planner is open, `next` returns `NOOP`. Your reply covers the whole run: every ticket launched, the planner if one started, and the `NOOP` line that ended it.
 
 ## 1. Ask the queue
 
 Run the landed copy of the script, so a checkout on any branch obeys `main`:
 
 ```sh
-git fetch -q origin main && git show origin/main:.agents/skills/tick/queue.sh | bash -s -- next
+git fetch -q origin main && git show origin/main:.agents/skills/tick/queue.sh | bash -s -- next <claimed>
 ```
 
-It prints one line. A non-zero exit means a GitHub call failed partway: reply with its stderr and stop, retrying nothing. `NOOP <reason>` → the run is over: reply and stop. `PLAN <category>` → go to **Plan** below. `LAUNCH <n> <title>` → continue, unless this run already launched `<n>`: GitHub's issue listings can lag a label write, so a repeat means stop and report it, not claim again. Stale claims it swept are on stderr; mention them in the reply.
+It prints one line. A non-zero exit means a GitHub call failed partway: reply with its stderr and stop, retrying nothing. `NOOP <reason>` → the run is over: reply and stop. `PLAN <category>` → go to **Plan** below. `LAUNCH <n> <title>` → continue. Stale claims it swept are on stderr; mention them in the reply.
 
 ## 2. Claim
 
@@ -40,7 +40,7 @@ It prints one line. A non-zero exit means a GitHub call failed partway: reply wi
 git show origin/main:.agents/skills/tick/queue.sh | bash -s -- claim <n>
 ```
 
-A refusal means someone else holds the ticket: reply with the refusal and stop. Another tick is running, so leave the rest of the queue to it.
+A refusal means someone else holds the ticket: reply with the refusal and stop. Another tick is running, so leave the rest of the queue to it. On success, add `<n>` to `<claimed>`.
 
 ## 3. Launch
 
@@ -72,7 +72,7 @@ When step 1 printed `PLAN <category>`:
 1. Open the planning issue. It prints the issue number; a refusal means another planner is open, so reply with it and stop.
 
    ```sh
-   git show origin/main:.agents/skills/tick/queue.sh | bash -s -- plan-open <category>
+   git show origin/main:.agents/skills/tick/queue.sh | bash -s -- plan-open <category> <claimed>
    ```
 
 2. Pick the model from the `delegate` skill's **plan** tier, primary column, and `t3_thread_launch` it:

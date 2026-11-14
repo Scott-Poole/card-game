@@ -40,7 +40,8 @@ issue() {
 		labels: ($labels | split(",") | map(select(. != "")) | map({name: .}))
 	} + $extra'
 }
-claimed_event() { jq -n --arg at "$1" '{event: "labeled", label: {name: "in-progress"}, created_at: $at, id: 1}'; }
+# claimed_event <at> [issue n]: a claim label event; repo-wide events name their issue.
+claimed_event() { jq -n --arg at "$1" --arg n "${2:-}" '{event: "labeled", label: {name: "in-progress"}, created_at: $at, id: 1} + (if $n == "" then {} else {issue: {number: ($n | tonumber)}} end)'; }
 
 # setup <issues json array> [events json object] [repo event pages json]
 setup() {
@@ -219,47 +220,47 @@ OUT=$missing ERR= CODE=
 check "every planning category has a lens in plan/SKILL.md" is "$missing" ""
 
 # --- dispatch loop ----------------------------------------------------------------------
-# A tick repeats next -> claim until next says NOOP, so several tickets run at once. Each
-# claim must move next on to a fresh ticket, and the caps alone must end the loop.
+# A tick repeats next -> claim, passing next the tickets it claimed so far. Each claim must
+# move next on to a fresh ticket, and the caps alone must end the loop.
 setup "[$(issue 6 ready-for-agent), $(issue 7 ready-for-agent), $(issue 8 ready-for-agent)]"
-seen=()
+seen=() mine=()
 for _ in 1 2 3 4 5; do
-	REF=$(config_ref '.maxInProgress = 2') run next
+	REF=$(config_ref '.maxInProgress = 2') run next "${mine[@]}"
 	seen+=("$OUT")
 	[[ $OUT == LAUNCH* ]] || break
-	run claim "$(cut -d' ' -f2 <<<"$OUT")"
+	mine+=("$(cut -d' ' -f2 <<<"$OUT")")
+	run claim "${mine[-1]}"
 done
 OUT=$(printf '%s|' "${seen[@]}")
 check "the loop launches up to the wip cap, then stops" is "$OUT" "LAUNCH 6 Ticket 6|LAUNCH 7 Ticket 7|NOOP 2 ticket(s) in progress (cap 2)|"
 check "the loop leaves the ticket past the cap queued" is "$(labels 8)" "ready-for-agent"
 
+# Seconds apart, GitHub's listings may not show a claim yet (review of #14). Here #6 was
+# claimed this run, but every listing still shows it queued and no claim event exists.
 setup "[$(issue 6 ready-for-agent), $(issue 7 ready-for-agent)]"
-seen=()
-for _ in 1 2 3 4 5; do
-	REF=$(config_ref '.maxDailyClaims = 1') run next
-	seen+=("$OUT")
-	[[ $OUT == LAUNCH* ]] || break
-	run claim "$(cut -d' ' -f2 <<<"$OUT")"
-	# fake-gh does not log repo events for claims; record today's claim by hand.
-	jq --argjson e "$(claimed_event "$TODAY")" '.repo_event_pages[0] += [$e]' "$WORK/state.json" >"$WORK/s" && mv "$WORK/s" "$WORK/state.json"
-done
-OUT=$(printf '%s|' "${seen[@]}")
-check "the loop stops at the daily claim cap" is "$OUT" "LAUNCH 6 Ticket 6|NOOP 1 claim(s) today (cap 1, UTC day)|"
+run next 6
+check "a lagging listing never re-offers this run's claim" is "$OUT" "LAUNCH 7 Ticket 7"
+REF=$(config_ref '.maxInProgress = 1') run next 6
+check "this run's claims hold wip slots before the listing shows them" is "$OUT" "NOOP 1 ticket(s) in progress (cap 1)"
+REF=$(config_ref '.maxDailyClaims = 1') run next 6
+check "this run's claims count today before the events show them" is "$OUT" "NOOP 1 claim(s) today (cap 1, UTC day)"
 
-# Draining the queue hands over to one planner, which then ends the loop.
+# Once the listings catch up, a claim counts once, not twice.
+setup "[$(issue 6 in-progress), $(issue 7 ready-for-agent)]" "{\"6\": [$(claimed_event "$TODAY")]}" "[[$(claimed_event "$TODAY" 6)]]"
+REF=$(config_ref '.maxInProgress = 2 | .maxDailyClaims = 2') run next 6
+check "a listed claim of this run counts once" is "$OUT" "LAUNCH 7 Ticket 7"
+
 setup "[$(issue 6 ready-for-agent)]"
-seen=()
-for _ in 1 2 3 4 5; do
-	FAKE_GH_NOW=$TODAY run next
-	seen+=("$OUT")
-	case $OUT in
-	LAUNCH*) run claim "$(cut -d' ' -f2 <<<"$OUT")" ;;
-	PLAN*) FAKE_GH_NOW=$TODAY run plan-open "${OUT#PLAN }" ;;
-	*) break ;;
-	esac
-done
-OUT=$(printf '%s|' "${seen[@]}")
-check "a drained queue starts one planner, then stops" is "$OUT" "LAUNCH 6 Ticket 6|PLAN feature|NOOP frontier empty; planner #7 running|"
+run next 6
+check "claiming the last ticket hands over to a planner" is "$OUT" "PLAN feature"
+run plan-open feature
+check "plan-open without them sees the lagging ticket and refuses" is "$CODE:$(jq '.issues | length' "$WORK/state.json")" "1:1"
+FAKE_GH_NOW=$TODAY run plan-open feature 6
+check "plan-open takes this run's claims too" is "$CODE:$OUT" "0:7"
+
+setup "[$(issue 6 ready-for-agent)]"
+run next 6x
+check "next rejects a claim that isn't an issue number" is "$CODE:$OUT" "1:"
 
 # --- transitions ------------------------------------------------------------------------
 setup "[$(issue 6 ready-for-agent)]"
