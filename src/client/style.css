@@ -1,0 +1,56 @@
+body {
+  margin: 0;
+  background: #f5f1e8;
+  color: #292d27;
+  font-family: Georgia, serif;
+}
+main {
+  max-width: 1100px;
+  margin: auto;
+  padding: 24px;
+}
+.lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+section,
+article {
+  border: 1px solid #b4b5a6;
+  padding: 12px;
+  margin-block: 12px;
+}
+h2,
+h3,
+h4 {
+  margin-block: 8px;
+}
+button {
+  font: inherit;
+  padding: 8px 12px;
+  margin: 4px;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+button:focus-visible {
+  outline: 3px solid #41624c;
+  outline-offset: 2px;
+}
+ul,
+ol {
+  padding-left: 22px;
+}
+@media (max-width: 600px) {
+  main {
+    padding: 12px;
+  }
+  .lanes {
+    gap: 4px;
+  }
+  .lanes section {
+    padding: 6px;
+    overflow-wrap: anywhere;
+  }
+}
