@@ -4,9 +4,18 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  uWebSockets.js:
+    hash: eb632fe0a7e646eae50ae1091404749d18873b3e16c4d11712e71d60a00f7ae6
+    path: patches/uWebSockets.js.patch
+
 importers:
 
   .:
+    dependencies:
+      uWebSockets.js:
+        specifier: github:uNetworking/uWebSockets.js#v20.71.0
+        version: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/9ec36de7709996c58dce03d63796216c90a17136(patch_hash=eb632fe0a7e646eae50ae1091404749d18873b3e16c4d11712e71d60a00f7ae6)
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -772,6 +781,10 @@ packages:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/9ec36de7709996c58dce03d63796216c90a17136:
+    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/9ec36de7709996c58dce03d63796216c90a17136}
+    version: 20.71.0
 
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
@@ -1557,6 +1570,8 @@ snapshots:
       - supports-color
 
   typescript@6.0.3: {}
+
+  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/9ec36de7709996c58dce03d63796216c90a17136(patch_hash=eb632fe0a7e646eae50ae1091404749d18873b3e16c4d11712e71d60a00f7ae6): {}
 
   undici-types@8.9.0: {}
 
