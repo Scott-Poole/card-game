@@ -10,7 +10,7 @@ description: >-
 
 Owned by this repo. Scott's policy: **trivial** PRs merge without review and get audited later; **significant** PRs merge on agent consensus after a cross-family review; Scott hears only about **direction** decisions nobody can settle logically. Agents decide every merge that fits the policy without asking.
 
-`main` is protected on GitHub: PR required, no force push or deletion, merge commits only. The run may be unattended, so every step works from an explicit **pin**: the PR's head SHA you evaluated. Anything learned about one SHA says nothing about another.
+`main` is protected on GitHub: PR required, no force push or deletion, linear history, squash merges only. Each PR lands as one commit whose title is the PR title and whose body is the PR body, so the PR title must be a conventional commit (`<type>(<scope>): <description>`). The run may be unattended, so every step works from an explicit **pin**: the PR's head SHA you evaluated. Anything learned about one SHA says nothing about another.
 
 **Author-run**: the PR's author may land its own PR (the `work-ticket` flow does), so the agent with the full context fixes the findings. Reviewers then come from the family that isn't the author's, and the author-run rules in steps 3 and 4 apply.
 
@@ -71,14 +71,14 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
    - **absent or infrastructure-blocked** → inspect workflow runs and annotations. Billing, permissions or runner availability that you cannot resolve are step-5 blockers. If a required check has not started, diagnose its trigger; never treat its absence as success.
    - **pending** → first distinguish a running/queued job from one blocked by unavailable infrastructure. For a healthy run, T3 `watch_pull_request` on the PR, end your turn, and resume here when it wakes you.
    - **failed** → read the failing job log and annotations. Escalate unavailable infrastructure or access via step 5; for a code failure, reproduce locally with the pinned toolchain and CI environment, fix in `WT`, and run the full local gate before committing or pushing. Treat environment differences as bugs in local verification; update the gate so the failure is reproducible locally. Push and run it as a step-3 fix round (set `PIN`, re-check the fix range if significant). Apply step 3's progress-based escalation rule; a second CI failure alone is not a handoff.
-3. **Merge**, pinned. GitHub refuses if the head moved:
+3. **Merge**, pinned. First check the PR title is a conventional commit; if not, fix it through REST (`gh api -X PATCH repos/Scott-Poole/card-game/pulls/<n> -f title=...`), which doesn't move the head. GitHub refuses the merge if the head moved:
    ```sh
-   gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=merge -f sha=$PIN
+   gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=squash -f sha=$PIN
    ```
    (`gh pr merge` can hit the Projects-classic GraphQL bug noted in `AGENTS.md`; REST avoids it.)
-4. **Clean up**: if you created `.worktrees/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git pull --ff-only` on the checkout that holds `main`, and `git branch -d <headRefName>` if no worktree still uses it. Trivial merges also get the `merged-unreviewed` label, except **record-only** PRs (every changed path is `docs/agents/delegation-log.md`), which need no audit.
+4. **Clean up**: if you created `.worktrees/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git pull --ff-only` on the checkout that holds `main`, and delete the local `<headRefName>` if no worktree still uses it. A squash leaves the branch's commits off `main`'s history, so `git branch -d` refuses and the guardrail blocks `-D`: leave the local branch; GitHub already deleted the remote one, and `git fetch --prune` drops the tracking ref. Trivial merges also get the `merged-unreviewed` label, except **record-only** PRs (every changed path is `docs/agents/delegation-log.md`), which need no audit.
 
-Done when `main` contains the merge commit and step 4.4 is done.
+Done when `main` contains the squash commit and step 4.4 is done.
 
 ## 5. Escalate
 

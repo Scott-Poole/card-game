@@ -13,6 +13,8 @@ Tailored from poteto/noodle; owned by this repo (not in `skills-lock.json`).
 
 Commit on a feature branch, and land it on `main` through a PR. If you're on `main`, branch first: `git switch -c <type>/<short-name>`. Inside a T3 worktree, commit in the worktree's own branch.
 
+PRs squash-merge: `main` gets one commit per PR, titled with the PR title and bodied with the PR body. Branch commits are working history, so keep them clean for review, but write the PR title as a conventional commit too, and scope each PR to one logical change.
+
 ## Rules
 
 - **One commit per logical change**: never combine unrelated fixes or features. Three independent changes = three commits.

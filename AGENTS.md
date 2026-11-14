@@ -25,7 +25,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 ## Working rules
 
 - **Branch and PR**: every change lands on `main` through a PR. Use `gh` for all GitHub work. `gh pr edit` fails here with a "Projects (classic) is being deprecated" GraphQL error; edit PRs through REST instead: `gh api -X PATCH repos/Scott-Poole/card-game/pulls/<n> -F body=@<file>`. Pass long text to `gh`/`git` by file (`--body-file`, `-F`).
-- **Landing**: an open PR reaches `main` (or Scott) through the `land` skill. Agents merge whatever fits its policy without asking. GitHub enforces PR-only, merge-commit-only, no force push on `main`.
+- **Landing**: an open PR reaches `main` (or Scott) through the `land` skill. Agents merge whatever fits its policy without asking. History on `main` is linear: GitHub enforces PR-only, squash-merge-only (one commit per PR, titled with the PR title), no force push. Size PRs as one logical change, and write the PR title as a conventional commit.
 - **Ticket automation**: a scheduled `tick` claims the oldest unblocked `ready-for-agent` ticket and launches one `work-ticket` thread, which implements, lands, and merges its own PR. When no ticket is ready, the tick launches a `plan` thread instead: one category per run, in rotation, filing fresh `ready-for-agent` tickets for later ticks. `ready-for-agent` means "an agent may take this unattended": leave it off a ticket, or assign it to someone, to hold it back. Caps and the off switch: the `tick` skill.
 - **Commits**: conventional commits, per the `commit` skill.
 - **Validation**: follow .agents/skills/validate/SKILL.md before opening or updating a PR: full local checks and direct interaction with changed behavior, including browser testing for UI changes.
