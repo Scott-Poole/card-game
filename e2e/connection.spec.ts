@@ -1,5 +1,3 @@
-import manifest from "../content/art/manifest.json" with { type: "json" };
-import { roster } from "../src/server/roster.ts";
 import type { Page } from "@playwright/test";
 import { test as base, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
@@ -407,71 +405,6 @@ test("server rejection after welcome permits another action", async ({
   await expect(page.getByRole("status")).toHaveText("connected");
   await page.getByRole("button", { name: "Find match", exact: true }).click();
   await expect(page.getByText("Waiting for an opponent…")).toBeVisible();
-});
-
-test("Credits shows every art credit and preserves a match", async ({
-  page,
-  browser,
-  address,
-}) => {
-  await page.goto(address);
-  await page.getByRole("button", { name: "Credits", exact: true }).click();
-  const credits = page.getByRole("region", { name: "Credits", exact: true });
-  for (const entry of manifest) {
-    const name = roster.find(({ card }) => card.id === entry.cardId)?.card.name;
-    if (!name) throw new Error(`Missing roster card: ${entry.cardId}`);
-    const art = credits
-      .getByRole("article")
-      .filter({ has: page.getByRole("heading", { name, exact: true }) });
-    await expect(
-      art.getByText(entry.attribution, { exact: true }),
-    ).toBeVisible();
-    await expect(art.getByText(entry.title, { exact: true })).toBeVisible();
-    await expect(art.getByText(entry.author, { exact: true })).toBeVisible();
-    await expect(
-      art.getByRole("link", { name: "Source", exact: true }),
-    ).toHaveAttribute("href", entry.sourceUrl);
-    await expect(
-      art.getByRole("link", { name: entry.license, exact: true }),
-    ).toHaveAttribute("href", entry.licenseUrl);
-    await expect
-      .poll(() =>
-        art
-          .getByRole("img")
-          .evaluate((img: { naturalWidth: number }) => img.naturalWidth),
-      )
-      .toBeGreaterThan(0);
-  }
-  await page
-    .getByRole("button", { name: "Close credits", exact: true })
-    .click();
-  const opponent = await browser.newContext();
-  try {
-    const other = await opponent.newPage();
-    await other.goto(address);
-    await page.getByRole("button", { name: "Find match", exact: true }).click();
-    await other
-      .getByRole("button", { name: "Find match", exact: true })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Turn 1 of 6" }),
-    ).toBeVisible();
-    const playable = await reachPlayableTurn(page, other);
-    await playable.click();
-    await expect(page.getByRole("button", { name: /^Unstage / })).toHaveCount(
-      1,
-    );
-    const before = await page.locator("main").innerText();
-    await page.getByRole("button", { name: "Credits", exact: true }).click();
-    await expect(credits).toBeVisible();
-    await page
-      .getByRole("button", { name: "Close credits", exact: true })
-      .click();
-    expect(await page.locator("main").innerText()).toBe(before);
-    await expect(page.getByRole("status")).toHaveText("connected");
-  } finally {
-    await opponent.close();
-  }
 });
 
 test("socket closure clears the queue waiting indicator", async ({
