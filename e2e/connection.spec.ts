@@ -82,8 +82,26 @@ test("stays connecting until a welcome arrives", async ({ page, address }) => {
     });
     opened.resolve(undefined);
   });
+  await page.addInitScript(() => {
+    globalThis.WebSocket = new Proxy(globalThis.WebSocket, {
+      construct(Target, args: ConstructorParameters<typeof WebSocket>) {
+        const socket = new Target(...args);
+        socket.addEventListener("open", () => {
+          performance.mark("test:socket-open");
+        });
+        return socket;
+      },
+    });
+  });
   await page.goto(address);
   await opened.promise;
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => performance.getEntriesByName("test:socket-open").length,
+      ),
+    )
+    .toBeGreaterThan(0);
   await expect(page.getByRole("status")).toHaveText("connecting");
 });
 for (const message of [
