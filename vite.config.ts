@@ -5,7 +5,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/ws": {
-        target: `ws://localhost:${process.env.PORT ?? "3000"}`,
+        target: `ws://localhost:${process.env.PORT ?? "4747"}`,
         ws: true,
       },
     },

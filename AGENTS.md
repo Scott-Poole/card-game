@@ -18,7 +18,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 - Tests live beside source in `src/`; Vitest config has its own tooling typecheck. ESLint configuration is executed by the lint gate and is not typechecked.
 - `pnpm dev`: Vite HMR and Node server watch mode, with a WebSocket proxy.
 - `pnpm build`: build the React client into `dist`.
-- `pnpm start`: serve `dist` and `/ws` together (`PORT` defaults to 3000).
+- `pnpm start`: serve `dist` and `/ws` together (`PORT` defaults to 4747).
 - Agents can drive the running app with Playwright to verify UI work. `pnpm test:browser` tests the production build on a free port.
 - Each gate has its own script in `package.json`.
 

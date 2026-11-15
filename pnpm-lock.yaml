@@ -4,11 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  uWebSockets.js:
-    hash: eb632fe0a7e646eae50ae1091404749d18873b3e16c4d11712e71d60a00f7ae6
-    path: patches/uWebSockets.js.patch
-
 importers:
 
   .:
@@ -21,7 +16,7 @@ importers:
         version: 19.3.1(react@19.3.1)
       uWebSockets.js:
         specifier: github:uNetworking/uWebSockets.js#v20.71.0
-        version: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/9ec36de7709996c58dce03d63796216c90a17136(patch_hash=eb632fe0a7e646eae50ae1091404749d18873b3e16c4d11712e71d60a00f7ae6)
+        version: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/9ec36de7709996c58dce03d63796216c90a17136
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -2118,7 +2113,7 @@ snapshots:
 
   typescript@6.0.3: {}
 
-  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/9ec36de7709996c58dce03d63796216c90a17136(patch_hash=eb632fe0a7e646eae50ae1091404749d18873b3e16c4d11712e71d60a00f7ae6): {}
+  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/9ec36de7709996c58dce03d63796216c90a17136: {}
 
   undici-types@8.9.0: {}
 
