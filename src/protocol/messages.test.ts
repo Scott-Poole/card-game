@@ -297,3 +297,30 @@ it("rejects extra properties on parsed arrays", () => {
     error: "invalid-message",
   });
 });
+
+it.each([{ type: "welcome" }, { type: "error", error: "invalid-json" }])(
+  "rejects extra symbol keys on $type messages",
+  (message) => {
+    expect(
+      decodeServerMessage({ ...message, [Symbol("extra")]: true }),
+    ).toEqual({
+      ok: false,
+      error: "invalid-message",
+    });
+  },
+);
+
+it.each([
+  new (class Welcome {
+    type = "welcome";
+  })(),
+  new (class ErrorMessage {
+    type = "error";
+    error = "invalid-json";
+  })(),
+])("rejects class instances for $type messages", (message) => {
+  expect(decodeServerMessage(message)).toEqual({
+    ok: false,
+    error: "invalid-message",
+  });
+});

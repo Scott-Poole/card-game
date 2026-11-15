@@ -16,46 +16,45 @@ export type ClientMessage =
   | { type: "join" }
   | { type: "stage"; plays: readonly Play[] }
   | { type: "commit" };
-export type DecodeError =
-  "invalid-json" | "invalid-message" | "unrecognized-message";
+const DECODE_ERRORS = [
+  "invalid-json",
+  "invalid-message",
+  "unrecognized-message",
+] as const;
+export type DecodeError = (typeof DECODE_ERRORS)[number];
+
+function isDecodeError(value: unknown): value is DecodeError {
+  return DECODE_ERRORS.some((error) => error === value);
+}
 export type DecodeResult<T> =
   { ok: true; message: T } | { ok: false; error: DecodeError };
+
+function parseMessage(input: unknown): DecodeResult<unknown> {
+  if (typeof input !== "string") return { ok: true, message: input };
+  try {
+    const message: unknown = JSON.parse(input);
+    return { ok: true, message };
+  } catch {
+    return { ok: false, error: "invalid-json" };
+  }
+}
 
 // Accept JSON text or a parsed value; JSON text is parsed exactly once.
 // Server messages are strict: unknown fields are rejected.
 export function decodeServerMessage(
   input: unknown,
 ): DecodeResult<ServerMessage> {
-  if (typeof input === "string") {
-    try {
-      const parsed: unknown = JSON.parse(input);
-      input = parsed;
-    } catch {
-      return { ok: false, error: "invalid-json" };
-    }
-  }
-  if (
-    typeof input === "object" &&
-    input !== null &&
-    "type" in input &&
-    Object.hasOwn(input, "type") &&
-    input.type === "welcome" &&
-    Object.keys(input).length === 1
-  ) {
+  const parsed = parseMessage(input);
+  if (!parsed.ok) return parsed;
+  input = parsed.message;
+  if (isRecord(input) && input.type === "welcome" && exact(input, ["type"])) {
     return { ok: true, message: { type: "welcome" } };
   }
   if (
-    typeof input === "object" &&
-    input !== null &&
-    "type" in input &&
-    Object.hasOwn(input, "type") &&
+    isRecord(input) &&
     input.type === "error" &&
-    "error" in input &&
-    Object.hasOwn(input, "error") &&
-    Object.keys(input).length === 2 &&
-    (input.error === "invalid-json" ||
-      input.error === "invalid-message" ||
-      input.error === "unrecognized-message")
+    exact(input, ["type", "error"]) &&
+    isDecodeError(input.error)
   ) {
     return { ok: true, message: { type: "error", error: input.error } };
   }
@@ -74,14 +73,9 @@ export function decodeServerMessage(
 export function decodeClientMessage(
   input: unknown,
 ): DecodeResult<ClientMessage> {
-  if (typeof input === "string") {
-    try {
-      const parsed: unknown = JSON.parse(input);
-      input = parsed;
-    } catch {
-      return { ok: false, error: "invalid-json" };
-    }
-  }
+  const parsed = parseMessage(input);
+  if (!parsed.ok) return parsed;
+  input = parsed.message;
   if (isRecord(input)) {
     if (
       (input.type === "join" || input.type === "commit") &&
