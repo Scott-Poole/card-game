@@ -1,8 +1,16 @@
 import { matchHost } from "./match.ts";
 import { staticResponse } from "./static.ts";
-import { App, us_socket_local_port } from "uWebSockets.js";
 import { decodeClientMessage } from "../protocol/messages.ts";
 import type { ServerMessage } from "../protocol/messages.ts";
+import { createRequire } from "node:module";
+import type * as UWebSockets from "uWebSockets.js";
+
+// uWebSockets.js v20.71.0's ESM wrapper imports a file the release doesn't ship
+// (uNetworking/uWebSockets.js#1356, fixed on master, unreleased). Load the CommonJS
+// entry instead. Once a release includes the fix, switch back to a plain import.
+const { App, us_socket_local_port } = createRequire(import.meta.url)(
+  "uWebSockets.js",
+) as typeof UWebSockets;
 
 export interface ServerOptions {
   port: number;

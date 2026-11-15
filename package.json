@@ -48,10 +48,5 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.71.0"
-  },
-  "pnpm": {
-    "patchedDependencies": {
-      "uWebSockets.js": "patches/uWebSockets.js.patch"
-    }
   }
 }
