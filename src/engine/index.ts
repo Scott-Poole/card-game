@@ -26,16 +26,18 @@ export interface Score {
   readonly power: readonly [number, number];
   readonly winner: PlayerId | null;
 }
-export interface MatchState {
+interface MatchFields {
   readonly turn: number;
   readonly energy: number;
   readonly rng: number;
   readonly players: readonly [PlayerState, PlayerState];
-  readonly phase: "planning" | "ended";
-  readonly result: Score | null;
   /** Ordered events from the most recent resolved turn; empty before resolution. */
   readonly events: readonly MatchEvent[];
 }
+type MatchOutcome =
+  | { readonly phase: "planning"; readonly result: null }
+  | { readonly phase: "ended"; readonly result: Score };
+export type MatchState = MatchFields & MatchOutcome;
 export type EngineError =
   | "card-not-in-hand"
   | "duplicate-card"
@@ -251,7 +253,7 @@ export interface PublicPlayerView {
   readonly lanes: readonly (readonly CardDefinition[])[];
   readonly committed: boolean;
 }
-export interface PlayerView {
+interface PlayerViewFields {
   readonly player: PlayerId;
   readonly own: PublicPlayerView & {
     readonly hand: readonly CardDefinition[];
@@ -260,10 +262,9 @@ export interface PlayerView {
   readonly opponent: PublicPlayerView & { readonly handSize: number };
   readonly turn: number;
   readonly energy: number;
-  readonly phase: MatchState["phase"];
-  readonly result: Score | null;
   readonly events: readonly MatchEvent[];
 }
+export type PlayerView = PlayerViewFields & MatchOutcome;
 /** Explicitly select public fields: never spread a full player or match state. */
 export function playerView(state: MatchState, id: PlayerId): PlayerView {
   function publicPlayer(player: PlayerState): PublicPlayerView {
@@ -275,16 +276,17 @@ export function playerView(state: MatchState, id: PlayerId): PlayerView {
   }
   const own = state.players[id];
   const opponent = state.players[id === 0 ? 1 : 0];
-  return {
+  const fields = {
     player: id,
-    own: { ...publicPlayer(own), hand: own.hand, staged: own.staged },
-    opponent: { ...publicPlayer(opponent), handSize: opponent.hand.length },
     turn: state.turn,
     energy: state.energy,
-    phase: state.phase,
-    result: state.result,
+    own: { ...publicPlayer(own), hand: own.hand, staged: own.staged },
+    opponent: { ...publicPlayer(opponent), handSize: opponent.hand.length },
     events: state.events,
   };
+  return state.phase === "ended"
+    ? { ...fields, phase: "ended", result: state.result }
+    : { ...fields, phase: "planning", result: null };
 }
 
 /** A disconnect ends planning immediately; board scores remain descriptive. */

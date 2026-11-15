@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
 import {
   commit,
+  forfeit,
+  type Score,
   createMatch,
   resolve,
   stage,
@@ -136,4 +138,23 @@ test("views swap own and opponent while preserving shared match information", ()
   expect({ ...a, player: b.player, own: b.own, opponent: b.opponent }).toEqual(
     b,
   );
+});
+
+test("phase narrows planning and forfeited view results", () => {
+  for (const loser of [0, 1] satisfies PlayerId[]) {
+    for (const match of [state, forfeit(state, loser)]) {
+      const view = playerView(match, 0);
+      if (view.phase === "planning") {
+        const result: null = view.result;
+        expect(result).toBeNull();
+      } else {
+        const result: Score = view.result;
+        expect(result).toEqual({
+          lanes: [null, null, null],
+          power: [2, 2],
+          winner: loser === 0 ? 1 : 0,
+        });
+      }
+    }
+  }
 });
