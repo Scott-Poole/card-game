@@ -35,6 +35,13 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ["scripts/**/*.mjs", "eslint.config.js"],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: { process: "readonly", console: "readonly" },
+    },
+  },
   ...areas.map((area) => ({
     files: [`src/${area}/**/*.{ts,tsx}`],
     rules: {
