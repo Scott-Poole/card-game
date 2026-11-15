@@ -268,3 +268,93 @@ test("with the same engine seed, independent entropy changes only the opponent's
     entropy.integer.mockImplementation((max) => max - 1);
   }
 });
+
+async function concurrentPairs() {
+  server = await startServer({ port: 0, clientDirectory: "dist" });
+  const a = await client(server.port),
+    b = await client(server.port);
+  a.send({ type: "join" });
+  expect(await a.next()).toEqual({ type: "waiting" });
+  b.send({ type: "join" });
+  const first = await states(a, b);
+  const c = await client(server.port);
+  c.send({ type: "join" });
+  expect(await c.next()).toEqual({ type: "waiting" });
+  const d = await client(server.port);
+  d.send({ type: "join" });
+  const second = await states(c, d);
+  for (const views of [first, second]) {
+    expect(views.map((view) => view.player)).toEqual([0, 1]);
+    expect(views.map((view) => view.phase)).toEqual(["planning", "planning"]);
+    expect(views.map((view) => view.turn)).toEqual([1, 1]);
+  }
+  return { a, b, c, d, first, second };
+}
+
+test("four clients have isolated actions and a forfeit leaves the other match playable", async () => {
+  const { a, b, c, d, first, second } = await concurrentPairs();
+  const counts = [c.frames.length, d.frames.length];
+  const card = first[0].own.hand.find((candidate) => candidate.cost === 1);
+  if (!card) throw new Error("fixture must offer a one-energy card");
+  const plays = [{ cardId: card.id, lane: 0 }];
+  a.send({ type: "stage", plays });
+  const staged = await states(a, b);
+  expect(staged[0].own.staged).toEqual(plays);
+  a.send({ type: "commit" });
+  const committed = await states(a, b);
+  expect(committed[0].own.committed).toBe(true);
+  expect(committed[1].opponent.committed).toBe(true);
+
+  // A commit round-trip on both second-match streams drains any leaked frames.
+  d.send({ type: "commit" });
+  const barrier = await states(c, d);
+  expect([c.frames.length, d.frames.length]).toEqual(
+    counts.map((count) => count + 1),
+  );
+  expect(barrier).toEqual([
+    { ...second[0], opponent: { ...second[0].opponent, committed: true } },
+    { ...second[1], own: { ...second[1].own, committed: true } },
+  ]);
+
+  const beforeForfeit = [c.frames.length, d.frames.length];
+  a.socket.close();
+  const ended = await b.next();
+  if (ended.type !== "state") throw new Error("expected forfeit state");
+  expect(ended.view.phase).toBe("ended");
+  expect(ended.view.result?.winner).toBe(ended.view.player);
+
+  c.send({ type: "stage", plays });
+  const stillPlaying = await states(c, d);
+  expect([c.frames.length, d.frames.length]).toEqual(
+    beforeForfeit.map((count) => count + 1),
+  );
+  expect(stillPlaying[0].phase).toBe("planning");
+  expect(stillPlaying[0].own.staged).toEqual(plays);
+  expect(stillPlaying[1]).toEqual(barrier[1]);
+  for (const peer of [b, c, d]) peer.socket.close();
+});
+
+test("a fifth client queues after a forfeit and a sixth pairs while another match runs", async () => {
+  const { a, b, c, d, second } = await concurrentPairs();
+  a.socket.close();
+  const ended = await b.next();
+  if (ended.type !== "state") throw new Error("expected forfeit state");
+  expect(ended.view.phase).toBe("ended");
+  if (!server) throw new Error("expected running server");
+  const e = await client(server.port);
+  e.send({ type: "join" });
+  expect(await e.next()).toEqual({ type: "waiting" });
+  const f = await client(server.port);
+  f.send({ type: "join" });
+  const fresh = await states(e, f);
+  expect(fresh.map((view) => view.player)).toEqual([0, 1]);
+  expect(fresh.map((view) => view.turn)).toEqual([1, 1]);
+  expect(fresh.map((view) => view.phase)).toEqual(["planning", "planning"]);
+  const counts = [c.frames.length, d.frames.length];
+  c.send({ type: "stage", plays: [] });
+  expect(await states(c, d)).toEqual(second);
+  expect([c.frames.length, d.frames.length]).toEqual(
+    counts.map((count) => count + 1),
+  );
+  for (const peer of [b, c, d, e, f]) peer.socket.close();
+});
