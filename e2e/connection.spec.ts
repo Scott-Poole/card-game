@@ -75,14 +75,15 @@ test("production page connects and reconnects after reload", async ({
   await expect(page.getByRole("status")).toHaveText("connected");
 });
 test("stays connecting until a welcome arrives", async ({ page, address }) => {
+  const opened = Promise.withResolvers<undefined>();
   await page.routeWebSocket("**/ws", (socket) => {
     socket.onMessage(() => {
       /* The server intentionally withholds its welcome. */
     });
+    opened.resolve(undefined);
   });
   await page.goto(address);
-  // Allow the intercepted socket open event to run before checking initial state.
-  await page.waitForTimeout(100);
+  await opened.promise;
   await expect(page.getByRole("status")).toHaveText("connecting");
 });
 for (const message of [

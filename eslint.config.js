@@ -19,6 +19,19 @@ export default tseslint.config(
     },
   },
   js.configs.recommended,
+  {
+    files: ["e2e/**"],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          property: "waitForTimeout",
+          message:
+            "Wait for a deterministic event or use a condition-based Playwright assertion instead of a fixed sleep.",
+        },
+      ],
+    },
+  },
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
   {
