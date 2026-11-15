@@ -26,10 +26,13 @@ export default function App() {
     let failed = false;
     let welcomed = false;
     const fail = () => {
+      if (failed) return;
       failed = true;
       setStatus("error");
+      setWaiting(false);
       requestRef.current = null;
       setPending(false);
+      socket.close();
     };
     socket.onmessage = (event: MessageEvent<unknown>) => {
       const decoded = decodeServerMessage(event.data);
