@@ -9,10 +9,10 @@ const server = await startServer({
   port,
   clientDirectory: process.env.CLIENT_DIRECTORY ?? "dist",
 });
-console.log(`Listening on port ${String(server.port)}`);
 process.once("SIGINT", () => {
   server.close();
 });
 process.once("SIGTERM", () => {
   server.close();
 });
+console.log(`Listening on port ${String(server.port)}`);
