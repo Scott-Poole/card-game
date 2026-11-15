@@ -61,6 +61,26 @@ export type MatchEvent =
 function random(rng: number): number {
   return (Math.imul(rng, 1664525) + 1013904223) >>> 0;
 }
+/** Returns a shallow shuffled copy. randomIndex must return an integer in [0, bound).
+ * Replay contract: sample once per descending bound length, length - 1, ... 2;
+ * empty and singleton decks consume no samples. */
+export function shuffle(
+  cards: readonly CardDefinition[],
+  randomIndex: (bound: number) => number,
+): CardDefinition[] {
+  const shuffled = [...cards];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1);
+    // Both indices are inside the copied array for a valid index source.
+    const a = shuffled[i];
+    const b = shuffled[j];
+    if (a !== undefined && b !== undefined) {
+      shuffled[i] = b;
+      shuffled[j] = a;
+    }
+  }
+  return shuffled;
+}
 /** Card IDs must be unique within each supplied deck.
  * Seeds normalize to uint32. RNG consumption: player 0 shuffle, player 1
  * shuffle, then one sample for each tied initiative. Replay uses this ruleset. */
@@ -70,18 +90,13 @@ export function createMatch(
 ): MatchState {
   let rng = seed >>> 0;
   function player(deck: readonly CardDefinition[]): PlayerState {
-    const cards = deck.map((card) => ({ ...card }));
-    for (let i = cards.length - 1; i > 0; i--) {
-      rng = random(rng);
-      const j = Math.floor((rng / 4294967296) * (i + 1));
-      const a = cards[i];
-      const b = cards[j];
-      // Both indices are inside the dense copied deck.
-      if (a && b) {
-        cards[i] = b;
-        cards[j] = a;
-      }
-    }
+    const cards = shuffle(
+      deck.map((card) => ({ ...card })),
+      (bound) => {
+        rng = random(rng);
+        return Math.floor((rng / 4294967296) * bound);
+      },
+    );
     return {
       hand: cards.slice(0, OPENING_HAND),
       deck: cards.slice(OPENING_HAND),

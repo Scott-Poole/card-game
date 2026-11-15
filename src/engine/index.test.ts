@@ -325,3 +325,24 @@ test.each([
     createMatch(normalized, [deck(), deck()]),
   );
 });
+
+// Golden vector captured from the engine before the shared shuffle extraction.
+test("preserves the seeded replay deck order and RNG state", () => {
+  const state = createMatch(42, [deck(), deck()]);
+  expect(state.rng).toBe(775312688);
+  expect(
+    state.players.map((player) => ({
+      hand: player.hand.map((card) => card.id),
+      deck: player.deck.map((card) => card.id),
+    })),
+  ).toEqual([
+    {
+      hand: ["4", "1", "9"],
+      deck: ["7", "6", "8", "10", "11", "2", "5", "0", "3"],
+    },
+    {
+      hand: ["2", "6", "1"],
+      deck: ["3", "4", "9", "10", "0", "11", "8", "7", "5"],
+    },
+  ]);
+});

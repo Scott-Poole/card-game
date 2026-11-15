@@ -1,6 +1,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   createMatch,
+  shuffle,
   forfeit,
   stage,
   commit,
@@ -33,17 +34,7 @@ function broadcast(match: Match) {
 // Independent cryptographic permutations keep opponent draws secret even if
 // the engine's replay seed is guessed from a player's own draw order.
 function privateDeck(player: PlayerId) {
-  const cards = [...starterDeck(player)];
-  for (let i = cards.length - 1; i > 0; i--) {
-    const j = randomInt(i + 1);
-    const a = cards[i],
-      b = cards[j];
-    if (a && b) {
-      cards[i] = b;
-      cards[j] = a;
-    }
-  }
-  return cards;
+  return shuffle(starterDeck(player), (bound) => randomInt(bound));
 }
 /** Owns the queue and match lifecycle for a single server instance. */
 export function matchHost() {
