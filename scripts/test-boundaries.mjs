@@ -53,3 +53,26 @@ try {
   );
 }
 console.log(`${cases.length} boundary regression cases passed`);
+
+const scriptFixture = join("scripts", `lint-regression-${process.pid}.mjs`);
+try {
+  await writeFile(scriptFixture, "const unused = 1;\n");
+  const results = await new ESLint().lintFiles([scriptFixture]);
+  if (results.some((result) => result.fatalErrorCount > 0)) {
+    throw new Error(
+      `Parser failed for ${scriptFixture}: ${JSON.stringify(results)}`,
+    );
+  }
+  if (
+    !results.some((result) =>
+      result.messages.some(
+        (message) => message.ruleId === "@typescript-eslint/no-unused-vars",
+      ),
+    )
+  ) {
+    throw new Error("Scripts lint gate missed an unused variable");
+  }
+} finally {
+  await rm(scriptFixture, { force: true });
+}
+console.log("1 scripts lint regression case passed");

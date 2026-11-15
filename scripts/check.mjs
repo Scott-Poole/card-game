@@ -9,7 +9,7 @@ if (gitEnv.error) throw gitEnv.error;
 if (gitEnv.status !== 0) process.exit(gitEnv.status ?? 1);
 const environment = { ...process.env, CI: "true" };
 for (const name of gitEnv.stdout.trim().split("\n")) {
-  delete environment[name];
+  Reflect.deleteProperty(environment, name);
 }
 
 const gates = [
