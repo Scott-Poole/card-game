@@ -16,6 +16,7 @@ interface ArtEntryIssue {
     | "manifest"
     | "entry"
     | "cardId"
+    | "cardName"
     | "duplicate-cardId"
     | "license"
     | "sourceUrl"
@@ -52,12 +53,18 @@ export async function validateArtManifest(
       add("entry");
       continue;
     }
-    if (
-      !("cardId" in entry) ||
-      typeof entry.cardId !== "string" ||
-      !roster.some(({ card }) => card.id === entry.cardId)
+    const rosterEntry =
+      "cardId" in entry && typeof entry.cardId === "string"
+        ? roster.find(({ card }) => card.id === entry.cardId)
+        : undefined;
+    if (!rosterEntry) add("cardId");
+    else if (
+      !("cardName" in entry) ||
+      typeof entry.cardName !== "string" ||
+      !entry.cardName.trim() ||
+      entry.cardName !== rosterEntry.card.name
     )
-      add("cardId");
+      add("cardName");
     if ("cardId" in entry && typeof entry.cardId === "string") {
       if (seen.has(entry.cardId)) add("duplicate-cardId");
       seen.add(entry.cardId);

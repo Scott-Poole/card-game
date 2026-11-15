@@ -24,6 +24,7 @@ afterEach(async () => {
 });
 const valid = {
   cardId: "hermes-letterkeeper",
+  cardName: "Hermes, Keeper of Unsent Letters",
   file: "image.png",
   sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
   title: "Hermes",
@@ -37,6 +38,38 @@ const valid = {
 };
 test("accepts complete metadata and matching file bytes", async () => {
   expect(await validateArtManifest([valid], directory)).toEqual([]);
+});
+
+test("rejects a cardName that differs from its roster card", async () => {
+  expect(
+    await validateArtManifest(
+      [{ ...valid, cardName: "Wrong name" }],
+      directory,
+    ),
+  ).toEqual([{ code: "cardName", index: 0 }]);
+});
+
+test.each([undefined, 42, "", " "])(
+  "rejects missing or invalid cardName %j",
+  async (cardName) => {
+    const withoutName = { ...valid };
+    Reflect.deleteProperty(withoutName, "cardName");
+    const entry = cardName === undefined ? withoutName : { ...valid, cardName };
+    expect(await validateArtManifest([entry], directory)).toEqual([
+      { code: "cardName", index: 0 },
+    ]);
+  },
+);
+
+test("reports only cardId when an unknown card also has no cardName", async () => {
+  const withoutName = { ...valid };
+  Reflect.deleteProperty(withoutName, "cardName");
+  expect(
+    await validateArtManifest(
+      [{ ...withoutName, cardId: "unknown" }],
+      directory,
+    ),
+  ).toEqual([{ code: "cardId", index: 0 }]);
 });
 
 test.each([
@@ -160,7 +193,11 @@ test("rejects symlinks instead of reading outside the art directory", async () =
     await validateArtManifest(
       [
         { ...valid, file: "link.png" },
-        { ...valid, cardId: "janus-dawnhinge" },
+        {
+          ...valid,
+          cardId: "janus-dawnhinge",
+          cardName: "Janus, Hinge of Morning",
+        },
       ],
       directory,
     ),
