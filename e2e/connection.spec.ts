@@ -454,3 +454,48 @@ test("Credits shows every art credit and preserves a match", async ({
     await opponent.close();
   }
 });
+
+test("socket closure clears the queue waiting indicator", async ({
+  page,
+  address,
+}) => {
+  let disconnect: () => void = () => {
+    throw new Error("Socket route has not opened");
+  };
+  await page.routeWebSocket("**/ws", (socket) => {
+    disconnect = () => {
+      void socket.close();
+    };
+    socket.send('{"type":"welcome"}');
+    socket.onMessage(() => {
+      socket.send('{"type":"waiting"}');
+    });
+  });
+  await page.goto(address);
+  await page.getByRole("button", { name: "Find match", exact: true }).click();
+  await expect(
+    page.getByText("Waiting for an opponent…", { exact: true }),
+  ).toBeVisible();
+  disconnect();
+  await expect(page.getByRole("status")).toHaveText("error");
+  await expect(
+    page.getByText("Waiting for an opponent…", { exact: true }),
+  ).not.toBeVisible();
+});
+
+test("undecodable server frame closes the client socket", async ({
+  page,
+  address,
+}) => {
+  let closed = false;
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.onClose(() => {
+      closed = true;
+    });
+    socket.send('{"type":"welcome"}');
+    socket.send("garbage{");
+  });
+  await page.goto(address);
+  await expect(page.getByRole("status")).toHaveText("error");
+  await expect.poll(() => closed).toBe(true);
+});
