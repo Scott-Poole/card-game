@@ -68,8 +68,10 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
     response
       .writeStatus(file.status)
       .writeHeader("Content-Type", file.type)
-      .writeHeader("X-Content-Type-Options", "nosniff")
-      .end(method === "head" ? undefined : file.body);
+      .writeHeader("X-Content-Type-Options", "nosniff");
+    if (method === "head")
+      response.endWithoutBody(Buffer.byteLength(file.body));
+    else response.end(file.body);
   });
   return new Promise((resolve, reject) => {
     app.listen(options.port, (socket) => {

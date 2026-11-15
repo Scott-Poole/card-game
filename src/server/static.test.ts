@@ -32,6 +32,7 @@ afterEach(async () => {
 function request(path: string): Promise<{
   status: number | undefined;
   type: string | undefined;
+  length: string | undefined;
   body: string;
 }> {
   return new Promise((resolve, reject) => {
@@ -45,6 +46,7 @@ function request(path: string): Promise<{
         resolve({
           status: res.statusCode,
           type: res.headers["content-type"],
+          length: res.headers["content-length"],
           body,
         });
       });
@@ -88,37 +90,49 @@ test("missing assets are 404", async () => {
   expect((await request("/missing.js")).status).toBe(404);
 });
 
-test("HEAD returns asset headers without a response body", async () => {
-  const response = await new Promise<{
-    status: number | undefined;
-    type: string | undefined;
-    body: string;
-  }>((resolve, reject) => {
-    const req = httpRequest(
-      {
-        hostname: "localhost",
-        port: server.port,
-        path: "/app.js",
-        method: "HEAD",
-      },
-      (res) => {
-        let body = "";
-        res.on("data", (chunk: Buffer) => {
-          body += chunk.toString();
-        });
-        res.on("end", () => {
-          resolve({
-            status: res.statusCode,
-            type: res.headers["content-type"],
-            body,
+test.each([
+  ["/app.js", 200],
+  ["/missing.js", 404],
+])(
+  "HEAD %s matches GET headers without a response body",
+  async (path, status) => {
+    const getResponse = await request(path);
+    const response = await new Promise<{
+      status: number | undefined;
+      type: string | undefined;
+      length: string | undefined;
+      body: string;
+    }>((resolve, reject) => {
+      const req = httpRequest(
+        {
+          hostname: "localhost",
+          port: server.port,
+          path,
+          method: "HEAD",
+        },
+        (res) => {
+          let body = "";
+          res.on("data", (chunk: Buffer) => {
+            body += chunk.toString();
           });
-        });
-      },
-    );
-    req.on("error", reject);
-    req.end();
-  });
-  expect(response.status).toBe(200);
-  expect(response.type).toContain("text/javascript");
-  expect(response.body).toBe("");
-});
+          res.on("end", () => {
+            resolve({
+              status: res.statusCode,
+              type: res.headers["content-type"],
+              length: res.headers["content-length"],
+              body,
+            });
+          });
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+    expect(getResponse.status).toBe(status);
+    expect(response.status).toBe(getResponse.status);
+    expect(response.type).toBe(getResponse.type);
+    expect(getResponse.length).toBeDefined();
+    expect(response.length).toBe(getResponse.length);
+    expect(response.body).toBe("");
+  },
+);
