@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { decodeServerMessage } from "../protocol/messages.ts";
 import type { ClientMessage, PlayerView } from "../protocol/messages.ts";
 import "./style.css";
-import Credits from "./Credits.tsx";
 import { isAcknowledged } from "./isAcknowledged.ts";
 import type { PendingRequest } from "./isAcknowledged.ts";
 
@@ -10,7 +9,6 @@ export default function App() {
   const [status, setStatus] = useState<"connecting" | "connected" | "error">(
     "connecting",
   );
-  const [creditsOpen, setCreditsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [view, setView] = useState<PlayerView | null>(null);
@@ -118,15 +116,6 @@ export default function App() {
     <main>
       <h1>Card game</h1>
       <p role="status">{status}</p>
-      <button
-        aria-expanded={creditsOpen}
-        onClick={() => {
-          setCreditsOpen(!creditsOpen);
-        }}
-      >
-        {creditsOpen ? "Close credits" : "Credits"}
-      </button>
-      {creditsOpen && <Credits />}
       {notice && <p role="alert">{notice}</p>}
       {!view && !waiting && (
         <button
