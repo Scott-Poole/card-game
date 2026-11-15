@@ -144,6 +144,17 @@ test("phase narrows planning and forfeited view results", () => {
   for (const loser of [0, 1] satisfies PlayerId[]) {
     for (const match of [state, forfeit(state, loser)]) {
       const view = playerView(match, 0);
+      expect(view.phase).toBe(match.phase);
+      expect(Object.keys(view)).toEqual([
+        "player",
+        "turn",
+        "energy",
+        "own",
+        "opponent",
+        "events",
+        "phase",
+        "result",
+      ]);
       if (view.phase === "planning") {
         const result: null = view.result;
         expect(result).toBeNull();
