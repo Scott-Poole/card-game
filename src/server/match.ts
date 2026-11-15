@@ -9,11 +9,7 @@ import {
   type MatchState,
   type PlayerId,
 } from "../engine/index.ts";
-import type {
-  ClientMessage,
-  ServerMessage,
-  PlayerView,
-} from "../protocol/messages.ts";
+import type { ClientMessage, ServerMessage } from "../protocol/messages.ts";
 import { starterDeck } from "./roster.ts";
 
 interface Peer {
@@ -30,25 +26,9 @@ interface Seat {
 function send(peer: Peer, message: ServerMessage) {
   peer.send(JSON.stringify(message));
 }
-function wireView(state: MatchState, player: PlayerId): PlayerView {
-  const view = playerView(state, player);
-  const fields = {
-    player: view.player,
-    turn: view.turn,
-    energy: view.energy,
-    own: view.own,
-    opponent: view.opponent,
-    events: view.events,
-  };
-  if (view.phase === "ended") {
-    if (!view.result) throw new Error("Ended match has no result");
-    return { ...fields, phase: "ended", result: view.result };
-  }
-  return { ...fields, phase: "planning", result: null };
-}
 function broadcast(match: Match) {
-  send(match.peers[0], { type: "state", view: wireView(match.state, 0) });
-  send(match.peers[1], { type: "state", view: wireView(match.state, 1) });
+  send(match.peers[0], { type: "state", view: playerView(match.state, 0) });
+  send(match.peers[1], { type: "state", view: playerView(match.state, 1) });
 }
 // Independent cryptographic permutations keep opponent draws secret even if
 // the engine's replay seed is guessed from a player's own draw order.
@@ -129,7 +109,7 @@ export function matchHost() {
       match.state = forfeit(match.state, player);
       send(match.peers[winner], {
         type: "state",
-        view: wireView(match.state, winner),
+        view: playerView(match.state, winner),
       });
     },
   };
