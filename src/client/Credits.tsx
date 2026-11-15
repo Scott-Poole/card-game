@@ -18,11 +18,7 @@ export default function Credits() {
           <p>{entry.author}</p>
           <p>{entry.attribution}</p>
           <p>{entry.modifications}</p>
-          <p>
-            <a href={entry.sourceUrl}>Source</a>
-            {" · "}
-            <a href={entry.licenseUrl}>{entry.license}</a>
-          </p>
+         
         </article>
       ))}
     </section>
