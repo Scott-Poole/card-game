@@ -3,6 +3,8 @@ import { decodeServerMessage } from "../protocol/messages.ts";
 import type { ClientMessage, PlayerView } from "../protocol/messages.ts";
 import "./style.css";
 import Credits from "./Credits.tsx";
+import { isAcknowledged } from "./isAcknowledged.ts";
+import type { PendingRequest } from "./isAcknowledged.ts";
 
 export default function App() {
   const [status, setStatus] = useState<"connecting" | "connected" | "error">(
@@ -13,10 +15,7 @@ export default function App() {
   const [waiting, setWaiting] = useState(false);
   const [view, setView] = useState<PlayerView | null>(null);
   const [pending, setPending] = useState(false);
-  const requestRef = useRef<{
-    message: ClientMessage;
-    turn: number | null;
-  } | null>(null);
+  const requestRef = useRef<PendingRequest | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   useEffect(() => {
     const socket = new WebSocket(
@@ -56,24 +55,7 @@ export default function App() {
           setView(message.view);
           setWaiting(false);
           {
-            const request = requestRef.current;
-            const acknowledged =
-              !request ||
-              request.message.type === "join" ||
-              message.view.phase === "ended" ||
-              message.view.turn !== request.turn ||
-              (request.message.type === "commit"
-                ? message.view.own.committed
-                : request.message.plays.length ===
-                    message.view.own.staged.length &&
-                  request.message.plays.every((play, index) => {
-                    const staged = message.view.own.staged[index];
-                    return (
-                      staged?.cardId === play.cardId &&
-                      staged.lane === play.lane
-                    );
-                  }));
-            if (acknowledged) {
+            if (isAcknowledged(requestRef.current, message.view)) {
               requestRef.current = null;
               setPending(false);
             }
