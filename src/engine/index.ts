@@ -61,7 +61,9 @@ export type MatchEvent =
 function random(rng: number): number {
   return (Math.imul(rng, 1664525) + 1013904223) >>> 0;
 }
-/** Returns a shuffled copy. randomIndex must return an integer in [0, bound). */
+/** Returns a shallow shuffled copy. randomIndex must return an integer in [0, bound).
+ * Replay contract: sample once per descending bound length, length - 1, ... 2;
+ * empty and singleton decks consume no samples. */
 export function shuffle(
   cards: readonly CardDefinition[],
   randomIndex: (bound: number) => number,

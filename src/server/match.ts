@@ -34,7 +34,7 @@ function broadcast(match: Match) {
 // Independent cryptographic permutations keep opponent draws secret even if
 // the engine's replay seed is guessed from a player's own draw order.
 function privateDeck(player: PlayerId) {
-  return shuffle(starterDeck(player), randomInt);
+  return shuffle(starterDeck(player), (bound) => randomInt(bound));
 }
 /** Owns the queue and match lifecycle for a single server instance. */
 export function matchHost() {
