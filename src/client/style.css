@@ -54,10 +54,3 @@ ol {
     overflow-wrap: anywhere;
   }
 }
-.credits article {
-  overflow-wrap: anywhere;
-}
-.credits img {
-  max-width: 100%;
-  height: auto;
-}

@@ -1,6 +1,6 @@
 # card-game
 
-An original lane-based, simultaneous-turn strategy card game for the browser, served by an authoritative TypeScript game server over uWebSockets.js. Mechanics follow the lane-battler genre (lanes, simultaneous reveal, an energy curve, location effects); the content is ours. Cards are figures from Greek and Roman myth, with Creative Commons art tracked by license and attribution. Every card, location, name, ability, and visual is invented fresh, never carried over from an existing game.
+An original lane-based, simultaneous-turn strategy card game for the browser, served by an authoritative TypeScript game server over uWebSockets.js. Mechanics follow the lane-battler genre (lanes, simultaneous reveal, an energy curve, location effects); the content is ours. Cards are figures from Greek and Roman myth. Every card, location, name, ability, and visual is invented fresh, never carried over from an existing game.
 
 The repo is equally a testbed for Scott's agent workflow: how work is planned, routed across models, verified, and improved. When a process step goes badly, fixing the process (a skill, a lint rule, a check) is in scope.
 
