@@ -20,6 +20,7 @@ const gates = [
   "test:guardrail",
   "test:queue",
   "test:boundaries",
+  "test:skill-links",
   "test:browser",
 ];
 for (const gate of gates) {

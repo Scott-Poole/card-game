@@ -32,7 +32,7 @@ Done when you can name what is queued, in flight, and recently merged: the **ded
 
 ## 2. Hunt
 
-Work your category's lens, and go **relentless** within it: read the code, run `pnpm check`, run the app ([`run`](../run/SKILL.md)) where the lens calls for it.
+Work your category's lens, and go **relentless** within it: read the code, run `pnpm check`, run the app where the lens calls for it: `pnpm dev` for development, `pnpm build` then `pnpm start` to serve a production build, or `pnpm test:browser` for production browser tests (see [AGENTS.md](../../../AGENTS.md)).
 
 | Category | Source | A good ticket |
 |---|---|---|
