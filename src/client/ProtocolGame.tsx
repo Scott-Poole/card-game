@@ -1,12 +1,11 @@
+import Card from "./Card.tsx";
+import Lane from "./Lane.tsx";
+import { selectLaneTotals } from "./laneTotals.ts";
 import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
-import { legalPlays, TURN_LIMIT, LANE_CAPACITY } from "../rules/index.ts";
+import { legalPlays, TURN_LIMIT } from "../rules/index.ts";
 import { css, cx } from "../../styled-system/css/index.js";
-import {
-  panel,
-  button,
-  card as cardSurface,
-} from "../../styled-system/recipes/index.js";
+import { panel, button } from "../../styled-system/recipes/index.js";
 import { useAppDispatch, useAppSelector } from "./hooks.ts";
 import { selectConnection } from "./connectionSlice.ts";
 import { selectMatch } from "./matchSlice.ts";
@@ -33,6 +32,7 @@ export default function ProtocolGame() {
     : [];
   const outcome = (winner: number | null) =>
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
+  const totals = view ? selectLaneTotals(view) : null;
   const playing = view?.phase === "planning";
   return (
     <Stage active={playing}>
@@ -95,6 +95,19 @@ export default function ProtocolGame() {
               deck: {view.own.deckSize}.
             </p>
             <div className="board-notices">
+              <div
+                role="group"
+                aria-label={`Opponent hand: ${String(view.opponent.handSize)} face-down cards`}
+                className={css({
+                  display: "flex",
+                  gap: "xs",
+                  height: "stageTarget",
+                })}
+              >
+                {Array.from({ length: view.opponent.handSize }, (_, index) => (
+                  <Card key={index} faceDown size="lane" />
+                ))}
+              </div>
               {notice && <p role="alert">{notice}</p>}
               {view.opponent.committed && <p>Opponent has committed</p>}
               {view.own.committed && <p>You have committed</p>}
@@ -111,25 +124,22 @@ export default function ProtocolGame() {
               )}
             >
               {view.own.lanes.map((cards, lane) => (
-                <section
-                  className={cx(
-                    panel(),
-                    css({
-                      my: "md",
-                      p: playing ? "sm" : { base: "compact", md: "md" },
-                      overflowWrap: "anywhere",
-                    }),
-                  )}
+                <Lane
                   key={lane}
-                  aria-label={`Lane ${String(lane + 1)}`}
-                >
-                  <h3>Lane {lane + 1}</h3>
-                  <Reserved label="Location" />
-                  <h4 className={css({ color: "opponent" })}>Opponent</h4>
-                  <SlotStack cards={view.opponent.lanes[lane] ?? []} />
-                  <h4 className={css({ color: "own" })}>You</h4>
-                  <SlotStack cards={cards} />
-                </section>
+                  number={lane + 1}
+                  own={cards}
+                  opponent={view.opponent.lanes[lane] ?? []}
+                  staged={staged
+                    .filter((play) => play.lane === lane)
+                    .flatMap((play) => {
+                      const card = view.own.hand.find(
+                        (card) => card.id === play.cardId,
+                      );
+                      return card ? [card] : [];
+                    })}
+                  ownTotal={totals?.own[lane] ?? 0}
+                  opponentTotal={totals?.opponent[lane] ?? 0}
+                />
               ))}
             </div>
             <section
@@ -150,46 +160,37 @@ export default function ProtocolGame() {
                   (card) => !staged.some((play) => play.cardId === card.id),
                 )
                 .map((card) => (
-                  <article
-                    className={cx(
-                      "board-card",
-                      cardSurface(),
-                      css({ my: playing ? "none" : "md" }),
-                    )}
-                    key={card.id}
-                  >
-                    <h3>{card.name}</h3>
-                    <p>
-                      Cost {card.cost} · Power {card.power}
-                    </p>
-                    {view.own.lanes.map((_, lane) => (
-                      <button
-                        className={cx(
-                          button(),
-                          css({ m: "none", p: "xs", fontSize: "small" }),
-                        )}
-                        key={lane}
-                        aria-label={`Stage ${card.name} in lane ${String(lane + 1)}`}
-                        disabled={
-                          locked ||
-                          !available.some(
-                            (play) =>
-                              play.cardId === card.id && play.lane === lane,
-                          )
-                        }
-                        onClick={() => {
-                          dispatch(
-                            send({
-                              type: "stage",
-                              plays: [...staged, { cardId: card.id, lane }],
-                            }),
-                          );
-                        }}
-                      >
-                        Lane {lane + 1}
-                      </button>
-                    ))}
-                  </article>
+                  <div className="board-card" key={card.id}>
+                    <Card data={card} disabled={locked}>
+                      {view.own.lanes.map((_, lane) => (
+                        <button
+                          className={cx(
+                            button(),
+                            css({ m: "none", p: "xs", fontSize: "small" }),
+                          )}
+                          key={lane}
+                          aria-label={`Stage ${card.name} in lane ${String(lane + 1)}`}
+                          disabled={
+                            locked ||
+                            !available.some(
+                              (play) =>
+                                play.cardId === card.id && play.lane === lane,
+                            )
+                          }
+                          onClick={() => {
+                            dispatch(
+                              send({
+                                type: "stage",
+                                plays: [...staged, { cardId: card.id, lane }],
+                              }),
+                            );
+                          }}
+                        >
+                          Lane {lane + 1}
+                        </button>
+                      ))}
+                    </Card>
+                  </div>
                 ))}
             </section>
             <section
@@ -315,30 +316,5 @@ export default function ProtocolGame() {
 function Reserved({ label }: { label: string }) {
   return (
     <div className="reserved-slot">{import.meta.env.DEV ? label : null}</div>
-  );
-}
-
-function SlotStack({
-  cards,
-}: {
-  cards: readonly { id: string; name: string; power: number }[];
-}) {
-  return (
-    <div className="board-slots">
-      {Array.from({ length: LANE_CAPACITY }, (_, slot) => {
-        const card = cards[slot];
-        return (
-          <div key={slot}>
-            {card ? (
-              <ul>
-                <li>
-                  {card.name} — Power {card.power}
-                </li>
-              </ul>
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
   );
 }

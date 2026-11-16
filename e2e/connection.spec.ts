@@ -627,7 +627,7 @@ test("multiple staged cards can be returned from the portrait board", async ({
   }
   for (let count = 0; count < 2; count++) {
     const hand = a.getByRole("region", { name: "Hand", exact: true });
-    const cheap = hand.getByRole("article").filter({ hasText: /Cost [1-3] ·/ });
+    const cheap = hand.getByRole("article").filter({ hasText: /Cost [1-3]/ });
     const play = cheap
       .getByRole("button", { name: /in lane 1$/ })
       .and(a.locator(":enabled"))
@@ -650,4 +650,88 @@ test("multiple staged cards can be returned from the portrait board", async ({
   await expect(buttons).toHaveCount(1);
   await buttons.first().click();
   await expect(buttons).toHaveCount(0);
+});
+
+test("revealed lane cards and totals follow both players through every turn", async ({
+  pair: [a, b],
+}) => {
+  const records = new Map<
+    Page,
+    { name: string; power: number; lane: number }[]
+  >([
+    [a, []],
+    [b, []],
+  ]);
+  for (let turn = 1; turn <= 6; turn++) {
+    for (const page of [a, b]) {
+      await expect(
+        page.getByRole("heading", { name: `Turn ${String(turn)} of 6` }),
+      ).toBeVisible();
+      const play = page
+        .getByRole("button", { name: /Stage .* in lane/ })
+        .and(page.locator(":enabled"))
+        .last();
+      if (await play.count()) {
+        const label = await play.getAttribute("aria-label");
+        const match = /^Stage (.*) in lane (\d+)$/.exec(label ?? "");
+        if (!match?.[1] || !match[2]) throw new Error("Missing play label");
+        const name = match[1];
+        const powerText = await page
+          .getByRole("region", { name: "Hand", exact: true })
+          .getByRole("article", { name, exact: true })
+          .getByText(/^Power /)
+          .innerText();
+        await play.click();
+        await expect(
+          page
+            .getByRole("region", { name: `Lane ${match[2]}`, exact: true })
+            .getByRole("group", { name: "Your cards" })
+            .getByRole("article", { name, exact: true }),
+        ).toBeVisible();
+        records.get(page)?.push({
+          name,
+          power: Number(powerText.replace("Power ", "")),
+          lane: Number(match[2]),
+        });
+      }
+      await page.getByRole("button", { name: "Commit", exact: true }).click();
+    }
+    for (const page of [a, b]) {
+      await expect(
+        page.getByRole("heading", {
+          name: turn === 6 ? "Match result" : `Turn ${String(turn + 1)} of 6`,
+          exact: true,
+        }),
+      ).toBeVisible();
+      for (let lane = 1; lane <= 3; lane++) {
+        const own = (records.get(page) ?? []).filter(
+          (card) => card.lane === lane,
+        );
+        const opponent = (records.get(page === a ? b : a) ?? []).filter(
+          (card) => card.lane === lane,
+        );
+        const region = page.getByRole("region", {
+          name: `Lane ${String(lane)}`,
+          exact: true,
+        });
+        await expect(
+          region.getByText(
+            `Opponent total: ${String(opponent.reduce((sum, card) => sum + card.power, 0))} · Your total: ${String(own.reduce((sum, card) => sum + card.power, 0))}`,
+            { exact: true },
+          ),
+        ).toBeVisible();
+        for (const [label, cards] of [
+          ["Your cards", own],
+          ["Opponent cards", opponent],
+        ] satisfies [string, typeof own][]) {
+          const group = region.getByRole("group", { name: label });
+          await expect(group.getByRole("article")).toHaveCount(cards.length);
+          for (const card of cards)
+            await expect(
+              group.getByRole("article", { name: card.name, exact: true }),
+            ).toBeVisible();
+        }
+      }
+    }
+  }
 });

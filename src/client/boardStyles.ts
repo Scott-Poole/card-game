@@ -34,14 +34,16 @@ export const boardStyles = css({
     p: "sm",
   },
   "& .board-lanes h3, & .board-lanes h4": { fontSize: "small", my: "xs" },
-  "& .board-lanes ul": { pl: "md", fontSize: "small" },
+
   "& .board-slots": {
     display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gridAutoRows: "[minmax(0, 1fr)]",
     flex: "1",
     minH: "[0]",
     gap: "xs",
   },
+  "& .board-slots h3": { fontSize: "cardTiny", lineClamp: 1, m: "none" },
   "& .board-slots > div": {
     border: "panel",
     borderRadius: "control",
@@ -71,7 +73,8 @@ export const boardStyles = css({
     flexBasis: "handCard",
     alignSelf: "stretch",
     m: "none",
-    p: "sm",
+    p: "none",
+    minH: "[0]",
   },
   "& .board-card h3": { fontSize: "small", lineClamp: 2, my: "xs" },
   "& .board-card button": {
