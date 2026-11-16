@@ -7,3 +7,5 @@ test-results/
 __pycache__/
 *.py[cod]
 .worktrees/
+
+styled-system/
