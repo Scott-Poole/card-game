@@ -147,6 +147,33 @@ export function commit(state: MatchState, id: PlayerId): Result<MatchState> {
     value: replace(state, id, { ...player, committed: true }),
   };
 }
+export type PlayerAction =
+  | { readonly type: "stage"; readonly plays: readonly Play[] }
+  | { readonly type: "commit" };
+
+/** Applies one action, including resolution when it completes both commits. */
+export function applyAction(
+  state: MatchState,
+  id: PlayerId,
+  action: PlayerAction,
+): Result<MatchState> {
+  switch (action.type) {
+    case "stage":
+      return stage(state, id, action.plays);
+    case "commit": {
+      const committed = commit(state, id);
+      if (!committed.ok) return committed;
+      if (!committed.value.players.every((p) => p.committed)) return committed;
+      const resolved = resolve(committed.value);
+      return resolved.ok ? { ok: true, value: resolved.value.state } : resolved;
+    }
+    default: {
+      const exhaustive: never = action;
+      return exhaustive;
+    }
+  }
+}
+
 function winner(a: number, b: number): PlayerId | null {
   return a === b ? null : a > b ? 0 : 1;
 }

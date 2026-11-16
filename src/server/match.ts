@@ -3,9 +3,7 @@ import {
   createMatch,
   shuffle,
   forfeit,
-  stage,
-  commit,
-  resolve,
+  applyAction,
   playerView,
   type MatchState,
   type PlayerId,
@@ -74,20 +72,12 @@ export function matchHost() {
         return;
       }
       const { match, player } = seat;
-      const result =
-        message.type === "stage"
-          ? stage(match.state, player, message.plays)
-          : commit(match.state, player);
+      const result = applyAction(match.state, player, message);
       if (!result.ok) {
         error(peer);
         return;
       }
       match.state = result.value;
-      if (match.state.players.every((p) => p.committed)) {
-        const resolved = resolve(match.state);
-        if (!resolved.ok) throw new Error("Committed match could not resolve");
-        match.state = resolved.value.state;
-      }
       broadcast(match);
     },
     close(peer: Peer) {
