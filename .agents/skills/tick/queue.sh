@@ -57,7 +57,7 @@ ever_claimed() {
 transition() {
 	local n=$1 add=$2 remove=$3 err labels
 	if [[ -n $add ]]; then
-		gh api --method POST "$API/issues/$n/labels" -f "labels[]=$add" --silent
+		gh api --method POST "$API/issues/$n/labels" -f "labels[]=$add" --silent || return 1
 	fi
 	if [[ -n $remove ]] && ! err=$(gh api --method DELETE "$API/issues/$n/labels/$remove" --silent 2>&1); then
 		if [[ $err != *"HTTP 404"* ]]; then
@@ -65,7 +65,7 @@ transition() {
 			return 1
 		fi
 	fi
-	labels=" $(labels_of "$n") "
+	labels=" $(labels_of "$n") " || return 1
 	if [[ -n $add && $labels != *" $add "* ]] || [[ -n $remove && $labels == *" $remove "* ]]; then
 		log "#$n labels after transition are [$labels]; wanted +$add -$remove"
 		return 1
@@ -111,8 +111,14 @@ cmd_audit_claim() {
 		log "refusing to audit #$n: not a queued merged PR"
 		return 1
 	fi
-	transition "$n" audit-in-progress merged-unreviewed
-	comment "$n" "tick: audit claimed $(date -u +%Y-%m-%dT%H:%MZ)"
+	if ! transition "$n" audit-in-progress merged-unreviewed; then
+		transition "$n" merged-unreviewed audit-in-progress
+		return 1
+	fi
+	if ! comment "$n" "tick: audit claimed $(date -u +%Y-%m-%dT%H:%MZ)"; then
+		transition "$n" merged-unreviewed audit-in-progress
+		return 1
+	fi
 }
 
 cmd_audit_finish() {
