@@ -595,6 +595,12 @@ for (const viewport of [
       a.getByText("You have committed", { exact: true }),
     ).toBeVisible();
     expect(await lanes.boundingBox()).toEqual(laneBeforeCommit);
+    const meta = await a.getByText(/^You are player/).boundingBox();
+    const notice = await a
+      .getByText("You have committed", { exact: true })
+      .boundingBox();
+    if (!meta || !notice) throw new Error("Missing match information");
+    expect(meta.y + meta.height).toBeLessThanOrEqual(notice.y);
     await expect(
       a.getByRole("button", { name: "Commit", exact: true }),
     ).toBeDisabled();
@@ -632,6 +638,7 @@ test("multiple staged cards can be returned from the portrait board", async ({
     );
   }
   const staged = a.getByRole("region", { name: "Staged cards", exact: true });
+  await expect(staged.getByText("Lane 1", { exact: true })).toHaveCount(2);
   const bounds = await staged.boundingBox();
   const buttons = staged.getByRole("button");
   for (const button of await buttons.all()) {

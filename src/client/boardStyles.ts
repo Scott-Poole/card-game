@@ -26,7 +26,7 @@ export const boardStyles = css({
     textAlign: "right",
   },
   "& .board-meta": { gridColumn: "1 / -1", gridRow: "3", fontSize: "small" },
-  "& .board-lanes": { gridColumn: "1 / -1", gridRow: "4" },
+  "& .board-lanes": { gridColumn: "1 / -1", gridRow: "5" },
   "& .board-lanes > section": {
     display: "flex",
     flexDirection: "column",
@@ -58,7 +58,7 @@ export const boardStyles = css({
   },
   "& .board-hand": {
     gridColumn: "1 / -1",
-    gridRow: "5",
+    gridRow: "6",
     overflow: "auto",
     display: "flex",
     gap: "sm",
@@ -77,22 +77,23 @@ export const boardStyles = css({
   "& .board-card button": {
     fontSize: "small",
     p: "xs",
+    minH: "stageTarget",
     m: "none",
     display: "block",
   },
   "& .board-energy": {
     gridColumn: "2",
-    gridRow: "6",
+    gridRow: "7",
     alignSelf: "center",
     textAlign: "center",
   },
-  "& .board-retreat": { gridColumn: "1", gridRow: "6" },
+  "& .board-retreat": { gridColumn: "1", gridRow: "7" },
   "& .board-commit": {
     gridColumn: "3",
-    gridRow: "6",
+    gridRow: "7",
   },
   "& .board-staged, & .board-reveal": {
-    gridRow: "7",
+    gridRow: "8",
     overflow: "auto",
     p: "xs",
     fontSize: "small",
@@ -104,8 +105,15 @@ export const boardStyles = css({
     listStyleType: "none",
     p: "none",
   },
-  "& .board-staged li": { minW: "[0]", flexShrink: 0 },
+  "& .board-staged li": {
+    minW: "[0]",
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: "xs",
+  },
   "& .board-staged button": {
+    minH: "stageTarget",
     maxW: "handCard",
     whiteSpace: "nowrap",
     overflow: "hidden",
@@ -114,10 +122,6 @@ export const boardStyles = css({
   "& .board-reveal": { gridColumn: "3" },
   "& > section > h2": { fontSize: "small", m: "none" },
   "& > section button": { fontSize: "small", p: "xs" },
-  "& .board-message": {
-    gridColumn: "1 / -1",
-    gridRow: "3",
-    bg: "surface",
-    fontSize: "small",
-  },
+  "& .board-notices": { gridColumn: "1 / -1", gridRow: "4", fontSize: "small" },
+  "& .board-notices p": { m: "none" },
 });

@@ -44,8 +44,9 @@ export default defineConfig({
         content: { value: "1100px" },
         stageWidth: { value: "600px" },
         stageHeight: { value: "1000px" },
-        boardRows: { value: "32px 32px 24px 1fr 220px 60px 80px" },
+        boardRows: { value: "32px 32px 24px 64px 1fr 220px 60px 80px" },
         handCard: { value: "150px" },
+        stageTarget: { value: "37px" },
       },
       fonts: { body: { value: "Georgia, serif" } },
       fontSizes: {

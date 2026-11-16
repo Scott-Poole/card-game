@@ -63,11 +63,7 @@ export default function ProtocolGame() {
         >
           {status}
         </p>
-        {notice && (
-          <p className="board-message" role="alert">
-            {notice}
-          </p>
-        )}
+        {!view && notice && <p role="alert">{notice}</p>}
         {!view && !waiting && (
           <button
             className={cx(button(), css({ m: "xs" }))}
@@ -98,9 +94,11 @@ export default function ProtocolGame() {
               {view.opponent.handSize}; deck: {view.opponent.deckSize}. Your
               deck: {view.own.deckSize}.
             </p>
-            {view.opponent.committed && (
-              <p className="board-message">Opponent has committed</p>
-            )}
+            <div className="board-notices">
+              {notice && <p role="alert">{notice}</p>}
+              {view.opponent.committed && <p>Opponent has committed</p>}
+              {view.own.committed && <p>You have committed</p>}
+            </div>
             <div
               className={cx(
                 "board-lanes",
@@ -210,6 +208,7 @@ export default function ProtocolGame() {
               <ul>
                 {staged.map((play) => (
                   <li key={play.cardId}>
+                    <span>Lane {play.lane + 1}</span>
                     <button
                       className={cx(
                         button(),
@@ -249,9 +248,6 @@ export default function ProtocolGame() {
             <button className={cx(button(), "board-retreat")} disabled>
               Retreat
             </button>
-            {view.own.committed && (
-              <p className="board-message">You have committed</p>
-            )}
             <section
               className={cx(
                 "board-reveal",
