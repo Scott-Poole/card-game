@@ -1,5 +1,5 @@
-import { legalPlays, TURN_LIMIT } from "../rules/index.ts";
 import { useEffect, useRef, useState } from "react";
+import { legalPlays, TURN_LIMIT } from "../rules/index.ts";
 import { decodeServerMessage } from "../protocol/messages.ts";
 import type { ClientMessage, PlayerView } from "../protocol/messages.ts";
 import "./style.css";
