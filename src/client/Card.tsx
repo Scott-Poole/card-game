@@ -36,29 +36,9 @@ export default function Card(props: CardProps) {
             <span>Power {props.data.power}</span>
           </div>
           {props.art ?? (
-            <div
-              aria-label="Art placeholder"
-              role="img"
-              className={css({
-                bg: "surface",
-                borderRadius: "control",
-                flex: "1",
-                minH:
-                  props.size === "lane"
-                    ? "[token(spacing.xs)]"
-                    : "[token(spacing.lg)]",
-              })}
-            />
+            <div aria-label="Art placeholder" role="img" data-part="art" />
           )}
-          <h3
-            className={css({
-              fontSize: "small",
-              m: "none",
-              lineHeight: "heading",
-            })}
-          >
-            {props.data.name}
-          </h3>
+          <h3>{props.data.name}</h3>
         </>
       )}
       {props.children}
