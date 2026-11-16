@@ -460,3 +460,37 @@ test("undecodable server frame closes the client socket", async ({
   await expect(page.getByRole("status")).toHaveText("error");
   await expect.poll(() => closed).toBe(true);
 });
+
+test("Home Play navigates locally with browser history and deep links", async ({
+  page,
+  address,
+}) => {
+  await page.goto(address);
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(page).toHaveURL(address + "/waiting");
+  await expect(
+    page.getByRole("heading", { name: "Waiting", exact: true }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Home", exact: true }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(
+    page.getByRole("heading", { name: "Waiting", exact: true }),
+  ).toBeVisible();
+  for (const [path, heading] of [
+    ["/match", "Match"],
+    ["/result", "Result"],
+    ["/waiting", "Waiting"],
+    ["/unknown", "Page not found"],
+  ] satisfies [string, string][]) {
+    await page.goto(address + path);
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: heading, exact: true }),
+    ).toBeVisible();
+  }
+  await page.getByRole("link", { name: "Home", exact: true }).click();
+  await expect(page).toHaveURL(address + "/");
+});

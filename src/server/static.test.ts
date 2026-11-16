@@ -86,8 +86,22 @@ test.each([
   expect(response.status).toBe(403);
   expect(response.body).not.toContain("private");
 });
-test("missing assets are 404", async () => {
-  expect((await request("/missing.js")).status).toBe(404);
+test.each(["/waiting", "/match", "/result", "/unknown"])(
+  "client route %s serves the app entry",
+  async (path) => {
+    const response = await request(path);
+    expect(response.status).toBe(200);
+    expect(response.type).toContain("text/html");
+    expect(response.body).toBe("index.html");
+  },
+);
+test.each([
+  "/missing.js",
+  "/missing.css",
+  "/assets/missing.png",
+  "/missing.json",
+])("missing asset %s is 404", async (path) => {
+  expect((await request(path)).status).toBe(404);
 });
 
 test.each([
