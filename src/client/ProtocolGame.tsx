@@ -1,3 +1,4 @@
+import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
 import { legalPlays, TURN_LIMIT, LANE_CAPACITY } from "../rules/index.ts";
 import { css, cx } from "../../styled-system/css/index.js";
@@ -37,29 +38,36 @@ export default function ProtocolGame() {
     <Stage active={playing}>
       <section
         className={cx(
-          playing && "match-board",
+          playing && boardStyles,
           css({
             maxW: "content",
             mx: "auto",
-            p: { base: "md", md: "lg" },
+            p: playing ? "md" : { base: "md", md: "lg" },
           }),
         )}
       >
         {!playing && <h2>Card game</h2>}
         <p
-          className={css({
-            color:
-              status === "error"
-                ? "negative"
-                : status === "connected"
-                  ? "positive"
-                  : "muted",
-          })}
+          className={cx(
+            "board-connection",
+            css({
+              color:
+                status === "error"
+                  ? "negative"
+                  : status === "connected"
+                    ? "positive"
+                    : "muted",
+            }),
+          )}
           role="status"
         >
           {status}
         </p>
-        {notice && <p role="alert">{notice}</p>}
+        {notice && (
+          <p className="board-message" role="alert">
+            {notice}
+          </p>
+        )}
         {!view && !waiting && (
           <button
             className={cx(button(), css({ m: "xs" }))}
@@ -90,14 +98,17 @@ export default function ProtocolGame() {
               {view.opponent.handSize}; deck: {view.opponent.deckSize}. Your
               deck: {view.own.deckSize}.
             </p>
-            {view.opponent.committed && <p>Opponent has committed</p>}
+            {view.opponent.committed && (
+              <p className="board-message">Opponent has committed</p>
+            )}
             <div
               className={cx(
                 "board-lanes",
                 css({
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                  gap: { base: "xs", md: "md" },
+                  gridAutoFlow: "column",
+                  gridAutoColumns: "minmax(0, 1fr)",
+                  gap: "sm",
                 }),
               )}
             >
@@ -107,7 +118,7 @@ export default function ProtocolGame() {
                     panel(),
                     css({
                       my: "md",
-                      p: { base: "compact", md: "md" },
+                      p: playing ? "sm" : { base: "compact", md: "md" },
                       overflowWrap: "anywhere",
                     }),
                   )}
@@ -117,52 +128,19 @@ export default function ProtocolGame() {
                   <h3>Lane {lane + 1}</h3>
                   <Reserved label="Location" />
                   <h4 className={css({ color: "opponent" })}>Opponent</h4>
-                  <ul>
-                    {view.opponent.lanes[lane]?.map((card) => (
-                      <li key={card.id}>
-                        {card.name} — Power {card.power}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="board-slots" aria-hidden="true">
-                    {Array.from(
-                      {
-                        length: Math.max(
-                          0,
-                          LANE_CAPACITY -
-                            (view.opponent.lanes[lane]?.length ?? 0),
-                        ),
-                      },
-                      (_, slot) => (
-                        <div key={slot} />
-                      ),
-                    )}
-                  </div>
+                  <SlotStack cards={view.opponent.lanes[lane] ?? []} />
                   <h4 className={css({ color: "own" })}>You</h4>
-                  <ul>
-                    {cards.map((card) => (
-                      <li key={card.id}>
-                        {card.name} — Power {card.power}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="board-slots" aria-hidden="true">
-                    {Array.from(
-                      { length: Math.max(0, LANE_CAPACITY - cards.length) },
-                      (_, slot) => (
-                        <div key={slot} />
-                      ),
-                    )}
-                  </div>
+                  <SlotStack cards={cards} />
                 </section>
               ))}
             </div>
             <section
               className={cx(
+                "board-hand",
                 panel(),
                 css({
                   my: "md",
-                  p: { base: "compact", md: "md" },
+                  p: playing ? "sm" : { base: "compact", md: "md" },
                   overflowWrap: "anywhere",
                 }),
               )}
@@ -175,7 +153,11 @@ export default function ProtocolGame() {
                 )
                 .map((card) => (
                   <article
-                    className={cx(cardSurface(), css({ my: "md" }))}
+                    className={cx(
+                      "board-card",
+                      cardSurface(),
+                      css({ my: "md" }),
+                    )}
                     key={card.id}
                   >
                     <h3>{card.name}</h3>
@@ -211,10 +193,11 @@ export default function ProtocolGame() {
             </section>
             <section
               className={cx(
+                "board-staged",
                 panel(),
                 css({
                   my: "md",
-                  p: { base: "compact", md: "md" },
+                  p: playing ? "sm" : { base: "compact", md: "md" },
                   overflowWrap: "anywhere",
                 }),
               )}
@@ -254,7 +237,7 @@ export default function ProtocolGame() {
               </ul>
             </section>
             <button
-              className={cx(button(), css({ m: "xs" }))}
+              className={cx("board-commit", button(), css({ m: "xs" }))}
               disabled={locked}
               onClick={() => {
                 dispatch(send({ type: "commit" }));
@@ -265,13 +248,16 @@ export default function ProtocolGame() {
             <button className={cx(button(), "board-retreat")} disabled>
               Retreat
             </button>
-            {view.own.committed && <p>You have committed</p>}
+            {view.own.committed && (
+              <p className="board-message">You have committed</p>
+            )}
             <section
               className={cx(
+                "board-reveal",
                 panel(),
                 css({
                   my: "md",
-                  p: { base: "compact", md: "md" },
+                  p: playing ? "sm" : { base: "compact", md: "md" },
                   overflowWrap: "anywhere",
                 }),
               )}
@@ -296,7 +282,7 @@ export default function ProtocolGame() {
                   panel(),
                   css({
                     my: "md",
-                    p: { base: "compact", md: "md" },
+                    p: playing ? "sm" : { base: "compact", md: "md" },
                     overflowWrap: "anywhere",
                   }),
                 )}
@@ -332,5 +318,30 @@ export default function ProtocolGame() {
 function Reserved({ label }: { label: string }) {
   return (
     <div className="reserved-slot">{import.meta.env.DEV ? label : null}</div>
+  );
+}
+
+function SlotStack({
+  cards,
+}: {
+  cards: readonly { id: string; name: string; power: number }[];
+}) {
+  return (
+    <div className="board-slots">
+      {Array.from({ length: LANE_CAPACITY }, (_, slot) => {
+        const card = cards[slot];
+        return (
+          <div key={slot}>
+            {card ? (
+              <ul>
+                <li>
+                  {card.name} — Power {card.power}
+                </li>
+              </ul>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
   );
 }
