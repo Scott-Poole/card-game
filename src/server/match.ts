@@ -81,7 +81,9 @@ export function matchHost(
   }
   return {
     start(first: Peer, second: Peer) {
-      run(() => start(first, second));
+      run(() => {
+        start(first, second);
+      });
     },
     message(peer: Peer, message: ClientMessage) {
       run(() => {
