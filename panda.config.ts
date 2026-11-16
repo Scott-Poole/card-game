@@ -27,6 +27,10 @@ export default defineConfig({
         onAccent: { value: "#151719" },
       },
       spacing: {
+        safeTop: { value: "env(safe-area-inset-top)" },
+        safeBottom: { value: "env(safe-area-inset-bottom)" },
+        safeLeft: { value: "env(safe-area-inset-left)" },
+        safeRight: { value: "env(safe-area-inset-right)" },
         none: { value: "0" },
         xs: { value: "4px" },
         compact: { value: "6px" },
@@ -36,7 +40,14 @@ export default defineConfig({
         lg: { value: "24px" },
         xl: { value: "40px" },
       },
-      sizes: { content: { value: "1100px" } },
+      sizes: {
+        content: { value: "1100px" },
+        stageWidth: { value: "600px" },
+        stageHeight: { value: "1000px" },
+        boardRows: { value: "32px 32px 24px 64px 1fr 220px 60px 80px" },
+        handCard: { value: "150px" },
+        stageTarget: { value: "37px" },
+      },
       fonts: { body: { value: "Georgia, serif" } },
       fontSizes: {
         body: { value: "1rem" },

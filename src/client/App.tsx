@@ -24,6 +24,13 @@ function SessionRoute() {
 
 function Shell() {
   const { pathname } = useLocation();
+  if (pathname === "/match")
+    return (
+      <main>
+        <ProtocolGame />
+        <Outlet />
+      </main>
+    );
   return (
     <main
       className={css({
@@ -101,7 +108,7 @@ export default function App() {
           <Route element={<SessionRoute />}>
             <Route index element={<Home />} />
             <Route path="waiting" element={<h1>Waiting</h1>} />
-            <Route path="match" element={<h1>Match</h1>} />
+            <Route path="match" element={null} />
             <Route path="result" element={<h1>Result</h1>} />
           </Route>
           <Route
