@@ -44,9 +44,10 @@ export default defineConfig({
         content: { value: "1100px" },
         stageWidth: { value: "600px" },
         stageHeight: { value: "1000px" },
-        boardRows: { value: "32px 32px 24px 64px 1fr 220px 60px 80px" },
+        boardRows: { value: "32px 32px 24px 64px 1fr 260px 60px 80px" },
         handCard: { value: "150px" },
         stageTarget: { value: "37px" },
+        lanePanel: { value: "340px" },
       },
       fonts: { body: { value: "Georgia, serif" } },
       fontSizes: {
@@ -89,13 +90,45 @@ export default defineConfig({
       },
       card: {
         className: "card",
+        // Presentation props are dynamic, so generate their recipe styles explicitly.
+        staticCss: ["*"],
         base: {
           bg: "raised",
           color: "text",
           border: "panel",
-          borderRadius: "panel",
-          p: "md",
+          borderRadius: "control",
+          p: "xs",
+          display: "flex",
+          flexDirection: "column",
+          gap: "xs",
+          minW: "[0]",
+          overflow: "hidden",
+          fontSize: "small",
+          '& [data-part="name"]': { m: "none", lineHeight: "heading" },
+          '& [data-part="art"]': {
+            bg: "surface",
+            borderRadius: "control",
+            flex: "1",
+          },
         },
+        variants: {
+          size: {
+            hand: {
+              height: "[100%]",
+              '& [data-part="name"]': { fontSize: "small", lineClamp: 2 },
+              '& [data-part="art"]': { minH: "[token(spacing.lg)]" },
+            },
+            lane: {
+              height: "[100%]",
+              fontSize: "small",
+              '& [data-part="name"]': { fontSize: "small", lineClamp: 1 },
+              '& [data-part="art"]': { minH: "[token(spacing.xs)]" },
+            },
+          },
+          selected: { true: { borderColor: "own" } },
+          disabled: { true: { opacity: "disabled" } },
+        },
+        defaultVariants: { size: "hand" },
       },
       button: {
         className: "button",
