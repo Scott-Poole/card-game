@@ -90,6 +90,8 @@ export default defineConfig({
       },
       card: {
         className: "card",
+        // Presentation props are dynamic, so generate their recipe styles explicitly.
+        staticCss: ["*"],
         base: {
           bg: "raised",
           color: "text",

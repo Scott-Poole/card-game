@@ -728,6 +728,10 @@ test("revealed lane cards and totals follow both players through every turn", as
           .getByText(name, { exact: true })
           .boundingBox();
         if (!previewBox || !nameBox) throw new Error("Missing preview text");
+        const statBox = await preview.getByLabel(/^Power /).boundingBox();
+        if (!statBox) throw new Error("Missing preview power");
+        expect(nameBox.height).toBeLessThanOrEqual(statBox.height + 1);
+
         expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
           previewBox.y + previewBox.height + 1,
         );
