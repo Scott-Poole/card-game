@@ -57,7 +57,7 @@ ever_claimed() {
 transition() {
 	local n=$1 add=$2 remove=$3 err labels
 	if [[ -n $add ]]; then
-		gh api --method POST "$API/issues/$n/labels" -f "labels[]=$add" --silent
+		gh api --method POST "$API/issues/$n/labels" -f "labels[]=$add" --silent || return 1
 	fi
 	if [[ -n $remove ]] && ! err=$(gh api --method DELETE "$API/issues/$n/labels/$remove" --silent 2>&1); then
 		if [[ $err != *"HTTP 404"* ]]; then
@@ -65,7 +65,7 @@ transition() {
 			return 1
 		fi
 	fi
-	labels=" $(labels_of "$n") "
+	labels=" $(labels_of "$n") " || return 1
 	if [[ -n $add && $labels != *" $add "* ]] || [[ -n $remove && $labels == *" $remove "* ]]; then
 		log "#$n labels after transition are [$labels]; wanted +$add -$remove"
 		return 1
@@ -92,6 +92,7 @@ cmd_audit_next() {
 		at=$(jq -Rs 'split("\n") | map(select(length > 0) | fromdateiso8601) | max // 0' <<<"$at")
 		if ((now - at > stale * 3600)); then
 			transition "$n" merged-unreviewed audit-in-progress
+			log "stale audit: #$n -> merged-unreviewed"
 		fi
 	done
 	prs=$(audit_prs merged-unreviewed)
@@ -111,12 +112,23 @@ cmd_audit_claim() {
 		log "refusing to audit #$n: not a queued merged PR"
 		return 1
 	fi
-	transition "$n" audit-in-progress merged-unreviewed
-	comment "$n" "tick: audit claimed $(date -u +%Y-%m-%dT%H:%MZ)"
+	if ! transition "$n" audit-in-progress merged-unreviewed; then
+		transition "$n" merged-unreviewed audit-in-progress
+		return 1
+	fi
+	if ! comment "$n" "tick: audit claimed $(date -u +%Y-%m-%dT%H:%MZ)"; then
+		transition "$n" merged-unreviewed audit-in-progress
+		return 1
+	fi
 }
 
 cmd_audit_finish() {
-	local n=$1 summary=$2 add=$3
+	local n=$1 summary=$2 add=$3 detail
+	detail=$(gh api "$API/pulls/$n" --jq '.merged_at != null and any(.labels[]; .name == "audit-in-progress")')
+	if [[ $detail != true ]]; then
+		log "refusing to finish audit #$n: not a claimed merged PR"
+		return 1
+	fi
 	comment "$n" "$summary"
 	transition "$n" "$add" audit-in-progress
 	if [[ -z $add ]]; then transition "$n" "" merged-unreviewed; fi

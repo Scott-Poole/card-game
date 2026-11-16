@@ -94,7 +94,7 @@ check "audit refuses PR without queue label" is "$CODE" "1"
 setup "[]"
 run audit-next
 check "empty audit queue" is "$CODE:$OUT" "0:NONE"
-setup "[$(pr 10 audit-in-progress "$OLD")]"
+setup "[$(pr 10 audit-in-progress "$OLD")]" "{\"10\":[{\"event\":\"labeled\",\"label\":{\"name\":\"audit-in-progress\"},\"created_at\":\"$OLD\"}]}"
 run audit-next
 check "stale audit swept and offered again" is "$CODE:$OUT:$(labels 10)" "0:AUDIT 10:merged-unreviewed"
 setup "[$(pr 10 audit-in-progress "$TODAY")]" "{\"10\":[{\"event\":\"labeled\",\"label\":{\"name\":\"audit-in-progress\"},\"created_at\":\"$TODAY\"}]}"
@@ -103,6 +103,24 @@ check "fresh audit not offered" is "$CODE:$OUT" "0:NONE"
 setup "[$(pr 10 merged-unreviewed "$OLD")]"
 FAKE_GH_FAIL="GET issues?state=closed" run audit-next
 check "audit query fails closed" is "$CODE:$OUT" "1:"
+
+setup "[$(pr 10 merged-unreviewed "$OLD")]"
+FAKE_GH_FAIL="POST comments" run audit-claim 10
+check "failed audit claim comment restores queue" is "$CODE:$(labels 10)" "1:merged-unreviewed"
+setup "[$(pr 10 merged-unreviewed "$OLD")]"
+FAKE_GH_FAIL="DELETE labels/merged-unreviewed" run audit-claim 10
+check "partial audit transition restores queue" is "$CODE:$(labels 10)" "1:merged-unreviewed"
+
+setup "[$(pr 10 merged-unreviewed "$OLD")]"
+run audit-done 10 "No findings"
+check "unclaimed audit cannot finish" is "$CODE:$(labels 10):$(comments 10)" "1:merged-unreviewed:0"
+run audit-release 10 "late thread"
+check "unclaimed audit cannot release" is "$CODE:$(labels 10):$(comments 10)" "1:merged-unreviewed:0"
+setup "[$(pr 10 audit-in-progress "$OLD")]"
+jq '.issues["10"].merged_at = null' "$WORK/state.json" >"$WORK/new.json"
+mv "$WORK/new.json" "$WORK/state.json"
+run audit-done 10 "No findings"
+check "unmerged PR cannot finish audit" is "$CODE:$(labels 10):$(comments 10)" "1:audit-in-progress:0"
 
 # --- completed parent specs --------------------------------------------------------------
 setup "[$(issue 3 ready-for-agent), $(issue 4 '' '{"state":"closed","parent_issue_url":"https://api.github.com/repos/Scott-Poole/card-game/issues/3"}')]"
