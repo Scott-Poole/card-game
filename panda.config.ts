@@ -19,6 +19,7 @@ export default defineConfig({
         muted: { value: "#b1b7bd" },
         border: { value: "#50575e" },
         accent: { value: "#b9c9df" },
+        accentHover: { value: "#cbd8e9" },
         positive: { value: "#a5d6b5" },
         negative: { value: "#f0aaaa" },
         own: { value: "#a9c9e8" },
@@ -28,6 +29,8 @@ export default defineConfig({
       spacing: {
         none: { value: "0" },
         xs: { value: "4px" },
+        compact: { value: "6px" },
+        focusOffset: { value: "2px" },
         sm: { value: "8px" },
         md: { value: "12px" },
         lg: { value: "24px" },
@@ -60,7 +63,6 @@ export default defineConfig({
         panel: { value: "1px solid {colors.border}" },
         focus: { value: "3px solid {colors.accent}" },
       },
-      borderWidths: { focusOffset: { value: "2px" } },
       opacity: { disabled: { value: "0.55" } },
     },
     recipes: {
@@ -71,7 +73,6 @@ export default defineConfig({
           border: "panel",
           borderRadius: "panel",
           p: "md",
-          my: "md",
           boxShadow: "panel",
         },
       },
@@ -83,7 +84,6 @@ export default defineConfig({
           border: "panel",
           borderRadius: "panel",
           p: "md",
-          my: "md",
         },
       },
       button: {
@@ -93,20 +93,26 @@ export default defineConfig({
           fontSize: "body",
           px: "md",
           py: "sm",
-          m: "xs",
           borderRadius: "control",
           cursor: "pointer",
           border: "panel",
           transitionDuration: "quick",
           transitionTimingFunction: "standard",
           transitionProperty: "background-color, color",
-          _focusVisible: { outline: "focus", outlineOffset: "focusOffset" },
+          _focusVisible: {
+            outline: "focus",
+            outlineOffset: "token(spacing.focusOffset)",
+          },
           _disabled: { cursor: "default", opacity: "disabled" },
           _motionReduce: { transitionDuration: "instant" },
         },
         variants: {
           variant: {
-            primary: { bg: "accent", color: "onAccent", _hover: { bg: "own" } },
+            primary: {
+              bg: "accent",
+              color: "onAccent",
+              _hover: { bg: "accentHover" },
+            },
             secondary: { bg: "raised", color: "text", _hover: { bg: "panel" } },
           },
         },
@@ -131,5 +137,7 @@ export default defineConfig({
     },
     "h2, h3, h4": { fontSize: "heading", fontWeight: "strong", my: "sm" },
     "ul, ol": { pl: "lg" },
+    ul: { listStyleType: "disc" },
+    ol: { listStyleType: "decimal" },
   },
 });

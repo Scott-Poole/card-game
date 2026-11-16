@@ -22,8 +22,8 @@
     "test:skill-links": "node scripts/test-skill-links-regression.mjs && node scripts/test-skill-links.mjs",
     "prepare": "husky && panda codegen",
     "start": "node src/server/main.ts",
-    "build": "vite build",
-    "dev": "concurrently --kill-others \"node --watch src/server/main.ts\" \"vite\"",
+    "build": "panda codegen && vite build",
+    "dev": "panda codegen && concurrently --kill-others \"node --watch src/server/main.ts\" \"vite\"",
     "test:browser": "pnpm build && playwright test"
   },
   "devDependencies": {
