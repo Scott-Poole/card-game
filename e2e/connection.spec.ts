@@ -237,7 +237,8 @@ test("staging prevents overspend, returns unstaged cards, and locks after commit
     .filter({ hasText: /Cost [2-6]/ });
   await expect(unaffordable.first().getByRole("button").first()).toBeDisabled();
   const stage = await reachPlayableTurn(a, b);
-  const label = await stage.innerText();
+  const label =
+    (await stage.getAttribute("aria-label")) ?? (await stage.innerText());
   await stage.click();
   const unstage = a.getByRole("button", { name: /Unstage/ });
   await expect(unstage).toBeEnabled();
@@ -261,7 +262,8 @@ test("opponent staged cards stay hidden until resolution", async ({
   pair: [a, b],
 }) => {
   const stage = await reachPlayableTurn(a, b);
-  const label = await stage.innerText();
+  const label =
+    (await stage.getAttribute("aria-label")) ?? (await stage.innerText());
   const name = label.replace(/^Stage /, "").replace(/ in lane \d+$/, "");
   // Both decks share names, so compare the whole rendered page to its baseline:
   // the opponent's own hand may already contain the same card definition.
@@ -545,3 +547,44 @@ test("Play is disabled before welcome and after connection failure", async ({
     page.getByRole("button", { name: "Play", exact: true }),
   ).toBeDisabled();
 });
+
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 1440, height: 900 },
+]) {
+  test(`portrait board fits ${String(viewport.width)}x${String(viewport.height)} and empty commit advances live energy`, async ({
+    pair: [a, b],
+  }) => {
+    await a.setViewportSize(viewport);
+    const board = a.getByRole("region", { name: "Match board", exact: true });
+    await expect(board).toBeVisible();
+    await expect
+      .poll(async () => (await board.boundingBox())?.width)
+      .toBeCloseTo(Math.min(viewport.width, viewport.height * 0.6), 1);
+    const bounds = await board.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (!bounds) throw new Error("Board missing");
+    expect(bounds.width / bounds.height).toBeCloseTo(0.6, 2);
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+    expect(
+      await a.evaluate(
+        "document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth",
+      ),
+    ).toBe(true);
+    await expect(a.getByText("Energy: 1 of 1", { exact: true })).toBeVisible();
+    await a.getByRole("button", { name: "Commit", exact: true }).click();
+    await expect(
+      a.getByRole("button", { name: "Commit", exact: true }),
+    ).toBeDisabled();
+    await b.getByRole("button", { name: "Commit", exact: true }).click();
+    await expect(a.getByRole("heading", { name: "Turn 2 of 6" })).toBeVisible();
+    await expect(a.getByText("Energy: 2 of 2", { exact: true })).toBeVisible();
+    await expect(a.getByText("Stakes", { exact: true })).toHaveCount(0);
+    await expect(
+      a.getByRole("button", { name: "Retreat", exact: true }),
+    ).toBeDisabled();
+  });
+}

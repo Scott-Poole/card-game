@@ -1,3 +1,4 @@
+import { stageDesign } from "./src/client/stageTheme.ts";
 import presetBase from "@pandacss/preset-base";
 import { defineConfig } from "@pandacss/dev";
 
@@ -121,6 +122,99 @@ export default defineConfig({
     },
   },
   globalCss: {
+    ".portrait-stage": {
+      width: `${String(stageDesign.width)}px`,
+      height: `${String(stageDesign.height)}px`,
+      flexShrink: 0,
+      transformOrigin: "center",
+      bg: "surface",
+    },
+    ".match-board": {
+      height: "100%",
+      display: "grid",
+      gridTemplateRows: "32px 32px 24px 1fr 220px 60px 80px",
+      gridTemplateColumns: "1fr 1fr 1fr",
+      gap: "sm",
+      p: "md",
+      fontSize: "small",
+    },
+    ".match-board > *": { minH: "0", minW: "0", m: "none" },
+    ".board-tags": {
+      gridColumn: "1 / -1",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      color: "muted",
+    },
+    ".board-turn": { gridColumn: "1 / 3", gridRow: "2" },
+    ".match-board > [role=status]": {
+      gridColumn: "3",
+      gridRow: "2",
+      textAlign: "right",
+    },
+    ".board-meta": { gridColumn: "1 / -1", gridRow: "3", fontSize: "small" },
+    ".board-lanes": { gridColumn: "1 / -1", gridRow: "4" },
+    ".board-lanes > section": {
+      display: "flex",
+      flexDirection: "column",
+      m: "none",
+      p: "sm",
+    },
+    ".board-lanes h3, .board-lanes h4": { fontSize: "small", my: "xs" },
+    ".board-lanes ul": { pl: "md", fontSize: "small" },
+    ".board-slots": { display: "grid", flex: "1", gap: "xs" },
+    ".board-slots > div": {
+      border: "panel",
+      borderRadius: "control",
+      bg: "surface",
+      minH: "sm",
+    },
+    ".reserved-slot": { minH: "lg" },
+    ".reserved-slot:not(:empty)": {
+      border: "panel",
+      color: "muted",
+      textAlign: "center",
+      fontSize: "small",
+    },
+    ".match-board > [aria-label=Hand]": {
+      gridColumn: "1 / -1",
+      gridRow: "5",
+      overflow: "auto",
+      display: "flex",
+      gap: "sm",
+      m: "none",
+      p: "sm",
+    },
+    ".match-board > [aria-label=Hand] > h2": { display: "none" },
+    ".match-board article": { flex: "0 0 150px", m: "none", p: "sm" },
+    ".match-board article h3": { fontSize: "small" },
+    ".match-board article button": {
+      fontSize: "small",
+      p: "xs",
+      m: "none",
+      display: "block",
+    },
+    ".board-energy": {
+      gridColumn: "2",
+      gridRow: "6",
+      alignSelf: "center",
+      textAlign: "center",
+    },
+    ".board-retreat": { gridColumn: "1", gridRow: "6" },
+    ".match-board > button:not(.board-retreat)": {
+      gridColumn: "3",
+      gridRow: "6",
+    },
+    ".match-board > [aria-label='Staged cards'], .match-board > [aria-label='Previous reveal']":
+      { gridRow: "7", overflow: "auto", p: "xs", fontSize: "small" },
+    ".match-board > [aria-label='Previous reveal']": { gridColumn: "2 / -1" },
+    ".match-board > section > h2": { fontSize: "small", m: "none" },
+    ".match-board > section button": { fontSize: "small", p: "xs" },
+    ".match-board > p:not([class]), .match-board > [role=alert]": {
+      gridColumn: "1 / -1",
+      fontSize: "small",
+    },
+
     body: {
       colorScheme: "dark",
       m: "none",
