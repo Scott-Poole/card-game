@@ -97,7 +97,7 @@ Done when the planning issue is open with the thread link. Then go to **Audit** 
 After the claim loop ends for any reason (including NOOP, query or launch failure, refusal, or a planner launch), dispatch at most **one audit per tick run**. This is independent of the ticket and planner caps; the existing global off switch still applies.
 
 1. Run the landed script with `audit-next`. `NONE` ends audit dispatch; a non-zero exit ends it with the error reported. On `AUDIT <pr>`, run `audit-claim <pr>`; a refusal or failure ends audit dispatch.
-2. Read the PR title and determine the family that authored its changes from the PR body and linked work-ticket thread (the shared GitHub login alone does not identify the model). If it cannot be established, use `audit-release <pr> "<why>"` and report the blocker.
+2. Read the PR title and determine the family that authored its changes from its implement row in `docs/agents/delegation-log.md`, the PR body, or the linked work-ticket thread (the shared GitHub login alone does not identify the model). If it cannot be established, use `audit-release <pr> "<why>"` and report the blocker.
 3. Load `delegate` and use the **review** tier primary for that author family: Codex-authored → Claude Sonnet 5.5; Claude-authored → Codex `gpt-6.1-sol`, effort `medium`. Copy current ids from `orchestrator_capabilities`. Launch one top-level `t3_thread_launch`:
    - `title`: `Audit: #<pr> <title>`
    - `workspaceStrategy`: `{type: "worktree", baseRef: "origin/main", startFromOrigin: true}`
