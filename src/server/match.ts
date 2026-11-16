@@ -44,6 +44,22 @@ export function matchHost(
     decks: [privateDeck(0), privateDeck(1)],
   }),
 ) {
+  // A peer may answer synchronously from send(). Finish delivering the current
+  // transition to both players before applying any of those replies.
+  const pending: (() => void)[] = [];
+  let processing = false;
+  function run(operation: () => void) {
+    pending.push(operation);
+    if (processing) return;
+    processing = true;
+    try {
+      let next;
+      while ((next = pending.shift())) next();
+    } finally {
+      processing = false;
+      pending.length = 0;
+    }
+  }
   let waiting: Peer | undefined;
   const seats = new Map<Peer, Seat>();
   function error(peer: Peer) {
@@ -64,46 +80,52 @@ export function matchHost(
     broadcast(match);
   }
   return {
-    start,
+    start(first: Peer, second: Peer) {
+      run(() => start(first, second));
+    },
     message(peer: Peer, message: ClientMessage) {
-      const seat = seats.get(peer);
-      if (message.type === "join") {
-        if (seat || waiting === peer) {
+      run(() => {
+        const seat = seats.get(peer);
+        if (message.type === "join") {
+          if (seat || waiting === peer) {
+            error(peer);
+            return;
+          }
+          if (!waiting) {
+            waiting = peer;
+            send(peer, { type: "waiting" });
+            return;
+          }
+          start(waiting, peer);
+          return;
+        }
+        if (!seat) {
           error(peer);
           return;
         }
-        if (!waiting) {
-          waiting = peer;
-          send(peer, { type: "waiting" });
+        const { match, player } = seat;
+        const result = applyAction(match.state, player, message);
+        if (!result.ok) {
+          error(peer);
           return;
         }
-        start(waiting, peer);
-        return;
-      }
-      if (!seat) {
-        error(peer);
-        return;
-      }
-      const { match, player } = seat;
-      const result = applyAction(match.state, player, message);
-      if (!result.ok) {
-        error(peer);
-        return;
-      }
-      match.state = result.value;
-      broadcast(match);
+        match.state = result.value;
+        broadcast(match);
+      });
     },
     close(peer: Peer) {
-      if (waiting === peer) waiting = undefined;
-      const seat = seats.get(peer);
-      seats.delete(peer);
-      if (!seat || seat.match.state.phase === "ended") return;
-      const { match, player } = seat;
-      const winner = player === 0 ? 1 : 0;
-      match.state = forfeit(match.state, player);
-      send(match.peers[winner], {
-        type: "state",
-        view: playerView(match.state, winner),
+      run(() => {
+        if (waiting === peer) waiting = undefined;
+        const seat = seats.get(peer);
+        seats.delete(peer);
+        if (!seat || seat.match.state.phase === "ended") return;
+        const { match, player } = seat;
+        const winner = player === 0 ? 1 : 0;
+        match.state = forfeit(match.state, player);
+        send(match.peers[winner], {
+          type: "state",
+          view: playerView(match.state, winner),
+        });
       });
     },
   };

@@ -90,3 +90,32 @@ test("closing an in-process peer forfeits to the remaining peer", () => {
   expect(latest(b).phase).toBe("ended");
   expect(latest(b).result?.winner).toBe(1);
 });
+
+test("synchronous replies receive each transition once in order", () => {
+  const host = matchHost();
+  function scripted() {
+    const p = peer();
+    let committedTurn = 0;
+    return {
+      views: p.views,
+      send(raw: string) {
+        p.send(raw);
+        const view = latest(p);
+        if (view.phase === "planning" && view.turn !== committedTurn) {
+          committedTurn = view.turn;
+          host.message(this, { type: "commit" });
+        }
+      },
+    };
+  }
+  const a = scripted(),
+    b = scripted();
+  host.start(a, b);
+  for (const p of [a, b]) {
+    expect(p.views[0]?.opponent.committed).toBe(false);
+    expect(p.views.filter((view) => view.phase === "ended")).toHaveLength(1);
+    expect(p.views.map((view) => view.turn)).toEqual([
+      1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 6,
+    ]);
+  }
+});
