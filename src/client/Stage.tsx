@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { css } from "../../styled-system/css/index.js";
-import { stageDesign } from "./stageTheme.ts";
+import { token } from "../../styled-system/tokens/index.js";
 
 export default function Stage({
   active,
@@ -18,9 +18,11 @@ export default function Stage({
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return;
       const scale = Math.min(
-        entry.contentRect.width / stageDesign.width,
-        entry.contentRect.height / stageDesign.height,
+        entry.contentRect.width / Number.parseFloat(token("sizes.stageWidth")),
+        entry.contentRect.height /
+          Number.parseFloat(token("sizes.stageHeight")),
       );
+      stage.style.setProperty("--stage-scale", String(scale));
       stage.style.transform = `scale(${String(scale)})`;
     });
     observer.observe(frame);
@@ -45,7 +47,17 @@ export default function Stage({
         pr: "[env(safe-area-inset-right)]",
       })}
     >
-      <section ref={board} aria-label="Match board" className="portrait-stage">
+      <section
+        ref={board}
+        aria-label="Match board"
+        className={css({
+          width: "stageWidth",
+          height: "stageHeight",
+          flexShrink: 0,
+          transformOrigin: "center",
+          bg: "surface",
+        })}
+      >
         {children}
       </section>
     </div>
