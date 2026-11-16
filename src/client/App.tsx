@@ -4,12 +4,23 @@ import {
   Outlet,
   Route,
   Routes,
-  useNavigate,
+  Navigate,
   useLocation,
 } from "react-router";
 import { css, cx } from "../../styled-system/css/index.js";
 import { button, panel } from "../../styled-system/recipes/index.js";
+import { useAppDispatch, useAppSelector } from "./hooks.ts";
+import { selectMatch } from "./matchSlice.ts";
+import { selectConnection } from "./connectionSlice.ts";
+import { selectScreen } from "./navigation.ts";
+import { send } from "./store.ts";
 import ProtocolGame from "./ProtocolGame.tsx";
+
+function SessionRoute() {
+  const { pathname } = useLocation();
+  const screen = useAppSelector(selectScreen);
+  return pathname === screen ? <Outlet /> : <Navigate to={screen} replace />;
+}
 
 function Shell() {
   const { pathname } = useLocation();
@@ -27,7 +38,7 @@ function Shell() {
     >
       <div className={css({ maxW: "content", mx: "auto" })}>
         {pathname === "/" && <h1>Home</h1>}
-        <div hidden={pathname !== "/"}>
+        <div>
           <ProtocolGame />
         </div>
         <Outlet />
@@ -59,7 +70,9 @@ function Screen({
 }
 
 function Home() {
-  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { status } = useAppSelector(selectConnection);
+  const { pending } = useAppSelector(selectMatch);
   return (
     <>
       <section className={panel()}>
@@ -68,8 +81,9 @@ function Home() {
         </p>
         <button
           className={button()}
+          disabled={status !== "connected" || pending !== null}
           onClick={() => {
-            void navigate("/waiting");
+            dispatch(send({ type: "join" }));
           }}
         >
           Play
@@ -84,40 +98,12 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Shell />}>
-          <Route index element={<Home />} />
-          <Route
-            path="waiting"
-            element={
-              <Screen
-                title="Waiting"
-                description="The next contest awaits."
-                to="/match"
-                action="Preview match"
-              />
-            }
-          />
-          <Route
-            path="match"
-            element={
-              <Screen
-                title="Match"
-                description="Three lanes. Six turns. Your board will appear here."
-                to="/result"
-                action="Preview result"
-              />
-            }
-          />
-          <Route
-            path="result"
-            element={
-              <Screen
-                title="Result"
-                description="The outcome of your contest will appear here."
-                to="/"
-                action="Home"
-              />
-            }
-          />
+          <Route element={<SessionRoute />}>
+            <Route index element={<Home />} />
+            <Route path="waiting" element={<h1>Waiting</h1>} />
+            <Route path="match" element={<h1>Match</h1>} />
+            <Route path="result" element={<h1>Result</h1>} />
+          </Route>
           <Route
             path="*"
             element={

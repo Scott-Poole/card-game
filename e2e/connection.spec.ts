@@ -461,62 +461,87 @@ test("undecodable server frame closes the client socket", async ({
   await expect.poll(() => closed).toBe(true);
 });
 
-test("Home Play navigates locally with browser history and deep links", async ({
+test("Play joins and moves to Waiting; a state message moves to Match and Result", async ({
+  browser,
   page,
   address,
 }) => {
   await page.goto(address);
+  await expect(page.getByRole("status")).toHaveText("connected");
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page).toHaveURL(address + "/waiting");
-  await expect(
-    page.getByRole("heading", { name: "Waiting", exact: true }),
-  ).toBeVisible();
-  await page.goBack();
-  await expect(
-    page.getByRole("heading", { name: "Home", exact: true }),
-  ).toBeVisible();
-  await page.goForward();
-  await expect(
-    page.getByRole("heading", { name: "Waiting", exact: true }),
-  ).toBeVisible();
-  for (const [path, heading] of [
-    ["/match", "Match"],
-    ["/result", "Result"],
-    ["/waiting", "Waiting"],
-    ["/unknown", "Page not found"],
-  ] satisfies [string, string][]) {
-    await page.goto(address + path);
-    await page.reload();
+  await expect(page.getByText("Waiting for an opponent…")).toBeVisible();
+  const opponent = await browser.newContext();
+  try {
+    const other = await opponent.newPage();
+    await other.goto(address);
+    await other
+      .getByRole("button", { name: "Find match", exact: true })
+      .click();
+    await expect(page).toHaveURL(address + "/match");
+    await opponent.close();
+    await expect(page).toHaveURL(address + "/result");
     await expect(
-      page.getByRole("heading", { name: heading, exact: true }),
+      page.getByRole("heading", { name: "Match result", exact: true }),
     ).toBeVisible();
+  } finally {
+    await opponent.close();
   }
-  await page.getByRole("link", { name: "Home", exact: true }).click();
-  await expect(page).toHaveURL(address + "/");
 });
 
-test("local route navigation preserves a live match", async ({
+test("deep links follow session state without interrupting live actions", async ({
   pair: [a, b],
+  address,
 }) => {
-  await a.getByRole("button", { name: "Play", exact: true }).click();
-  await a.getByRole("link", { name: "Preview match" }).click();
-  await a.getByRole("link", { name: "Preview result" }).click();
-  await a.goBack();
-  await expect(
-    a.getByRole("heading", { name: "Match", exact: true }),
-  ).toBeVisible();
-  await a.goForward();
-  await a.getByRole("link", { name: "Home", exact: true }).click();
-  for (const page of [a, b]) {
-    await expect(
-      page.getByRole("heading", { name: "Turn 1 of 6" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Match result" }),
-    ).not.toBeVisible();
-  }
+  await expect(a).toHaveURL(address + "/match");
   await a.getByRole("button", { name: "Commit", exact: true }).click();
   await expect(
     b.getByText("Opponent has committed", { exact: true }),
   ).toBeVisible();
+  for (const path of [
+    "/match",
+    "/MATCH",
+    "/waiting/",
+    "/result/",
+    "/%6datch",
+    "/wait%69ng",
+  ]) {
+    await a.goto(address + path);
+    await expect(a).toHaveURL(address + "/");
+    await expect(
+      a.getByRole("heading", { name: "Home", exact: true }),
+    ).toBeVisible();
+  }
+  await a.reload();
+  await expect(a.getByRole("status")).toHaveText("connected");
+  await a.goto(address + "/unknown");
+  await expect(
+    a.getByRole("heading", { name: "Page not found", exact: true }),
+  ).toBeVisible();
+  await a.getByRole("link", { name: "Home", exact: true }).click();
+  await expect(a).toHaveURL(address + "/");
+});
+
+test("Play is disabled before welcome and after connection failure", async ({
+  page,
+  address,
+}) => {
+  let fail: () => void = () => {
+    throw new Error("Socket has not opened");
+  };
+  await page.routeWebSocket("**/ws", (socket) => {
+    fail = () => {
+      void socket.close();
+    };
+  });
+  await page.goto(address);
+  await expect(page.getByRole("status")).toHaveText("connecting");
+  await expect(
+    page.getByRole("button", { name: "Play", exact: true }),
+  ).toBeDisabled();
+  fail();
+  await expect(page.getByRole("status")).toHaveText("error");
+  await expect(
+    page.getByRole("button", { name: "Play", exact: true }),
+  ).toBeDisabled();
 });
