@@ -94,7 +94,7 @@ export default function ProtocolGame() {
               {view.opponent.handSize}; deck: {view.opponent.deckSize}. Your
               deck: {view.own.deckSize}.
             </p>
-            <div className="board-notices">
+            <div className={cx("board-notices", css({ display: "flow-root" }))}>
               <div
                 role="group"
                 aria-label={`Opponent hand: ${String(view.opponent.handSize)} face-down cards`}

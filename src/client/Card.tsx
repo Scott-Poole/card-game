@@ -35,12 +35,12 @@ export default function Card(props: CardProps) {
               gap: "xs",
             })}
           >
-            <span aria-label={`Cost ${String(props.data.cost)}`}>
+            <span role="img" aria-label={`Cost ${String(props.data.cost)}`}>
               {props.size === "lane"
                 ? props.data.cost
                 : `Cost ${String(props.data.cost)}`}
             </span>
-            <span aria-label={`Power ${String(props.data.power)}`}>
+            <span role="img" aria-label={`Power ${String(props.data.power)}`}>
               {props.size === "lane"
                 ? props.data.power
                 : `Power ${String(props.data.power)}`}

@@ -760,7 +760,19 @@ test("revealed lane cards and totals follow both players through every turn", as
       await expect(
         backs.getByRole("article", { name: "Face-down card", exact: true }),
       ).toHaveCount(Number(count));
-      await expect(backs.getByRole("heading")).toHaveCount(0);
+      await expect(
+        backs.getByRole("img", { name: "Art placeholder" }),
+      ).toHaveCount(0);
+      if (turn === 6) {
+        const backsBox = await backs.boundingBox();
+        const firstLaneBox = await page
+          .getByRole("region", { name: "Lane 1", exact: true })
+          .boundingBox();
+        if (!backsBox || !firstLaneBox) throw new Error("Missing final board");
+        expect(firstLaneBox.y).toBeGreaterThanOrEqual(
+          backsBox.y + backsBox.height,
+        );
+      }
       for (let lane = 1; lane <= 3; lane++) {
         const own = (records.get(page) ?? []).filter(
           (card) => card.lane === lane,
