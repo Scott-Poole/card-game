@@ -6,7 +6,7 @@ The repo is equally a testbed for Scott's agent workflow: how work is planned, r
 
 ## Current state
 
-One pnpm-managed ESM TypeScript package. Source lives in `src/{engine,protocol,server,client}`; lint enforces their import boundaries. Protocol decoders, the WebSocket server and a React connection-status client are implemented.
+One pnpm-managed ESM TypeScript package. Source lives in `src/{engine,protocol,server,client}`; lint enforces their import boundaries. Protocol decoders, the WebSocket server and a React connection-status client are implemented. For player integrations and shared rule knowledge, read [ADR-0001: every player uses the protocol view](docs/adr/0001-players-use-the-protocol-view.md).
 
 Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 147 binary. Versions are pinned in `.nvmrc` and `package.json`.
 
