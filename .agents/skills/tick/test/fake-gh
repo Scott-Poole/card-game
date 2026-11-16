@@ -108,6 +108,8 @@ def route(state, method, path, fields):
         return [issues[str(n)]]
     if method == "GET" and url.path == "issues/events":
         return state.get("repo_event_pages", [[]]) or [[]]
+    if method == "GET" and url.path.startswith("pulls/"):
+        return [issues[url.path.split("/")[1]]]
     m = re.fullmatch(r"issues/(\d+)(/.*)?", url.path)
     if not m or m.group(1) not in issues:
         fail("gh: Not Found (HTTP 404)")
@@ -125,6 +127,9 @@ def route(state, method, path, fields):
         label = fields["labels[]"]
         if label not in names:
             iss["labels"].append({"name": label})
+            state.setdefault("events", {}).setdefault(n, []).append({
+                "event": "labeled", "label": {"name": label},
+                "created_at": os.environ.get("FAKE_GH_NOW", "2099-01-01T00:00:00Z")})
         return [None]
     if method == "DELETE" and rest.startswith("/labels/"):
         label = rest[len("/labels/"):]

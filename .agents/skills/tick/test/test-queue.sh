@@ -72,6 +72,38 @@ check() { # check <name> <condition...>
 }
 is() { [[ $1 == "$2" ]]; }
 
+# --- merge audits -----------------------------------------------------------------------
+pr() { issue "$1" "$2" "{\"state\":\"closed\",\"pull_request\":{},\"merged_at\":\"$3\"}"; }
+setup "[$(pr 9 merged-unreviewed 2020-01-02T00:00:00Z), $(pr 10 merged-unreviewed "$OLD"), $(issue 1 merged-unreviewed)]"
+run audit-next
+check "audit picks oldest merge, skipping issues" is "$CODE:$OUT" "0:AUDIT 10"
+REF=$(config_ref '.enabled = false') run audit-next
+check "audit disabled" is "$CODE:$OUT" "0:NONE"
+run audit-claim 10
+check "audit claim swaps labels and comments" is "$CODE:$(labels 10):$(comments 10)" "0:audit-in-progress:1"
+run audit-claim 10
+check "audit refuses duplicate claim" is "$CODE" "1"
+run audit-done 10 "No findings"
+check "audit done removes claim and comments" is "$CODE:$(labels 10):$(comments 10)" "0::2"
+run audit-claim 9
+run audit-release 9 "launch failed"
+check "audit release requeues" is "$CODE:$(labels 9)" "0:merged-unreviewed"
+setup "[$(pr 10 '' "$OLD")]"
+run audit-claim 10
+check "audit refuses PR without queue label" is "$CODE" "1"
+setup "[]"
+run audit-next
+check "empty audit queue" is "$CODE:$OUT" "0:NONE"
+setup "[$(pr 10 audit-in-progress "$OLD")]"
+run audit-next
+check "stale audit swept and offered again" is "$CODE:$OUT:$(labels 10)" "0:AUDIT 10:merged-unreviewed"
+setup "[$(pr 10 audit-in-progress "$TODAY")]" "{\"10\":[{\"event\":\"labeled\",\"label\":{\"name\":\"audit-in-progress\"},\"created_at\":\"$TODAY\"}]}"
+run audit-next
+check "fresh audit not offered" is "$CODE:$OUT" "0:NONE"
+setup "[$(pr 10 merged-unreviewed "$OLD")]"
+FAKE_GH_FAIL="GET issues?state=closed" run audit-next
+check "audit query fails closed" is "$CODE:$OUT" "1:"
+
 # --- completed parent specs --------------------------------------------------------------
 setup "[$(issue 3 ready-for-agent), $(issue 4 '' '{"state":"closed","parent_issue_url":"https://api.github.com/repos/Scott-Poole/card-game/issues/3"}')]"
 run parent-done 4
