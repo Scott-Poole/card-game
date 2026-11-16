@@ -33,7 +33,10 @@ export const boardStyles = css({
     m: "none",
     p: "sm",
   },
-  "& .board-lanes h3, & .board-lanes h4": { fontSize: "small", my: "xs" },
+  "& .board-lanes header h3, & .board-lanes h4": {
+    fontSize: "small",
+    my: "xs",
+  },
 
   "& .board-slots": {
     display: "grid",
@@ -43,7 +46,6 @@ export const boardStyles = css({
     minH: "[0]",
     gap: "xs",
   },
-  "& .board-slots h3": { fontSize: "cardTiny", lineClamp: 1, m: "none" },
   "& .board-slots > div": {
     border: "panel",
     borderRadius: "control",
@@ -76,7 +78,6 @@ export const boardStyles = css({
     p: "none",
     minH: "[0]",
   },
-  "& .board-card h3": { fontSize: "small", lineClamp: 2, my: "xs" },
   "& .board-card button": {
     fontSize: "small",
     p: "xs",

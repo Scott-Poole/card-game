@@ -250,6 +250,18 @@ test("staging prevents overspend, returns unstaged cards, and locks after commit
   await expect(unstage).toBeEnabled();
   await a.getByRole("button", { name: "Commit", exact: true }).click();
   await expect(unstage).toBeDisabled();
+  const committedBounds = await a
+    .getByText("You have committed", { exact: true })
+    .boundingBox();
+  const laneBounds = await a
+    .getByRole("region", { name: "Lane 1", exact: true })
+    .boundingBox();
+  if (!committedBounds || !laneBounds)
+    throw new Error("Missing committed board");
+  expect(committedBounds.y + committedBounds.height).toBeLessThanOrEqual(
+    laneBounds.y,
+  );
+
   await expect(hand.getByRole("button").and(a.locator(":enabled"))).toHaveCount(
     0,
   );
@@ -703,6 +715,17 @@ test("revealed lane cards and totals follow both players through every turn", as
           exact: true,
         }),
       ).toBeVisible();
+      const meta = await page.getByText(/^You are player/).innerText();
+      const count = /Opponent hand: (\d+)/.exec(meta)?.[1];
+      if (!count) throw new Error("Missing public hand count");
+      const backs = page.getByRole("group", {
+        name: `Opponent hand: ${count} face-down cards`,
+        exact: true,
+      });
+      await expect(
+        backs.getByRole("article", { name: "Face-down card", exact: true }),
+      ).toHaveCount(Number(count));
+      await expect(backs.getByRole("heading")).toHaveCount(0);
       for (let lane = 1; lane <= 3; lane++) {
         const own = (records.get(page) ?? []).filter(
           (card) => card.lane === lane,
