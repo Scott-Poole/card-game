@@ -1,9 +1,9 @@
-// Phase 2 wire limits mirror #16. Keep independent of engine imports; rule
-// tuning must update this contract and its server integration together.
-const LANE_COUNT = 3;
-const LANE_CAPACITY = 4;
-const TURN_LIMIT = 6;
-const DECK_SIZE = 12;
+import {
+  LANE_COUNT,
+  LANE_CAPACITY,
+  TURN_LIMIT,
+  DECK_SIZE,
+} from "../rules/index.ts";
 // Each player can reveal their full deck, then turn-ended and match-ended.
 const MAX_EVENTS = 2 * DECK_SIZE + 2;
 

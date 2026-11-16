@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 // Exercise the public lint gate on real files so typed parser settings also apply.
 const cases = [
+  ["rules", 'import "../../engine/index.ts";', "no-restricted-syntax"],
+  ["rules", 'import "node:fs";', "no-restricted-syntax"],
   [
     "engine",
     '// eslint-disable-next-line no-restricted-imports\nimport "node:fs";',

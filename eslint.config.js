@@ -3,8 +3,9 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
 
-const areas = ["engine", "protocol", "server", "client"];
+const areas = ["rules", "engine", "protocol", "server", "client"];
 const forbidden = {
+  rules: ["engine", "protocol", "server", "client"],
   engine: ["protocol", "server", "client"],
   protocol: ["engine", "server", "client"],
   server: ["client"],
@@ -55,41 +56,56 @@ export default tseslint.config(
       globals: { process: "readonly", console: "readonly" },
     },
   },
-  ...areas.map((area) => ({
-    files: [`src/${area}/**/*.{ts,tsx}`],
+  {
+    files: ["src/rules/**/*.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
         {
-          selector: "ImportExpression",
-          message: "Use static imports so area boundaries are checked.",
-        },
-        {
-          selector: "TSImportType",
-          message: "Use static type imports so area boundaries are checked.",
-        },
-      ],
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            ...forbidden[area].map((other) => ({
-              group: [`**/${other}`, `**/${other}/**`],
-              message: `${area} must not import ${other}`,
-            })),
-            ...(["engine", "protocol"].includes(area)
-              ? [
-                  {
-                    regex: "^(?!\\.)",
-                    message: "Pure areas may import only local source files.",
-                  },
-                ]
-              : []),
-          ],
+          selector:
+            "ImportDeclaration, ExportNamedDeclaration[source], ExportAllDeclaration, ImportExpression, TSImportType",
+          message: "Rules must import nothing.",
         },
       ],
     },
-  })),
+  },
+  ...areas
+    .filter((area) => area !== "rules")
+    .map((area) => ({
+      files: [`src/${area}/**/*.{ts,tsx}`],
+      rules: {
+        "no-restricted-syntax": [
+          "error",
+          {
+            selector: "ImportExpression",
+            message: "Use static imports so area boundaries are checked.",
+          },
+          {
+            selector: "TSImportType",
+            message: "Use static type imports so area boundaries are checked.",
+          },
+        ],
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              ...forbidden[area].map((other) => ({
+                group: [`**/${other}`, `**/${other}/**`],
+                message: `${area} must not import ${other}`,
+              })),
+              ...(["engine", "protocol"].includes(area)
+                ? [
+                    {
+                      regex: "^(?!\\.)",
+                      message: "Pure areas may import only local source files.",
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ],
+      },
+    })),
   ...["engine", "protocol"].map((area) => ({
     files: [`src/${area}/**/*.test.{ts,tsx}`],
     rules: {
