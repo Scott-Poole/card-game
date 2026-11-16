@@ -1,7 +1,7 @@
 import { URL, fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -34,14 +34,29 @@ try {
   await put("docs/agents/guide.md", "[live](../../AGENTS.md)");
   let result = run();
   assert.equal(result.status, 1, result.stderr);
-  assert.match(
+  assert.equal(
     result.stderr,
-    /\.agents\/skills\/owned\/SKILL\.md:2 -> missing\.md/,
+    ".agents/skills/owned/SKILL.md:2 -> missing.md\n",
   );
   assert.doesNotMatch(result.stderr, /upstream/);
-  await put(".agents/skills/owned/SKILL.md", "[live](nested/reference.md)");
+  await put(
+    ".agents/skills/owned/SKILL.md",
+    "[live](nested/reference.md?query#part)",
+  );
   result = run();
   assert.equal(result.status, 0, result.stderr);
+  for (const path of [
+    "AGENTS.md",
+    "docs/agents/guide.md",
+    ".agents/skills/owned/nested/reference.md",
+  ]) {
+    const original = await readFile(join(root, path), "utf8");
+    await put(path, "[dead](missing.md)");
+    result = run();
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stderr, `${path}:1 -> missing.md\n`);
+    await put(path, original);
+  }
   console.log("skill-link regression cases passed");
 } finally {
   await rm(root, { recursive: true, force: true });
