@@ -4,5 +4,5 @@
     "lib": ["ES2024"],
     "types": []
   },
-  "include": ["src/engine/**/*.ts"]
+  "include": ["src/engine/**/*.ts", "src/rules/**/*.ts"]
 }

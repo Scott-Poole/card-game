@@ -55,6 +55,20 @@ export default tseslint.config(
       globals: { process: "readonly", console: "readonly" },
     },
   },
+  {
+    files: ["src/rules/**/*.ts"],
+    ignores: ["src/rules/**/*.test.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "ImportDeclaration, ExportNamedDeclaration[source], ExportAllDeclaration, ImportExpression, TSImportType",
+          message: "Rules must import nothing.",
+        },
+      ],
+    },
+  },
   ...areas.map((area) => ({
     files: [`src/${area}/**/*.{ts,tsx}`],
     rules: {
@@ -90,6 +104,30 @@ export default tseslint.config(
       ],
     },
   })),
+  {
+    files: ["src/rules/**/*.test.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?!vitest$|\\./)",
+              message: "Rules tests may import only their module and Vitest.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "ImportExpression, TSImportType, ExportNamedDeclaration[source], ExportAllDeclaration",
+          message: "Use static imports in rules tests.",
+        },
+      ],
+    },
+  },
   ...["engine", "protocol"].map((area) => ({
     files: [`src/${area}/**/*.test.{ts,tsx}`],
     rules: {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { legalPlays, TURN_LIMIT } from "../rules/index.ts";
 import { decodeServerMessage } from "../protocol/messages.ts";
 import type { ClientMessage, PlayerView } from "../protocol/messages.ts";
 import "./style.css";
@@ -110,6 +111,7 @@ export default function App() {
         (view.own.hand.find((card) => card.id === play.cardId)?.cost ?? 0),
       0,
     ) ?? 0;
+  const available = view ? legalPlays(view) : [];
   const outcome = (winner: number | null) =>
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   return (
@@ -130,7 +132,9 @@ export default function App() {
       {waiting && <p>Waiting for an opponent…</p>}
       {view && (
         <>
-          <h2>Turn {view.turn} of 6</h2>
+          <h2>
+            Turn {view.turn} of {TURN_LIMIT}
+          </h2>
           <p>
             Energy: {view.energy - spent} of {view.energy}
           </p>
@@ -176,16 +180,15 @@ export default function App() {
                   <p>
                     Cost {card.cost} · Power {card.power}
                   </p>
-                  {view.own.lanes.map((cards, lane) => (
+                  {view.own.lanes.map((_, lane) => (
                     <button
                       key={lane}
                       disabled={
                         locked ||
-                        card.cost + spent > view.energy ||
-                        cards.length +
-                          view.own.staged.filter((play) => play.lane === lane)
-                            .length >=
-                          4
+                        !available.some(
+                          (play) =>
+                            play.cardId === card.id && play.lane === lane,
+                        )
                       }
                       onClick={() => {
                         send({

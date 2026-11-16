@@ -5,6 +5,21 @@ import { join } from "node:path";
 // Exercise the public lint gate on real files so typed parser settings also apply.
 const cases = [
   [
+    "rules",
+    'export { stage } from "../../engine/index.ts";',
+    "no-restricted-syntax",
+  ],
+  ["rules", 'export * from "../../engine/index.ts";', "no-restricted-syntax"],
+  ["rules", 'await import("../../engine/index.ts");', "no-restricted-syntax"],
+  [
+    "rules",
+    'export type T = typeof import("../../engine/index.ts");',
+    "no-restricted-syntax",
+  ],
+
+  ["rules", 'import "../../engine/index.ts";', "no-restricted-syntax"],
+  ["rules", 'import "node:fs";', "no-restricted-syntax"],
+  [
     "engine",
     '// eslint-disable-next-line no-restricted-imports\nimport "node:fs";',
     "no-restricted-imports",

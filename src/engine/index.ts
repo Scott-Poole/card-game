@@ -1,7 +1,7 @@
-const LANE_IDS = [0, 1, 2];
-const LANE_CAPACITY = 4;
+import { checkStaging, LANE_COUNT, TURN_LIMIT } from "../rules/index.ts";
+import type { StagingError } from "../rules/index.ts";
+const LANE_IDS = Array.from({ length: LANE_COUNT }, (_, i) => i);
 const OPENING_HAND = 3;
-const TURN_LIMIT = 6;
 
 export interface CardDefinition {
   readonly id: string;
@@ -38,14 +38,7 @@ type MatchOutcome =
   | { readonly phase: "planning"; readonly result: null }
   | { readonly phase: "ended"; readonly result: Score };
 export type MatchState = MatchFields & MatchOutcome;
-export type EngineError =
-  | "card-not-in-hand"
-  | "duplicate-card"
-  | "overspend"
-  | "full-lane"
-  | "unknown-lane"
-  | "wrong-phase"
-  | "already-committed";
+export type EngineError = StagingError;
 export type Result<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: EngineError };
@@ -134,29 +127,9 @@ export function stage(
   id: PlayerId,
   plays: readonly Play[],
 ): Result<MatchState> {
-  if (state.phase !== "planning") return { ok: false, error: "wrong-phase" };
   const player = state.players[id];
-  if (player.committed) return { ok: false, error: "already-committed" };
-  const seen = new Set<string>();
-  const counts = player.lanes.map((l) => l.length);
-  let cost = 0;
-  for (const play of plays) {
-    if (
-      !Number.isInteger(play.lane) ||
-      play.lane < 0 ||
-      play.lane >= LANE_IDS.length
-    )
-      return { ok: false, error: "unknown-lane" };
-    if (seen.has(play.cardId)) return { ok: false, error: "duplicate-card" };
-    seen.add(play.cardId);
-    const card = player.hand.find((c) => c.id === play.cardId);
-    if (!card) return { ok: false, error: "card-not-in-hand" };
-    cost += card.cost;
-    const count = (counts[play.lane] ?? 0) + 1;
-    counts[play.lane] = count;
-    if (count > LANE_CAPACITY) return { ok: false, error: "full-lane" };
-  }
-  if (cost > state.energy) return { ok: false, error: "overspend" };
+  const checked = checkStaging(playerView(state, id), plays);
+  if (!checked.ok) return checked;
   return {
     ok: true,
     value: replace(state, id, {
