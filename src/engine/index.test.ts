@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+  applyAction,
   commit,
   createMatch,
   resolve,
@@ -7,6 +8,7 @@ import {
   type CardDefinition,
   type MatchState,
   type Play,
+  type PlayerAction,
   type Result,
 } from "./index.js";
 
@@ -345,4 +347,67 @@ test("preserves the seeded replay deck order and RNG state", () => {
       deck: ["3", "4", "9", "10", "0", "11", "8", "7", "5"],
     },
   ]);
+});
+
+test("applying the second commit resolves atomically while the first stays planning", () => {
+  const initial = createMatch(42, [deck(), deck()]);
+  const before = JSON.stringify(initial);
+  const first = unwrap(applyAction(initial, 1, { type: "commit" }));
+  expect(first.phase).toBe("planning");
+  expect(first.turn).toBe(1);
+  expect(first.players.map((p) => p.committed)).toEqual([false, true]);
+  expect(applyAction(first, 1, { type: "commit" })).toEqual({
+    ok: false,
+    error: "already-committed",
+  });
+  const second = unwrap(applyAction(first, 0, { type: "commit" }));
+  expect(second.turn).toBe(2);
+  expect(second.events).toEqual([{ type: "turn-ended", turn: 1 }]);
+  expect(second.players.map((p) => p.committed)).toEqual([false, false]);
+  expect(JSON.stringify(initial)).toBe(before);
+  expect(first.players[1].committed).toBe(true);
+});
+
+test("action-only six-turn replay matches the scripted low-level match and events", () => {
+  let state = createMatch(42, [deck(2, 1), deck(1, 1)]);
+  let reference = createMatch(42, [deck(2, 1), deck(1, 1)]);
+  for (let n = 0; n < 6; n++) {
+    const a = play(state, 0, n % 3);
+    const b = play(state, 1, n % 3);
+    const expected = turn(reference, a, b);
+    state = unwrap(applyAction(state, 0, { type: "stage", plays: a }));
+    state = unwrap(applyAction(state, 1, { type: "stage", plays: b }));
+    state = unwrap(applyAction(state, 0, { type: "commit" }));
+    state = unwrap(applyAction(state, 1, { type: "commit" }));
+    expect(state).toEqual(expected.state);
+    expect(state.events).toEqual(expected.events);
+    reference = expected.state;
+  }
+  expect(state.phase).toBe("ended");
+  expect(state.result).toEqual({
+    lanes: [0, 0, 0],
+    power: [12, 6],
+    winner: 0,
+  });
+  for (const action of [
+    { type: "stage", plays: [] },
+    { type: "commit" },
+  ] satisfies PlayerAction[]) {
+    expect(applyAction(state, 0, action)).toEqual({
+      ok: false,
+      error: "wrong-phase",
+    });
+  }
+});
+
+test("invalid action preserves the state and existing staging error", () => {
+  const state = createMatch(42, [deck(), deck()]);
+  const before = JSON.stringify(state);
+  expect(
+    applyAction(state, 0, {
+      type: "stage",
+      plays: [{ cardId: "absent", lane: 0 }],
+    }),
+  ).toEqual({ ok: false, error: "card-not-in-hand" });
+  expect(JSON.stringify(state)).toBe(before);
 });
