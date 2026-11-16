@@ -3,6 +3,7 @@ import {
   applyAction,
   commit,
   createMatch,
+  playerView,
   resolve,
   stage,
   type CardDefinition,
@@ -360,7 +361,13 @@ test("applying the second commit resolves atomically while the first stays plann
     ok: false,
     error: "already-committed",
   });
+  const firstBefore = JSON.stringify(first);
+  expect(applyAction(first, 1, { type: "stage", plays: [] })).toEqual({
+    ok: false,
+    error: "already-committed",
+  });
   const second = unwrap(applyAction(first, 0, { type: "commit" }));
+  expect(JSON.stringify(first)).toBe(firstBefore);
   expect(second.turn).toBe(2);
   expect(second.events).toEqual([{ type: "turn-ended", turn: 1 }]);
   expect(second.players.map((p) => p.committed)).toEqual([false, false]);
@@ -381,6 +388,13 @@ test("action-only six-turn replay matches the scripted low-level match and event
     state = unwrap(applyAction(state, 1, { type: "commit" }));
     expect(state).toEqual(expected.state);
     expect(state.events).toEqual(expected.events);
+    for (const id of [0, 1] satisfies (0 | 1)[]) {
+      expect(
+        JSON.stringify({ type: "state", view: playerView(state, id) }),
+      ).toBe(
+        JSON.stringify({ type: "state", view: playerView(expected.state, id) }),
+      );
+    }
     reference = expected.state;
   }
   expect(state.phase).toBe("ended");
