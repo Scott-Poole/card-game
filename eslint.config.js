@@ -12,7 +12,7 @@ const forbidden = {
 };
 export default tseslint.config(
   {
-    ignores: ["node_modules/**", "dist/**"],
+    ignores: ["node_modules/**", "dist/**", "styled-system/**"],
     linterOptions: {
       noInlineConfig: true,
       reportUnusedDisableDirectives: "error",
@@ -87,6 +87,14 @@ export default tseslint.config(
         "error",
         {
           patterns: [
+            ...(area !== "client"
+              ? [
+                  {
+                    group: ["**/styled-system", "**/styled-system/**"],
+                    message: "Only client may import styled-system.",
+                  },
+                ]
+              : []),
             ...forbidden[area].map((other) => ({
               group: [`**/${other}`, `**/${other}/**`],
               message: `${area} must not import ${other}`,
@@ -139,6 +147,14 @@ export default tseslint.config(
               regex: "^(?!\\.|vitest$)",
               message: "Tests may import only local source and Vitest.",
             },
+            ...(area !== "client"
+              ? [
+                  {
+                    group: ["**/styled-system", "**/styled-system/**"],
+                    message: "Only client may import styled-system.",
+                  },
+                ]
+              : []),
             ...forbidden[area].map((other) => ({
               group: [`**/${other}`, `**/${other}/**`],
               message: `${area} must not import ${other}`,

@@ -4,6 +4,18 @@ import { join } from "node:path";
 
 // Exercise the public lint gate on real files so typed parser settings also apply.
 const cases = [
+  ...["engine", "protocol", "server"].flatMap((area) => [
+    [
+      area,
+      'import "../../../styled-system/css/index.mjs";',
+      "no-restricted-imports",
+    ],
+    [
+      area,
+      'export * from "../../../styled-system/css/index.mjs";',
+      "no-restricted-imports",
+    ],
+  ]),
   [
     "rules",
     'export { stage } from "../../engine/index.ts";',

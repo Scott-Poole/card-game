@@ -9,7 +9,7 @@
     "pnpm": "10.28.2"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.client.json && tsc -p tsconfig.engine.json && tsc -p tsconfig.tooling.json",
+    "typecheck": "panda codegen && tsc -p tsconfig.node.json && tsc -p tsconfig.client.json && tsc -p tsconfig.engine.json && tsc -p tsconfig.tooling.json",
     "lint": "eslint src e2e *.config.ts scripts eslint.config.js --max-warnings 0",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
@@ -20,14 +20,16 @@
     "check": "node scripts/check.mjs",
     "test:boundaries": "node scripts/test-boundaries.mjs",
     "test:skill-links": "node scripts/test-skill-links-regression.mjs && node scripts/test-skill-links.mjs",
-    "prepare": "husky",
+    "prepare": "husky && panda codegen",
     "start": "node src/server/main.ts",
-    "build": "vite build",
-    "dev": "concurrently --kill-others \"node --watch src/server/main.ts\" \"vite\"",
+    "build": "panda codegen && vite build",
+    "dev": "panda codegen && concurrently --kill-others \"node --watch src/server/main.ts\" \"vite\"",
     "test:browser": "pnpm build && playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@pandacss/dev": "^2.5.0",
+    "@pandacss/preset-base": "^2.5.0",
     "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
