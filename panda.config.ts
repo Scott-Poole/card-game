@@ -122,6 +122,7 @@ export default defineConfig({
   },
   globalCss: {
     body: {
+      colorScheme: "dark",
       m: "none",
       bg: "surface",
       color: "text",
