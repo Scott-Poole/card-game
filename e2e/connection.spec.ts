@@ -575,7 +575,26 @@ for (const viewport of [
       ),
     ).toBe(true);
     await expect(a.getByText("Energy: 1 of 1", { exact: true })).toBeVisible();
+    const handBounds = await a
+      .getByRole("region", { name: "Hand", exact: true })
+      .boundingBox();
+    const lastLane = await a
+      .getByRole("region", { name: "Hand", exact: true })
+      .getByRole("article")
+      .first()
+      .getByRole("button", { name: /in lane 3$/ })
+      .boundingBox();
+    if (!handBounds || !lastLane) throw new Error("Missing hand controls");
+    expect(lastLane.y + lastLane.height).toBeLessThanOrEqual(
+      handBounds.y + handBounds.height,
+    );
+    const lanes = a.getByRole("region", { name: "Lane 1", exact: true });
+    const laneBeforeCommit = await lanes.boundingBox();
     await a.getByRole("button", { name: "Commit", exact: true }).click();
+    await expect(
+      a.getByText("You have committed", { exact: true }),
+    ).toBeVisible();
+    expect(await lanes.boundingBox()).toEqual(laneBeforeCommit);
     await expect(
       a.getByRole("button", { name: "Commit", exact: true }),
     ).toBeDisabled();
