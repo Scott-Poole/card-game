@@ -498,7 +498,14 @@ test("deep links follow session state without interrupting live actions", async 
   await expect(
     b.getByText("Opponent has committed", { exact: true }),
   ).toBeVisible();
-  for (const path of ["/match", "/MATCH", "/waiting/", "/result/"]) {
+  for (const path of [
+    "/match",
+    "/MATCH",
+    "/waiting/",
+    "/result/",
+    "/%6datch",
+    "/wait%69ng",
+  ]) {
     await a.goto(address + path);
     await expect(a).toHaveURL(address + "/");
     await expect(

@@ -16,15 +16,14 @@ import { selectScreen } from "./navigation.ts";
 import { send } from "./store.ts";
 import ProtocolGame from "./ProtocolGame.tsx";
 
-function Shell() {
+function SessionRoute() {
   const { pathname } = useLocation();
   const screen = useAppSelector(selectScreen);
-  const normalizedPath = pathname.toLowerCase().replace(/\/+$/, "") || "/";
-  if (
-    ["/", "/waiting", "/match", "/result"].includes(normalizedPath) &&
-    pathname !== screen
-  )
-    return <Navigate to={screen} replace />;
+  return pathname === screen ? <Outlet /> : <Navigate to={screen} replace />;
+}
+
+function Shell() {
+  const { pathname } = useLocation();
   return (
     <main
       className={css({
@@ -99,10 +98,12 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Shell />}>
-          <Route index element={<Home />} />
-          <Route path="waiting" element={<h1>Waiting</h1>} />
-          <Route path="match" element={<h1>Match</h1>} />
-          <Route path="result" element={<h1>Result</h1>} />
+          <Route element={<SessionRoute />}>
+            <Route index element={<Home />} />
+            <Route path="waiting" element={<h1>Waiting</h1>} />
+            <Route path="match" element={<h1>Match</h1>} />
+            <Route path="result" element={<h1>Result</h1>} />
+          </Route>
           <Route
             path="*"
             element={
