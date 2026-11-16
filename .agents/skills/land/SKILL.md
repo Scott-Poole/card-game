@@ -90,4 +90,14 @@ Post the class and verdict on the PR (`gh pr comment <n> --body-file <file>`). R
 
 ## Merge audit
 
-For PRs labelled `merged-unreviewed`: review each merged diff (`gh pr diff <n>`) with the cross-review Skeptic lens. A real problem becomes a GitHub issue that links the PR. Remove the label. Log the audit's reviewer runs on a `chore/audit-<date>` branch and land that PR with this skill: it's trivial and record-only, so it creates no new audit work. Done when no merged PR carries the label.
+Audit the single PR named by the tick. Its claim is already `audit-in-progress`. Read the PR and its merged diff (`gh pr diff <n>`), then apply the [cross-review Skeptic lens](../cross-review/LENSES.md) yourself. This thread is the reviewer chosen by the tick: the other family when authorship is known, or the third-family fallback for unknown historical authorship. Include `author family unknown` in the result when the tick reported that uncertainty; do not claim verified cross-family coverage in that case. No further reviewer is needed.
+
+A real problem becomes a GitHub issue linking the PR. Record the findings (or explicitly no findings), any issue links, and the reviewer model/family in a PR comment through the landed queue script:
+
+```sh
+git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-done <n> "<summary>"
+```
+
+If `audit-done` refuses because the claim was swept or replaced, preserve the findings with a plain `gh pr comment <n> --body-file <file>` and leave the current labels alone.
+
+If the audit cannot complete, use `audit-release <n> "<why>"` instead so another tick can retry. Done when `audit-done` records the result and removes the claim, or a refused completion is recorded directly without changing labels. The PR comment is the audit record.
