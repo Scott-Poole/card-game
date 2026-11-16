@@ -8,7 +8,6 @@ import {
   button,
   card as cardSurface,
 } from "../../styled-system/recipes/index.js";
-import "./style.css";
 import { isAcknowledged } from "./isAcknowledged.ts";
 import type { PendingRequest } from "./isAcknowledged.ts";
 

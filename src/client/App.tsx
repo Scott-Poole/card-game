@@ -5,12 +5,14 @@ import {
   Route,
   Routes,
   useNavigate,
+  useLocation,
 } from "react-router";
 import { css, cx } from "../../styled-system/css/index.js";
 import { button, panel } from "../../styled-system/recipes/index.js";
 import ProtocolGame from "./ProtocolGame.tsx";
 
 function Shell() {
+  const { pathname } = useLocation();
   return (
     <main
       className={css({
@@ -24,6 +26,10 @@ function Shell() {
       })}
     >
       <div className={css({ maxW: "content", mx: "auto" })}>
+        {pathname === "/" && <h1>Home</h1>}
+        <div hidden={pathname !== "/"}>
+          <ProtocolGame />
+        </div>
         <Outlet />
       </div>
     </main>
@@ -56,10 +62,7 @@ function Home() {
   const navigate = useNavigate();
   return (
     <>
-      {/* Retain the protocol client until the match UI replaces it. */}
-      <ProtocolGame />
       <section className={panel()}>
-        <h1>Home</h1>
         <p className={css({ color: "muted", my: "lg" })}>
           A contest of myth across three lanes.
         </p>

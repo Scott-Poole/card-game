@@ -494,3 +494,29 @@ test("Home Play navigates locally with browser history and deep links", async ({
   await page.getByRole("link", { name: "Home", exact: true }).click();
   await expect(page).toHaveURL(address + "/");
 });
+
+test("local route navigation preserves a live match", async ({
+  pair: [a, b],
+}) => {
+  await a.getByRole("button", { name: "Play", exact: true }).click();
+  await a.getByRole("link", { name: "Preview match" }).click();
+  await a.getByRole("link", { name: "Preview result" }).click();
+  await a.goBack();
+  await expect(
+    a.getByRole("heading", { name: "Match", exact: true }),
+  ).toBeVisible();
+  await a.goForward();
+  await a.getByRole("link", { name: "Home", exact: true }).click();
+  for (const page of [a, b]) {
+    await expect(
+      page.getByRole("heading", { name: "Turn 1 of 6" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Match result" }),
+    ).not.toBeVisible();
+  }
+  await a.getByRole("button", { name: "Commit", exact: true }).click();
+  await expect(
+    b.getByText("Opponent has committed", { exact: true }),
+  ).toBeVisible();
+});
