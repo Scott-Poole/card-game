@@ -69,6 +69,15 @@ test("production page connects and reconnects after reload", async ({
 }) => {
   await page.goto(address);
   await expect(page.getByRole("status")).toHaveText("connected");
+  await expect(page.locator("body")).toHaveCSS(
+    "background-color",
+    "rgb(21, 23, 25)",
+  );
+  await page.keyboard.press("Tab");
+  const join = page.getByRole("button", { name: "Find match", exact: true });
+  await expect(join).toBeFocused();
+  await expect(join).toHaveCSS("outline-offset", "2px");
+
   await page.reload();
   await expect(page.getByRole("status")).toHaveText("connected");
 });
