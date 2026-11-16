@@ -94,7 +94,7 @@ check "audit refuses PR without queue label" is "$CODE" "1"
 setup "[]"
 run audit-next
 check "empty audit queue" is "$CODE:$OUT" "0:NONE"
-setup "[$(pr 10 audit-in-progress "$OLD")]"
+setup "[$(pr 10 audit-in-progress "$OLD")]" "{\"10\":[{\"event\":\"labeled\",\"label\":{\"name\":\"audit-in-progress\"},\"created_at\":\"$OLD\"}]}"
 run audit-next
 check "stale audit swept and offered again" is "$CODE:$OUT:$(labels 10)" "0:AUDIT 10:merged-unreviewed"
 setup "[$(pr 10 audit-in-progress "$TODAY")]" "{\"10\":[{\"event\":\"labeled\",\"label\":{\"name\":\"audit-in-progress\"},\"created_at\":\"$TODAY\"}]}"
