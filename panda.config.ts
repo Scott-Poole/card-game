@@ -19,6 +19,7 @@ export default defineConfig({
         muted: { value: "#b1b7bd" },
         border: { value: "#50575e" },
         accent: { value: "#b9c9df" },
+        accentHover: { value: "#cbd8e9" },
         positive: { value: "#a5d6b5" },
         negative: { value: "#f0aaaa" },
         own: { value: "#a9c9e8" },
@@ -71,7 +72,6 @@ export default defineConfig({
           border: "panel",
           borderRadius: "panel",
           p: "md",
-          my: "md",
           boxShadow: "panel",
         },
       },
@@ -83,7 +83,6 @@ export default defineConfig({
           border: "panel",
           borderRadius: "panel",
           p: "md",
-          my: "md",
         },
       },
       button: {
@@ -93,7 +92,6 @@ export default defineConfig({
           fontSize: "body",
           px: "md",
           py: "sm",
-          m: "xs",
           borderRadius: "control",
           cursor: "pointer",
           border: "panel",
@@ -106,7 +104,11 @@ export default defineConfig({
         },
         variants: {
           variant: {
-            primary: { bg: "accent", color: "onAccent", _hover: { bg: "own" } },
+            primary: {
+              bg: "accent",
+              color: "onAccent",
+              _hover: { bg: "accentHover" },
+            },
             secondary: { bg: "raised", color: "text", _hover: { bg: "panel" } },
           },
         },

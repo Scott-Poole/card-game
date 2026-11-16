@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { legalPlays, TURN_LIMIT } from "../rules/index.ts";
 import { decodeServerMessage } from "../protocol/messages.ts";
 import type { ClientMessage, PlayerView } from "../protocol/messages.ts";
-import { css } from "../../styled-system/css/index.js";
+import { css, cx } from "../../styled-system/css/index.js";
 import {
   panel,
   button,
@@ -145,7 +145,7 @@ export default function App() {
       {notice && <p role="alert">{notice}</p>}
       {!view && !waiting && (
         <button
-          className={button()}
+          className={cx(button(), css({ m: "xs" }))}
           disabled={status !== "connected" || pending}
           onClick={() => {
             send({ type: "join" });
@@ -178,7 +178,10 @@ export default function App() {
           >
             {view.own.lanes.map((cards, lane) => (
               <section
-                className={panel()}
+                className={cx(
+                  panel(),
+                  css({ my: "md", overflowWrap: "anywhere" }),
+                )}
                 key={lane}
                 aria-label={`Lane ${String(lane + 1)}`}
               >
@@ -202,7 +205,10 @@ export default function App() {
               </section>
             ))}
           </div>
-          <section className={panel()} aria-label="Hand">
+          <section
+            className={cx(panel(), css({ my: "md", overflowWrap: "anywhere" }))}
+            aria-label="Hand"
+          >
             <h2>Hand</h2>
             {view.own.hand
               .filter(
@@ -210,14 +216,17 @@ export default function App() {
                   !view.own.staged.some((play) => play.cardId === card.id),
               )
               .map((card) => (
-                <article className={cardSurface()} key={card.id}>
+                <article
+                  className={cx(cardSurface(), css({ my: "md" }))}
+                  key={card.id}
+                >
                   <h3>{card.name}</h3>
                   <p>
                     Cost {card.cost} · Power {card.power}
                   </p>
                   {view.own.lanes.map((_, lane) => (
                     <button
-                      className={button()}
+                      className={cx(button(), css({ m: "xs" }))}
                       key={lane}
                       disabled={
                         locked ||
@@ -242,7 +251,10 @@ export default function App() {
                 </article>
               ))}
           </section>
-          <section className={panel()} aria-label="Staged cards">
+          <section
+            className={cx(panel(), css({ my: "md", overflowWrap: "anywhere" }))}
+            aria-label="Staged cards"
+          >
             <h2>Staged cards</h2>
             <ul>
               {view.own.staged.map((play) => (
@@ -250,7 +262,7 @@ export default function App() {
                   {view.own.hand.find((card) => card.id === play.cardId)?.name}{" "}
                   → Lane {play.lane + 1}{" "}
                   <button
-                    className={button()}
+                    className={cx(button(), css({ m: "xs" }))}
                     disabled={locked}
                     onClick={() => {
                       send({
@@ -272,7 +284,7 @@ export default function App() {
             </ul>
           </section>
           <button
-            className={button()}
+            className={cx(button(), css({ m: "xs" }))}
             disabled={locked}
             onClick={() => {
               send({ type: "commit" });
@@ -281,7 +293,10 @@ export default function App() {
             Commit
           </button>
           {view.own.committed && <p>You have committed</p>}
-          <section className={panel()} aria-label="Previous reveal">
+          <section
+            className={cx(panel(), css({ my: "md", overflowWrap: "anywhere" }))}
+            aria-label="Previous reveal"
+          >
             <h2>Previous reveal</h2>
             <ol>
               {view.events.map((event, index) => (
@@ -296,7 +311,13 @@ export default function App() {
             </ol>
           </section>
           {view.phase === "ended" && (
-            <section className={panel()} aria-label="Match result">
+            <section
+              className={cx(
+                panel(),
+                css({ my: "md", overflowWrap: "anywhere" }),
+              )}
+              aria-label="Match result"
+            >
               <h2>Match result</h2>
               <div role="group" aria-label="Winner">
                 {outcome(view.result.winner)}
