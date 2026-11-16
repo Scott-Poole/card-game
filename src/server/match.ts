@@ -35,13 +35,36 @@ function privateDeck(player: PlayerId) {
   return shuffle(starterDeck(player), (bound) => randomInt(bound));
 }
 /** Owns the queue and match lifecycle for a single server instance. */
-export function matchHost() {
+export function matchHost(
+  inputs: () => {
+    seed: number;
+    decks: Parameters<typeof createMatch>[1];
+  } = () => ({
+    seed: randomBytes(4).readUInt32LE(),
+    decks: [privateDeck(0), privateDeck(1)],
+  }),
+) {
   let waiting: Peer | undefined;
   const seats = new Map<Peer, Seat>();
   function error(peer: Peer) {
     send(peer, { type: "error", error: "invalid-message" });
   }
+  /** Seats distinct, unseated peers; queued peers may be seated directly. */
+  function start(first: Peer, second: Peer) {
+    if (first === second || seats.has(first) || seats.has(second))
+      throw new Error("peers must be distinct and unseated");
+    const { seed, decks } = inputs();
+    const match: Match = {
+      state: createMatch(seed, decks),
+      peers: [first, second],
+    };
+    seats.set(first, { match, player: 0 });
+    seats.set(second, { match, player: 1 });
+    if (waiting === first || waiting === second) waiting = undefined;
+    broadcast(match);
+  }
   return {
+    start,
     message(peer: Peer, message: ClientMessage) {
       const seat = seats.get(peer);
       if (message.type === "join") {
@@ -54,17 +77,7 @@ export function matchHost() {
           send(peer, { type: "waiting" });
           return;
         }
-        const match: Match = {
-          state: createMatch(randomBytes(4).readUInt32LE(), [
-            privateDeck(0),
-            privateDeck(1),
-          ]),
-          peers: [waiting, peer],
-        };
-        seats.set(waiting, { match, player: 0 });
-        seats.set(peer, { match, player: 1 });
-        waiting = undefined;
-        broadcast(match);
+        start(waiting, peer);
         return;
       }
       if (!seat) {
