@@ -1,8 +1,8 @@
 import { createSlice } from "@reduxjs/toolkit";
+import type { PayloadAction } from "@reduxjs/toolkit";
 import type { PlayerView } from "../protocol/messages.ts";
 import { isAcknowledged } from "./isAcknowledged.ts";
 import type { PendingRequest } from "./isAcknowledged.ts";
-import { received, sent, failed } from "./storeActions.ts";
 interface MatchState {
   view: PlayerView | null;
   pending: PendingRequest | null;
@@ -11,26 +11,20 @@ const initialState: MatchState = { view: null, pending: null };
 export const matchSlice = createSlice({
   name: "match",
   initialState,
-  reducers: {},
-  extraReducers: (builder) =>
-    builder
-      .addCase(sent, (state, { payload }) => {
-        return { ...state, pending: payload };
-      })
-      .addCase(failed, (state) => {
-        state.pending = null;
-      })
-      .addCase(received, (state, { payload }) => {
-        if (payload.type === "state") {
-          return {
-            view: payload.view,
-            pending: isAcknowledged(state.pending, payload.view)
-              ? null
-              : state.pending,
-          };
-        } else if (payload.type === "waiting" || payload.type === "error")
-          state.pending = null;
-      }),
+  reducers: {
+    sent(state, { payload }: PayloadAction<PendingRequest>) {
+      return { ...state, pending: payload };
+    },
+    requestCleared(state) {
+      state.pending = null;
+    },
+    viewReceived(state, { payload }: PayloadAction<PlayerView>) {
+      return {
+        view: payload,
+        pending: isAcknowledged(state.pending, payload) ? null : state.pending,
+      };
+    },
+  },
 });
 export const selectMatch = (state: { match: MatchState }) => state.match;
 export function selectScreen(state: {
@@ -39,5 +33,8 @@ export function selectScreen(state: {
 }) {
   if (state.match.view)
     return state.match.view.phase === "ended" ? "/result" : "/match";
-  return state.connection.waiting ? "/waiting" : "/";
+  return state.connection.waiting ||
+    state.match.pending?.message.type === "join"
+    ? "/waiting"
+    : "/";
 }

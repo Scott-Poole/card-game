@@ -4,27 +4,24 @@ import {
   Outlet,
   Route,
   Routes,
-  useNavigate,
+  Navigate,
   useLocation,
 } from "react-router";
 import { css, cx } from "../../styled-system/css/index.js";
 import { button, panel } from "../../styled-system/recipes/index.js";
-import { useEffect, useRef } from "react";
-import { useAppSelector } from "./hooks.ts";
+import { useAppDispatch, useAppSelector } from "./hooks.ts";
 import { selectScreen } from "./matchSlice.ts";
 import { send } from "./store.ts";
 import ProtocolGame from "./ProtocolGame.tsx";
 
 function Shell() {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const screen = useAppSelector(selectScreen);
-  const previousScreen = useRef("/");
-  useEffect(() => {
-    if (screen === previousScreen.current) return;
-    previousScreen.current = screen;
-    void navigate(screen);
-  }, [screen, navigate]);
+  if (
+    ["/", "/waiting", "/match", "/result"].includes(pathname) &&
+    pathname !== screen
+  )
+    return <Navigate to={screen} replace />;
   return (
     <main
       className={css({
@@ -71,6 +68,7 @@ function Screen({
 }
 
 function Home() {
+  const dispatch = useAppDispatch();
   return (
     <>
       <section className={panel()}>
@@ -80,7 +78,7 @@ function Home() {
         <button
           className={button()}
           onClick={() => {
-            send({ type: "join" });
+            dispatch(send({ type: "join" }));
           }}
         >
           Play

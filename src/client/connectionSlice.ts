@@ -1,5 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { received, sent, failed } from "./storeActions.ts";
+import type { PayloadAction } from "@reduxjs/toolkit";
+import type { DecodeError } from "../protocol/messages.ts";
 interface ConnectionState {
   status: "connecting" | "connected" | "error";
   notice: string | null;
@@ -13,38 +14,27 @@ const initialState: ConnectionState = {
 export const connectionSlice = createSlice({
   name: "connection",
   initialState,
-  reducers: {},
-  extraReducers: (builder) =>
-    builder
-      .addCase(sent, (state, { payload }) => {
-        state.notice = null;
-        if (payload.message.type === "join") state.waiting = true;
-      })
-      .addCase(failed, (state) => {
-        state.status = "error";
-        state.waiting = false;
-      })
-      .addCase(received, (state, { payload }) => {
-        switch (payload.type) {
-          case "welcome":
-            state.status = "connected";
-            break;
-          case "waiting":
-            state.waiting = true;
-            break;
-          case "state":
-            state.waiting = false;
-            break;
-          case "error":
-            state.waiting = false;
-            state.notice = `Request rejected: ${payload.error}. You can revise and try again.`;
-            break;
-          default: {
-            const exhaustive: never = payload;
-            return exhaustive;
-          }
-        }
-      }),
+  reducers: {
+    welcomed(state) {
+      state.status = "connected";
+    },
+    queued(state) {
+      state.waiting = true;
+    },
+    matched(state) {
+      state.waiting = false;
+    },
+    failed(state) {
+      state.status = "error";
+      state.waiting = false;
+    },
+    rejected(state, { payload }: PayloadAction<DecodeError>) {
+      state.notice = `Request rejected: ${payload}. You can revise and try again.`;
+    },
+    requestStarted(state) {
+      state.notice = null;
+    },
+  },
 });
 export const selectConnection = (state: { connection: ConnectionState }) =>
   state.connection;

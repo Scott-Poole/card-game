@@ -489,29 +489,23 @@ test("Play joins and moves to Waiting; a state message moves to Match and Result
   }
 });
 
-test("deep links reload and history navigation preserves a live match", async ({
+test("deep links follow session state without interrupting live actions", async ({
   pair: [a, b],
   address,
 }) => {
-  await expect(a).toHaveURL(address + "/match");
-  await a.goBack();
-  await expect(a).toHaveURL(address + "/waiting");
-  await a.goForward();
   await expect(a).toHaveURL(address + "/match");
   await a.getByRole("button", { name: "Commit", exact: true }).click();
   await expect(
     b.getByText("Opponent has committed", { exact: true }),
   ).toBeVisible();
-  for (const [path, heading] of [
-    ["/match", "Match"],
-    ["/result", "Result"],
-    ["/waiting", "Waiting"],
-    ["/unknown", "Page not found"],
-  ] satisfies [string, string][]) {
-    await a.goto(address + path);
-    await a.reload();
-    await expect(
-      a.getByRole("heading", { name: heading, exact: true }),
-    ).toBeVisible();
-  }
+  await a.goto(address + "/match");
+  await expect(a).toHaveURL(address + "/");
+  await a.reload();
+  await expect(a.getByRole("status")).toHaveText("connected");
+  await a.goto(address + "/unknown");
+  await expect(
+    a.getByRole("heading", { name: "Page not found", exact: true }),
+  ).toBeVisible();
+  await a.getByRole("link", { name: "Home", exact: true }).click();
+  await expect(a).toHaveURL(address + "/");
 });

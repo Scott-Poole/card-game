@@ -5,13 +5,14 @@ import {
   button,
   card as cardSurface,
 } from "../../styled-system/recipes/index.js";
-import { useAppSelector } from "./hooks.ts";
+import { useAppDispatch, useAppSelector } from "./hooks.ts";
 import { selectConnection } from "./connectionSlice.ts";
 import { selectMatch } from "./matchSlice.ts";
 import { selectStaging } from "./stagingSlice.ts";
 import { send } from "./store.ts";
 
 export default function ProtocolGame() {
+  const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
   const { view, pending } = useAppSelector(selectMatch);
   const staged = useAppSelector(selectStaging);
@@ -58,7 +59,7 @@ export default function ProtocolGame() {
           className={cx(button(), css({ m: "xs" }))}
           disabled={status !== "connected" || pending !== null}
           onClick={() => {
-            send({ type: "join" });
+            dispatch(send({ type: "join" }));
           }}
         >
           Find match
@@ -154,10 +155,12 @@ export default function ProtocolGame() {
                         )
                       }
                       onClick={() => {
-                        send({
-                          type: "stage",
-                          plays: [...staged, { cardId: card.id, lane }],
-                        });
+                        dispatch(
+                          send({
+                            type: "stage",
+                            plays: [...staged, { cardId: card.id, lane }],
+                          }),
+                        );
                       }}
                     >
                       Stage {card.name} in lane {lane + 1}
@@ -187,12 +190,14 @@ export default function ProtocolGame() {
                     className={cx(button(), css({ m: "xs" }))}
                     disabled={locked}
                     onClick={() => {
-                      send({
-                        type: "stage",
-                        plays: staged.filter(
-                          (other) => other.cardId !== play.cardId,
-                        ),
-                      });
+                      dispatch(
+                        send({
+                          type: "stage",
+                          plays: staged.filter(
+                            (other) => other.cardId !== play.cardId,
+                          ),
+                        }),
+                      );
                     }}
                   >
                     Unstage{" "}
@@ -209,7 +214,7 @@ export default function ProtocolGame() {
             className={cx(button(), css({ m: "xs" }))}
             disabled={locked}
             onClick={() => {
-              send({ type: "commit" });
+              dispatch(send({ type: "commit" }));
             }}
           >
             Commit

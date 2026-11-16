@@ -1,33 +1,10 @@
 import { expect, it } from "vitest";
-import { connectionSlice, selectConnection } from "./connectionSlice.ts";
-import { received, sent, failed } from "./storeActions.ts";
-
-it("joining moves a connected player to waiting", () => {
-  let connection = connectionSlice.reducer(
-    undefined,
-    received({ type: "welcome" }),
-  );
-  connection = connectionSlice.reducer(
-    connection,
-    sent({ message: { type: "join" }, turn: null }),
-  );
-  expect(selectConnection({ connection }).waiting).toBe(true);
-});
-
-it("a connection failure clears waiting without inventing a rejection notice", () => {
-  const connection = connectionSlice.reducer(
-    { status: "connected", waiting: true, notice: null },
-    failed(),
-  );
-  expect(selectConnection({ connection })).toEqual({
-    status: "error",
-    waiting: false,
-    notice: null,
-  });
-});
-
-import { matchSlice, selectMatch, selectScreen } from "./matchSlice.ts";
 import type { PlayerView } from "../protocol/messages.ts";
+import { connectionSlice, selectConnection } from "./connectionSlice.ts";
+import { matchSlice, selectMatch, selectScreen } from "./matchSlice.ts";
+import { stagingSlice, selectStaging } from "./stagingSlice.ts";
+const connectionActions = connectionSlice.actions;
+const matchActions = matchSlice.actions;
 const view: PlayerView = {
   phase: "planning",
   result: null,
@@ -44,122 +21,114 @@ const view: PlayerView = {
   opponent: { handSize: 4, deckSize: 8, lanes: [[], [], []], committed: false },
   events: [],
 };
-it("a state message for turn 2 replaces the view", () => {
+
+it("sending join selects Waiting before the queue response", () => {
   const match = matchSlice.reducer(
     undefined,
-    received({ type: "state", view: { ...view, turn: 2 } }),
+    matchActions.sent({ message: { type: "join" }, turn: null }),
+  );
+  expect(selectScreen({ match, connection: { waiting: false } })).toBe(
+    "/waiting",
+  );
+});
+it("a state message for turn 2 replaces the view and selects Match", () => {
+  const match = matchSlice.reducer(
+    { view, pending: null },
+    matchActions.viewReceived({ ...view, turn: 2 }),
   );
   expect(selectMatch({ match }).view?.turn).toBe(2);
   expect(selectScreen({ match, connection: { waiting: false } })).toBe(
     "/match",
   );
 });
-import { stagingSlice, selectStaging } from "./stagingSlice.ts";
-it("staging records local plays before the server acknowledges them", () => {
-  const staging = stagingSlice.reducer(
-    undefined,
-    sent({
-      message: { type: "stage", plays: [{ cardId: "a", lane: 1 }] },
-      turn: 1,
-    }),
-  );
-  expect(selectStaging({ staging })).toEqual([{ cardId: "a", lane: 1 }]);
-});
-
 it("an opponent update does not acknowledge our pending commit", () => {
-  let match = matchSlice.reducer(undefined, received({ type: "state", view }));
-  match = matchSlice.reducer(
-    match,
-    sent({ message: { type: "commit" }, turn: 1 }),
+  let match = matchSlice.reducer(
+    { view, pending: null },
+    matchActions.sent({ message: { type: "commit" }, turn: 1 }),
   );
   match = matchSlice.reducer(
     match,
-    received({
-      type: "state",
-      view: { ...view, opponent: { ...view.opponent, committed: true } },
+    matchActions.viewReceived({
+      ...view,
+      opponent: { ...view.opponent, committed: true },
     }),
   );
   expect(selectMatch({ match }).pending?.message.type).toBe("commit");
   match = matchSlice.reducer(
     match,
-    received({ type: "state", view: { ...view, turn: 2 } }),
+    matchActions.viewReceived({ ...view, turn: 2 }),
   );
   expect(selectMatch({ match }).pending).toBeNull();
 });
 it("an ended match selects Result", () => {
   const match = matchSlice.reducer(
     undefined,
-    received({
-      type: "state",
-      view: {
-        ...view,
-        phase: "ended",
-        result: { lanes: [null, null, null], power: [0, 0], winner: null },
-      },
+    matchActions.viewReceived({
+      ...view,
+      phase: "ended",
+      result: { lanes: [null, null, null], power: [0, 0], winner: null },
     }),
   );
   expect(selectScreen({ match, connection: { waiting: false } })).toBe(
     "/result",
   );
 });
-it("a rejected request keeps the connection usable and clears the notice on retry", () => {
-  let connection = connectionSlice.reducer(
-    undefined,
-    received({ type: "welcome" }),
+it("a connection failure clears waiting without inventing a rejection notice", () => {
+  const connection = connectionSlice.reducer(
+    { status: "connected", waiting: true, notice: null },
+    connectionActions.failed(),
   );
-  connection = connectionSlice.reducer(
-    connection,
-    received({ type: "error", error: "invalid-message" }),
+  expect(selectConnection({ connection })).toEqual({
+    status: "error",
+    waiting: false,
+    notice: null,
+  });
+});
+it("a rejection preserves a queued seat and retry clears its notice", () => {
+  let connection = connectionSlice.reducer(
+    { status: "connected", waiting: true, notice: null },
+    connectionActions.rejected("invalid-message"),
   );
   expect(selectConnection({ connection })).toEqual({
     status: "connected",
-    waiting: false,
+    waiting: true,
     notice: "Request rejected: invalid-message. You can revise and try again.",
   });
   connection = connectionSlice.reducer(
     connection,
-    sent({ message: { type: "join" }, turn: null }),
+    connectionActions.requestStarted(),
   );
   expect(selectConnection({ connection }).notice).toBeNull();
 });
-it("an opponent update preserves local staging and rejection restores confirmed plays", () => {
+it("local staging can be replaced by confirmed server plays", () => {
   let staging = stagingSlice.reducer(
     undefined,
-    sent({
-      message: { type: "stage", plays: [{ cardId: "a", lane: 1 }] },
-      turn: 1,
-    }),
+    stagingSlice.actions.replaced([{ cardId: "a", lane: 1 }]),
   );
-  staging = stagingSlice.reducer(staging, received({ type: "state", view }));
   expect(selectStaging({ staging })).toEqual([{ cardId: "a", lane: 1 }]);
-  staging = stagingSlice.reducer(
-    staging,
-    received({ type: "error", error: "invalid-message" }),
-  );
+  staging = stagingSlice.reducer(staging, stagingSlice.actions.replaced([]));
   expect(selectStaging({ staging })).toEqual([]);
 });
-it("an acknowledged stage and a new turn replace local plays with the server view", () => {
-  let staging = stagingSlice.reducer(
-    undefined,
-    sent({
+it("a confirmed stage clears the pending request; waiting or rejection can clear it too", () => {
+  let match = matchSlice.reducer(
+    { view, pending: null },
+    matchActions.sent({
       message: { type: "stage", plays: [{ cardId: "a", lane: 1 }] },
       turn: 1,
     }),
   );
-  staging = stagingSlice.reducer(
-    staging,
-    received({
-      type: "state",
-      view: {
-        ...view,
-        own: { ...view.own, staged: [{ cardId: "a", lane: 1 }] },
-      },
+  match = matchSlice.reducer(
+    match,
+    matchActions.viewReceived({
+      ...view,
+      own: { ...view.own, staged: [{ cardId: "a", lane: 1 }] },
     }),
   );
-  expect(selectStaging({ staging })).toEqual([{ cardId: "a", lane: 1 }]);
-  staging = stagingSlice.reducer(
-    staging,
-    received({ type: "state", view: { ...view, turn: 2 } }),
+  expect(selectMatch({ match }).pending).toBeNull();
+  match = matchSlice.reducer(
+    match,
+    matchActions.sent({ message: { type: "commit" }, turn: 1 }),
   );
-  expect(selectStaging({ staging })).toEqual([]);
+  match = matchSlice.reducer(match, matchActions.requestCleared());
+  expect(selectMatch({ match }).pending).toBeNull();
 });
