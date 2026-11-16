@@ -27,30 +27,6 @@ export const boardStyles = css({
   },
   "& .board-meta": { gridColumn: "1 / -1", gridRow: "3", fontSize: "small" },
   "& .board-lanes": { gridColumn: "1 / -1", gridRow: "5" },
-  "& .board-lanes > section": {
-    display: "flex",
-    flexDirection: "column",
-    m: "none",
-    p: "sm",
-  },
-  "& .board-lanes h3, & .board-lanes h4": { fontSize: "small", my: "xs" },
-
-  "& .board-slots": {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gridAutoRows: "[minmax(0, 1fr)]",
-    flex: "1",
-    minH: "[0]",
-    gap: "xs",
-  },
-  "& .board-slots h3": { fontSize: "cardTiny", lineClamp: 1, m: "none" },
-  "& .board-slots > div": {
-    border: "panel",
-    borderRadius: "control",
-    bg: "surface",
-    minH: "[0]",
-    overflow: "auto",
-  },
   "& .reserved-slot": { minH: "[token(spacing.lg)]" },
   "& .reserved-slot:not(:empty)": {
     border: "panel",
@@ -76,7 +52,6 @@ export const boardStyles = css({
     p: "none",
     minH: "[0]",
   },
-  "& .board-card h3": { fontSize: "small", lineClamp: 2, my: "xs" },
   "& .board-card button": {
     fontSize: "small",
     p: "xs",

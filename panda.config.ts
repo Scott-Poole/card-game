@@ -47,12 +47,12 @@ export default defineConfig({
         boardRows: { value: "32px 32px 24px 64px 1fr 260px 60px 80px" },
         handCard: { value: "150px" },
         stageTarget: { value: "37px" },
+        lanePanel: { value: "340px" },
       },
       fonts: { body: { value: "Georgia, serif" } },
       fontSizes: {
         body: { value: "1rem" },
         small: { value: "0.875rem" },
-        cardTiny: { value: "10px" },
         title: { value: "2rem" },
         heading: { value: "1.25rem" },
       },
@@ -102,11 +102,26 @@ export default defineConfig({
           minW: "[0]",
           overflow: "hidden",
           fontSize: "small",
+          '& [data-part="name"]': { m: "none", lineHeight: "heading" },
+          '& [data-part="art"]': {
+            bg: "surface",
+            borderRadius: "control",
+            flex: "1",
+          },
         },
         variants: {
           size: {
-            hand: { height: "[100%]" },
-            lane: { height: "[100%]", fontSize: "cardTiny" },
+            hand: {
+              height: "[100%]",
+              '& [data-part="name"]': { fontSize: "small", lineClamp: 2 },
+              '& [data-part="art"]': { minH: "[token(spacing.lg)]" },
+            },
+            lane: {
+              height: "[100%]",
+              fontSize: "small",
+              '& [data-part="name"]': { fontSize: "small", lineClamp: 1 },
+              '& [data-part="art"]': { minH: "[token(spacing.xs)]" },
+            },
           },
           selected: { true: { borderColor: "own" } },
           disabled: { true: { opacity: "disabled" } },

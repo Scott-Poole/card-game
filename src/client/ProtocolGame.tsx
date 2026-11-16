@@ -102,6 +102,7 @@ export default function ProtocolGame() {
                   display: "flex",
                   gap: "xs",
                   height: "stageTarget",
+                  float: "right",
                 })}
               >
                 {Array.from({ length: view.opponent.handSize }, (_, index) => (

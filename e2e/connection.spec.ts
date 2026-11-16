@@ -250,6 +250,18 @@ test("staging prevents overspend, returns unstaged cards, and locks after commit
   await expect(unstage).toBeEnabled();
   await a.getByRole("button", { name: "Commit", exact: true }).click();
   await expect(unstage).toBeDisabled();
+  const committedBounds = await a
+    .getByText("You have committed", { exact: true })
+    .boundingBox();
+  const laneBounds = await a
+    .getByRole("region", { name: "Lane 1", exact: true })
+    .boundingBox();
+  if (!committedBounds || !laneBounds)
+    throw new Error("Missing committed board");
+  expect(committedBounds.y + committedBounds.height).toBeLessThanOrEqual(
+    laneBounds.y,
+  );
+
   await expect(hand.getByRole("button").and(a.locator(":enabled"))).toHaveCount(
     0,
   );
@@ -655,6 +667,8 @@ test("multiple staged cards can be returned from the portrait board", async ({
 test("revealed lane cards and totals follow both players through every turn", async ({
   pair: [a, b],
 }) => {
+  await a.setViewportSize({ width: 390, height: 844 });
+  await b.setViewportSize({ width: 1440, height: 900 });
   const records = new Map<
     Page,
     { name: string; power: number; lane: number }[]
@@ -667,10 +681,15 @@ test("revealed lane cards and totals follow both players through every turn", as
       await expect(
         page.getByRole("heading", { name: `Turn ${String(turn)} of 6` }),
       ).toBeVisible();
-      const play = page
+      const choices = page
         .getByRole("button", { name: /Stage .* in lane/ })
-        .and(page.locator(":enabled"))
-        .last();
+        .and(page.locator(":enabled"));
+      const preferred = choices.filter({
+        hasText: `Lane ${String((turn % 3) + 1)}`,
+      });
+      const play = (await preferred.count())
+        ? preferred.first()
+        : choices.first();
       if (await play.count()) {
         const label = await play.getAttribute("aria-label");
         const match = /^Stage (.*) in lane (\d+)$/.exec(label ?? "");
@@ -681,6 +700,13 @@ test("revealed lane cards and totals follow both players through every turn", as
           .getByRole("article", { name, exact: true })
           .getByText(/^Power /)
           .innerText();
+        const laneRegion = page.getByRole("region", {
+          name: `Lane ${match[2]}`,
+          exact: true,
+        });
+        const totalBefore = await laneRegion
+          .getByText(/^Opponent total:/)
+          .innerText();
         await play.click();
         await expect(
           page
@@ -688,6 +714,23 @@ test("revealed lane cards and totals follow both players through every turn", as
             .getByRole("group", { name: "Your cards" })
             .getByRole("article", { name, exact: true }),
         ).toBeVisible();
+        await expect(laneRegion.getByText(/^Opponent total:/)).toHaveText(
+          totalBefore,
+        );
+        const preview = laneRegion
+          .getByRole("group", { name: "Your cards" })
+          .getByRole("article", { name, exact: true });
+        await expect(preview).toHaveAccessibleDescription(
+          "Staged, not yet revealed",
+        );
+        const previewBox = await preview.boundingBox();
+        const nameBox = await preview
+          .getByText(name, { exact: true })
+          .boundingBox();
+        if (!previewBox || !nameBox) throw new Error("Missing preview text");
+        expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
+          previewBox.y + previewBox.height + 1,
+        );
         records.get(page)?.push({
           name,
           power: Number(powerText.replace("Power ", "")),
@@ -703,6 +746,17 @@ test("revealed lane cards and totals follow both players through every turn", as
           exact: true,
         }),
       ).toBeVisible();
+      const meta = await page.getByText(/^You are player/).innerText();
+      const count = /Opponent hand: (\d+)/.exec(meta)?.[1];
+      if (!count) throw new Error("Missing public hand count");
+      const backs = page.getByRole("group", {
+        name: `Opponent hand: ${count} face-down cards`,
+        exact: true,
+      });
+      await expect(
+        backs.getByRole("article", { name: "Face-down card", exact: true }),
+      ).toHaveCount(Number(count));
+      await expect(backs.getByRole("heading")).toHaveCount(0);
       for (let lane = 1; lane <= 3; lane++) {
         const own = (records.get(page) ?? []).filter(
           (card) => card.lane === lane,
@@ -726,10 +780,26 @@ test("revealed lane cards and totals follow both players through every turn", as
         ] satisfies [string, typeof own][]) {
           const group = region.getByRole("group", { name: label });
           await expect(group.getByRole("article")).toHaveCount(cards.length);
-          for (const card of cards)
-            await expect(
-              group.getByRole("article", { name: card.name, exact: true }),
-            ).toBeVisible();
+          for (const card of cards) {
+            const article = group.getByRole("article", {
+              name: card.name,
+              exact: true,
+            });
+            await expect(article).toBeVisible();
+            const box = await article.boundingBox();
+            const nameBox = await article
+              .getByText(card.name, { exact: true })
+              .boundingBox();
+            const regionBox = await region.boundingBox();
+            if (!box || !nameBox || !regionBox)
+              throw new Error("Missing card text or lane");
+            expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
+              box.y + box.height + 1,
+            );
+            expect(box.y + box.height).toBeLessThanOrEqual(
+              regionBox.y + regionBox.height + 1,
+            );
+          }
         }
       }
     }

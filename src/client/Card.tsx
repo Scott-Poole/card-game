@@ -6,6 +6,7 @@ import { card } from "../../styled-system/recipes/index.js";
 type CardProps = {
   size?: "hand" | "lane";
   selected?: boolean;
+  staged?: boolean;
   disabled?: boolean;
   children?: ReactNode;
   art?: ReactNode;
@@ -16,10 +17,12 @@ export default function Card(props: CardProps) {
     <article
       className={card({
         size: props.size ?? "hand",
-        selected: props.selected,
+        selected: props.selected === true || props.staged === true,
         disabled: props.disabled,
       })}
       aria-label={props.faceDown ? "Face-down card" : props.data.name}
+      aria-description={props.staged ? "Staged, not yet revealed" : undefined}
+      aria-disabled={props.disabled ? true : undefined}
     >
       {props.faceDown ? (
         <span aria-hidden="true">◆</span>
@@ -32,33 +35,21 @@ export default function Card(props: CardProps) {
               gap: "xs",
             })}
           >
-            <span>Cost {props.data.cost}</span>
-            <span>Power {props.data.power}</span>
+            <span aria-label={`Cost ${String(props.data.cost)}`}>
+              {props.size === "lane"
+                ? props.data.cost
+                : `Cost ${String(props.data.cost)}`}
+            </span>
+            <span aria-label={`Power ${String(props.data.power)}`}>
+              {props.size === "lane"
+                ? props.data.power
+                : `Power ${String(props.data.power)}`}
+            </span>
           </div>
           {props.art ?? (
-            <div
-              aria-label="Art placeholder"
-              role="img"
-              className={css({
-                bg: "surface",
-                borderRadius: "control",
-                flex: "1",
-                minH:
-                  props.size === "lane"
-                    ? "[token(spacing.xs)]"
-                    : "[token(spacing.lg)]",
-              })}
-            />
+            <div aria-label="Art placeholder" role="img" data-part="art" />
           )}
-          <h3
-            className={css({
-              fontSize: "small",
-              m: "none",
-              lineHeight: "heading",
-            })}
-          >
-            {props.data.name}
-          </h3>
+          <strong data-part="name">{props.data.name}</strong>
         </>
       )}
       {props.children}
