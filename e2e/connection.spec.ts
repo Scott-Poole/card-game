@@ -498,8 +498,13 @@ test("deep links follow session state without interrupting live actions", async 
   await expect(
     b.getByText("Opponent has committed", { exact: true }),
   ).toBeVisible();
-  await a.goto(address + "/match");
-  await expect(a).toHaveURL(address + "/");
+  for (const path of ["/match", "/MATCH", "/waiting/", "/result/"]) {
+    await a.goto(address + path);
+    await expect(a).toHaveURL(address + "/");
+    await expect(
+      a.getByRole("heading", { name: "Home", exact: true }),
+    ).toBeVisible();
+  }
   await a.reload();
   await expect(a.getByRole("status")).toHaveText("connected");
   await a.goto(address + "/unknown");

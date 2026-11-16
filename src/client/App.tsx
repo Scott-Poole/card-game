@@ -19,8 +19,9 @@ import ProtocolGame from "./ProtocolGame.tsx";
 function Shell() {
   const { pathname } = useLocation();
   const screen = useAppSelector(selectScreen);
+  const normalizedPath = pathname.toLowerCase().replace(/\/+$/, "") || "/";
   if (
-    ["/", "/waiting", "/match", "/result"].includes(pathname) &&
+    ["/", "/waiting", "/match", "/result"].includes(normalizedPath) &&
     pathname !== screen
   )
     return <Navigate to={screen} replace />;
