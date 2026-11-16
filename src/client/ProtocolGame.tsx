@@ -87,9 +87,9 @@ export default function ProtocolGame() {
               <Reserved label="Stakes" />
               <span>You · Player {view.player + 1}</span>
             </header>
-            <h2 className="board-turn">
+            <h1 className="board-turn">
               Turn {view.turn} of {TURN_LIMIT}
-            </h2>
+            </h1>
             <p className="board-energy">
               Energy: {view.energy - spent} of {view.energy}
             </p>
@@ -210,13 +210,11 @@ export default function ProtocolGame() {
               <ul>
                 {staged.map((play) => (
                   <li key={play.cardId}>
-                    {
-                      view.own.hand.find((card) => card.id === play.cardId)
-                        ?.name
-                    }{" "}
-                    → Lane {play.lane + 1}{" "}
                     <button
-                      className={cx(button(), css({ m: "xs" }))}
+                      className={cx(
+                        button(),
+                        css({ m: "none", p: "xs", fontSize: "small" }),
+                      )}
                       disabled={locked}
                       onClick={() => {
                         dispatch(

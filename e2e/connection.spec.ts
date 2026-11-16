@@ -237,8 +237,8 @@ test("staging prevents overspend, returns unstaged cards, and locks after commit
     .filter({ hasText: /Cost [2-6]/ });
   await expect(unaffordable.first().getByRole("button").first()).toBeDisabled();
   const stage = await reachPlayableTurn(a, b);
-  const label =
-    (await stage.getAttribute("aria-label")) ?? (await stage.innerText());
+  const label = await stage.getAttribute("aria-label");
+  if (!label) throw new Error("Missing stage action name");
   await stage.click();
   const unstage = a.getByRole("button", { name: /Unstage/ });
   await expect(unstage).toBeEnabled();
@@ -262,8 +262,8 @@ test("opponent staged cards stay hidden until resolution", async ({
   pair: [a, b],
 }) => {
   const stage = await reachPlayableTurn(a, b);
-  const label =
-    (await stage.getAttribute("aria-label")) ?? (await stage.innerText());
+  const label = await stage.getAttribute("aria-label");
+  if (!label) throw new Error("Missing stage action name");
   const name = label.replace(/^Stage /, "").replace(/ in lane \d+$/, "");
   // Both decks share names, so compare the whole rendered page to its baseline:
   // the opponent's own hand may already contain the same card definition.
@@ -607,3 +607,40 @@ for (const viewport of [
     ).toBeDisabled();
   });
 }
+
+test("multiple staged cards can be returned from the portrait board", async ({
+  pair: [a, b],
+}) => {
+  await a.setViewportSize({ width: 390, height: 844 });
+  for (let turn = 1; turn < 6; turn++) {
+    await a.getByRole("button", { name: "Commit", exact: true }).click();
+    await b.getByRole("button", { name: "Commit", exact: true }).click();
+    await expect(
+      a.getByRole("heading", { name: `Turn ${String(turn + 1)} of 6` }),
+    ).toBeVisible();
+  }
+  for (let count = 0; count < 2; count++) {
+    const hand = a.getByRole("region", { name: "Hand", exact: true });
+    const cheap = hand.getByRole("article").filter({ hasText: /Cost [1-3] ·/ });
+    const play = cheap
+      .getByRole("button", { name: /in lane 1$/ })
+      .and(a.locator(":enabled"))
+      .first();
+    await play.click();
+    await expect(a.getByRole("button", { name: /Unstage/ })).toHaveCount(
+      count + 1,
+    );
+  }
+  const staged = a.getByRole("region", { name: "Staged cards", exact: true });
+  const bounds = await staged.boundingBox();
+  const buttons = staged.getByRole("button");
+  for (const button of await buttons.all()) {
+    const box = await button.boundingBox();
+    if (!bounds || !box) throw new Error("Missing return controls");
+    expect(box.y + box.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+  }
+  await buttons.last().click();
+  await expect(buttons).toHaveCount(1);
+  await buttons.first().click();
+  await expect(buttons).toHaveCount(0);
+});

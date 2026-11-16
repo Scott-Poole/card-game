@@ -22,6 +22,7 @@ export default function Stage({
         entry.contentRect.height /
           Number.parseFloat(token("sizes.stageHeight")),
       );
+      stage.style.visibility = "visible";
       stage.style.setProperty("--stage-scale", String(scale));
       stage.style.transform = `scale(${String(scale)})`;
     });
@@ -41,16 +42,17 @@ export default function Stage({
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
-        pt: "[env(safe-area-inset-top)]",
-        pb: "[env(safe-area-inset-bottom)]",
-        pl: "[env(safe-area-inset-left)]",
-        pr: "[env(safe-area-inset-right)]",
+        pt: "safeTop",
+        pb: "safeBottom",
+        pl: "safeLeft",
+        pr: "safeRight",
       })}
     >
       <section
         ref={board}
         aria-label="Match board"
         className={css({
+          visibility: "hidden",
           width: "stageWidth",
           height: "stageHeight",
           flexShrink: 0,

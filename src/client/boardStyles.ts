@@ -97,7 +97,21 @@ export const boardStyles = css({
     p: "xs",
     fontSize: "small",
   },
-  "& .board-reveal": { gridColumn: "2 / -1" },
+  "& .board-staged": { gridColumn: "1 / 3" },
+  "& .board-staged ul": {
+    display: "flex",
+    gap: "xs",
+    listStyleType: "none",
+    p: "none",
+  },
+  "& .board-staged li": { minW: "[0]", flexShrink: 0 },
+  "& .board-staged button": {
+    maxW: "handCard",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  "& .board-reveal": { gridColumn: "3" },
   "& > section > h2": { fontSize: "small", m: "none" },
   "& > section button": { fontSize: "small", p: "xs" },
   "& .board-message": {

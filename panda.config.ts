@@ -27,6 +27,10 @@ export default defineConfig({
         onAccent: { value: "#151719" },
       },
       spacing: {
+        safeTop: { value: "env(safe-area-inset-top)" },
+        safeBottom: { value: "env(safe-area-inset-bottom)" },
+        safeLeft: { value: "env(safe-area-inset-left)" },
+        safeRight: { value: "env(safe-area-inset-right)" },
         none: { value: "0" },
         xs: { value: "4px" },
         compact: { value: "6px" },
