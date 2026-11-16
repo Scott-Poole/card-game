@@ -35,62 +35,99 @@ function privateDeck(player: PlayerId) {
   return shuffle(starterDeck(player), (bound) => randomInt(bound));
 }
 /** Owns the queue and match lifecycle for a single server instance. */
-export function matchHost() {
+export function matchHost(
+  inputs: () => {
+    seed: number;
+    decks: Parameters<typeof createMatch>[1];
+  } = () => ({
+    seed: randomBytes(4).readUInt32LE(),
+    decks: [privateDeck(0), privateDeck(1)],
+  }),
+) {
+  // A peer may answer synchronously from send(). Finish delivering the current
+  // transition to both players before applying any of those replies.
+  const pending: (() => void)[] = [];
+  let processing = false;
+  function run(operation: () => void) {
+    pending.push(operation);
+    if (processing) return;
+    processing = true;
+    try {
+      let next;
+      while ((next = pending.shift())) next();
+    } finally {
+      processing = false;
+      pending.length = 0;
+    }
+  }
   let waiting: Peer | undefined;
   const seats = new Map<Peer, Seat>();
   function error(peer: Peer) {
     send(peer, { type: "error", error: "invalid-message" });
   }
+  /** Seats distinct, unseated peers; queued peers may be seated directly. */
+  function start(first: Peer, second: Peer) {
+    if (first === second || seats.has(first) || seats.has(second))
+      throw new Error("peers must be distinct and unseated");
+    const { seed, decks } = inputs();
+    const match: Match = {
+      state: createMatch(seed, decks),
+      peers: [first, second],
+    };
+    seats.set(first, { match, player: 0 });
+    seats.set(second, { match, player: 1 });
+    if (waiting === first || waiting === second) waiting = undefined;
+    broadcast(match);
+  }
   return {
+    start(first: Peer, second: Peer) {
+      run(() => {
+        start(first, second);
+      });
+    },
     message(peer: Peer, message: ClientMessage) {
-      const seat = seats.get(peer);
-      if (message.type === "join") {
-        if (seat || waiting === peer) {
+      run(() => {
+        const seat = seats.get(peer);
+        if (message.type === "join") {
+          if (seat || waiting === peer) {
+            error(peer);
+            return;
+          }
+          if (!waiting) {
+            waiting = peer;
+            send(peer, { type: "waiting" });
+            return;
+          }
+          start(waiting, peer);
+          return;
+        }
+        if (!seat) {
           error(peer);
           return;
         }
-        if (!waiting) {
-          waiting = peer;
-          send(peer, { type: "waiting" });
+        const { match, player } = seat;
+        const result = applyAction(match.state, player, message);
+        if (!result.ok) {
+          error(peer);
           return;
         }
-        const match: Match = {
-          state: createMatch(randomBytes(4).readUInt32LE(), [
-            privateDeck(0),
-            privateDeck(1),
-          ]),
-          peers: [waiting, peer],
-        };
-        seats.set(waiting, { match, player: 0 });
-        seats.set(peer, { match, player: 1 });
-        waiting = undefined;
+        match.state = result.value;
         broadcast(match);
-        return;
-      }
-      if (!seat) {
-        error(peer);
-        return;
-      }
-      const { match, player } = seat;
-      const result = applyAction(match.state, player, message);
-      if (!result.ok) {
-        error(peer);
-        return;
-      }
-      match.state = result.value;
-      broadcast(match);
+      });
     },
     close(peer: Peer) {
-      if (waiting === peer) waiting = undefined;
-      const seat = seats.get(peer);
-      seats.delete(peer);
-      if (!seat || seat.match.state.phase === "ended") return;
-      const { match, player } = seat;
-      const winner = player === 0 ? 1 : 0;
-      match.state = forfeit(match.state, player);
-      send(match.peers[winner], {
-        type: "state",
-        view: playerView(match.state, winner),
+      run(() => {
+        if (waiting === peer) waiting = undefined;
+        const seat = seats.get(peer);
+        seats.delete(peer);
+        if (!seat || seat.match.state.phase === "ended") return;
+        const { match, player } = seat;
+        const winner = player === 0 ? 1 : 0;
+        match.state = forfeit(match.state, player);
+        send(match.peers[winner], {
+          type: "state",
+          view: playerView(match.state, winner),
+        });
       });
     },
   };
