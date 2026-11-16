@@ -102,11 +102,26 @@ export default defineConfig({
           minW: "[0]",
           overflow: "hidden",
           fontSize: "small",
+          "& h3": { m: "none", lineHeight: "heading" },
+          '& [data-part="art"]': {
+            bg: "surface",
+            borderRadius: "control",
+            flex: "1",
+          },
         },
         variants: {
           size: {
-            hand: { height: "[100%]" },
-            lane: { height: "[100%]", fontSize: "cardTiny" },
+            hand: {
+              height: "[100%]",
+              "& h3": { fontSize: "small", lineClamp: 2 },
+              '& [data-part="art"]': { minH: "[token(spacing.lg)]" },
+            },
+            lane: {
+              height: "[100%]",
+              fontSize: "cardTiny",
+              "& h3": { fontSize: "cardTiny", lineClamp: 1 },
+              '& [data-part="art"]': { minH: "[token(spacing.xs)]" },
+            },
           },
           selected: { true: { borderColor: "own" } },
           disabled: { true: { opacity: "disabled" } },
