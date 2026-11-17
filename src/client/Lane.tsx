@@ -59,7 +59,33 @@ export default function Lane({
           aria-label="Location"
           className={css({ minH: "[token(spacing.xs)]", color: "muted" })}
         >
-          No location effect.
+          <motion.span
+            key={
+              ownTotal === opponentTotal
+                ? "tied"
+                : ownTotal > opponentTotal
+                  ? "own"
+                  : "opponent"
+            }
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={css({
+              m: "none",
+              fontSize: "small",
+              color:
+                ownTotal > opponentTotal
+                  ? "positive"
+                  : ownTotal < opponentTotal
+                    ? "negative"
+                    : "muted",
+            })}
+          >
+            {ownTotal === opponentTotal
+              ? "Lane tied"
+              : ownTotal > opponentTotal
+                ? "You lead"
+                : "Opponent leads"}
+          </motion.span>
         </div>
         <motion.p
           key={`${String(ownTotal)}:${String(opponentTotal)}`}
@@ -70,33 +96,6 @@ export default function Lane({
           Opponent total: {opponentTotal} · Your total: {ownTotal}
         </motion.p>
       </header>
-      <motion.p
-        key={
-          ownTotal === opponentTotal
-            ? "tied"
-            : ownTotal > opponentTotal
-              ? "own"
-              : "opponent"
-        }
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className={css({
-          m: "none",
-          fontSize: "small",
-          color:
-            ownTotal > opponentTotal
-              ? "positive"
-              : ownTotal < opponentTotal
-                ? "negative"
-                : "muted",
-        })}
-      >
-        {ownTotal === opponentTotal
-          ? "Lane tied"
-          : ownTotal > opponentTotal
-            ? "You lead"
-            : "Opponent leads"}
-      </motion.p>
       <Slots
         inspectCard={inspectCard}
         label="Opponent cards"
