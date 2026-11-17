@@ -1,3 +1,12 @@
+import type { Card as CardData } from "../protocol/messages.ts";
+import { useRef, useState } from "react";
+import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
+import {
+  DragPreview,
+  HandCard,
+  Inspect,
+  PlayTarget,
+} from "./PlayInteractions.tsx";
 import Card from "./Card.tsx";
 import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
@@ -13,6 +22,12 @@ import { selectStaging } from "./stagingSlice.ts";
 import { send } from "./store.ts";
 
 export default function ProtocolGame() {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [inspection, setInspection] = useState<
+    { kind: "card"; card: CardData } | { kind: "lane"; number: number } | null
+  >(null);
+  const hand = useRef<HTMLElement>(null);
   const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
   const { view, pending } = useAppSelector(selectMatch);
@@ -34,250 +49,168 @@ export default function ProtocolGame() {
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   const totals = view ? selectLaneTotals(view) : null;
   const playing = view?.phase === "planning";
+  function canStage(cardId: string | null, lane: number) {
+    return (
+      !locked &&
+      available.some((play) => play.cardId === cardId && play.lane === lane)
+    );
+  }
+  function stage(cardId: string | null, lane: number) {
+    if (cardId === null || !canStage(cardId, lane)) return;
+    dispatch(send({ type: "stage", plays: [...staged, { cardId, lane }] }));
+    setSelected(null);
+    setInspection(null);
+    hand.current?.focus();
+  }
   return (
-    <Stage active={playing}>
-      <section
-        className={cx(
-          playing && boardStyles,
-          css({
-            maxW: "content",
-            mx: "auto",
-            p: playing ? "md" : { base: "md", md: "lg" },
-          }),
-        )}
-      >
-        {!playing && <h2>Card game</h2>}
-        <p
+    <DragDropProvider
+      onDragStart={(event) => {
+        setDragging(String(event.operation.source?.id));
+      }}
+      onDragEnd={(event) => {
+        const { source, target } = event.operation;
+        if (!event.canceled && source && typeof target?.id === "number")
+          stage(String(source.id), target.id);
+        setDragging(null);
+      }}
+    >
+      <Stage active={playing}>
+        <section
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setSelected(null);
+          }}
           className={cx(
-            "board-connection",
+            playing && boardStyles,
             css({
-              color:
-                status === "error"
-                  ? "negative"
-                  : status === "connected"
-                    ? "positive"
-                    : "muted",
+              maxW: "content",
+              mx: "auto",
+              p: playing ? "md" : { base: "md", md: "lg" },
             }),
           )}
-          role="status"
         >
-          {status}
-        </p>
-        {!view && notice && <p role="alert">{notice}</p>}
-        {!view && !waiting && (
-          <button
-            className={cx(button(), css({ m: "xs" }))}
-            disabled={status !== "connected" || pending !== null}
-            onClick={() => {
-              dispatch(send({ type: "join" }));
-            }}
+          {!playing && <h2>Card game</h2>}
+          <p
+            className={cx(
+              "board-connection",
+              css({
+                color:
+                  status === "error"
+                    ? "negative"
+                    : status === "connected"
+                      ? "positive"
+                      : "muted",
+              }),
+            )}
+            role="status"
           >
-            Find match
-          </button>
-        )}
-        {waiting && <p>Waiting for an opponent…</p>}
-        {view && (
-          <>
-            <header className="board-tags">
-              <span>Opponent · Player {view.player === 0 ? 2 : 1}</span>
-              <Reserved label="Stakes" />
-              <span>You · Player {view.player + 1}</span>
-            </header>
-            <h1 className="board-turn">
-              Turn {view.turn} of {TURN_LIMIT}
-            </h1>
-            <p className="board-energy">
-              Energy: {view.energy - spent} of {view.energy}
-            </p>
-            <p className="board-meta">
-              You are player {view.player + 1}. Opponent hand:{" "}
-              {view.opponent.handSize}; deck: {view.opponent.deckSize}. Your
-              deck: {view.own.deckSize}.
-            </p>
-            <div className={cx("board-notices", css({ display: "flow-root" }))}>
-              <div
-                role="group"
-                aria-label={`Opponent hand: ${String(view.opponent.handSize)} face-down cards`}
-                className={css({
-                  display: "flex",
-                  gap: "xs",
-                  height: "stageTarget",
-                  float: "right",
-                })}
-              >
-                {Array.from({ length: view.opponent.handSize }, (_, index) => (
-                  <Card key={index} faceDown size="lane" />
-                ))}
-              </div>
-              {notice && <p role="alert">{notice}</p>}
-              {view.opponent.committed && <p>Opponent has committed</p>}
-              {view.own.committed && <p>You have committed</p>}
-            </div>
-            <div
-              className={cx(
-                "board-lanes",
-                css({
-                  display: "grid",
-                  gridAutoFlow: "column",
-                  gridAutoColumns: "[minmax(0, 1fr)]",
-                  gap: "sm",
-                }),
-              )}
-            >
-              {view.own.lanes.map((cards, lane) => (
-                <Lane
-                  key={lane}
-                  number={lane + 1}
-                  own={cards}
-                  opponent={view.opponent.lanes[lane] ?? []}
-                  staged={staged
-                    .filter((play) => play.lane === lane)
-                    .flatMap((play) => {
-                      const card = view.own.hand.find(
-                        (card) => card.id === play.cardId,
-                      );
-                      return card ? [card] : [];
-                    })}
-                  ownTotal={totals?.own[lane] ?? 0}
-                  opponentTotal={totals?.opponent[lane] ?? 0}
-                />
-              ))}
-            </div>
-            <section
-              className={cx(
-                "board-hand",
-                panel(),
-                css({
-                  my: "md",
-                  p: playing ? "sm" : { base: "compact", md: "md" },
-                  overflowWrap: "anywhere",
-                }),
-              )}
-              aria-label="Hand"
-            >
-              <h2>Hand</h2>
-              {view.own.hand
-                .filter(
-                  (card) => !staged.some((play) => play.cardId === card.id),
-                )
-                .map((card) => (
-                  <div className="board-card" key={card.id}>
-                    <Card data={card} disabled={locked}>
-                      {view.own.lanes.map((_, lane) => (
-                        <button
-                          className={cx(
-                            button(),
-                            css({ m: "none", p: "xs", fontSize: "small" }),
-                          )}
-                          key={lane}
-                          aria-label={`Stage ${card.name} in lane ${String(lane + 1)}`}
-                          disabled={
-                            locked ||
-                            !available.some(
-                              (play) =>
-                                play.cardId === card.id && play.lane === lane,
-                            )
-                          }
-                          onClick={() => {
-                            dispatch(
-                              send({
-                                type: "stage",
-                                plays: [...staged, { cardId: card.id, lane }],
-                              }),
-                            );
-                          }}
-                        >
-                          Lane {lane + 1}
-                        </button>
-                      ))}
-                    </Card>
-                  </div>
-                ))}
-            </section>
-            <section
-              className={cx(
-                "board-staged",
-                panel(),
-                css({
-                  my: "md",
-                  p: playing ? "sm" : { base: "compact", md: "md" },
-                  overflowWrap: "anywhere",
-                }),
-              )}
-              aria-label="Staged cards"
-            >
-              <h2>Staged cards</h2>
-              <ul>
-                {staged.map((play) => (
-                  <li key={play.cardId}>
-                    <span>Lane {play.lane + 1}</span>
-                    <button
-                      className={cx(
-                        button(),
-                        css({ m: "none", p: "xs", fontSize: "small" }),
-                      )}
-                      disabled={locked}
-                      onClick={() => {
-                        dispatch(
-                          send({
-                            type: "stage",
-                            plays: staged.filter(
-                              (other) => other.cardId !== play.cardId,
-                            ),
-                          }),
-                        );
-                      }}
-                    >
-                      Unstage{" "}
-                      {
-                        view.own.hand.find((card) => card.id === play.cardId)
-                          ?.name
-                      }
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            {status}
+          </p>
+          {!view && notice && <p role="alert">{notice}</p>}
+          {!view && !waiting && (
             <button
-              className={cx("board-commit", button(), css({ m: "xs" }))}
-              disabled={locked}
+              className={cx(button(), css({ m: "xs" }))}
+              disabled={status !== "connected" || pending !== null}
               onClick={() => {
-                dispatch(send({ type: "commit" }));
+                dispatch(send({ type: "join" }));
               }}
             >
-              Commit
+              Find match
             </button>
-            <button className={cx(button(), "board-retreat")} disabled>
-              Retreat
-            </button>
-            <section
-              className={cx(
-                "board-reveal",
-                panel(),
-                css({
-                  my: "md",
-                  p: playing ? "sm" : { base: "compact", md: "md" },
-                  overflowWrap: "anywhere",
-                }),
-              )}
-              aria-label="Previous reveal"
-            >
-              <h2>Previous reveal</h2>
-              <ol>
-                {view.events.map((event, index) => (
-                  <li key={index}>
-                    {event.type === "card-revealed"
-                      ? `Player ${String(event.player + 1)}: ${event.card.name} in lane ${String(event.lane + 1)}`
-                      : event.type === "turn-ended"
-                        ? `Turn ${String(event.turn)} ended`
-                        : "Match ended"}
-                  </li>
+          )}
+          {waiting && <p>Waiting for an opponent…</p>}
+          {view && (
+            <>
+              <header className="board-tags">
+                <span>Opponent · Player {view.player === 0 ? 2 : 1}</span>
+                <Reserved label="Stakes" />
+                <span>You · Player {view.player + 1}</span>
+              </header>
+              <h1 className="board-turn">
+                Turn {view.turn} of {TURN_LIMIT}
+              </h1>
+              <p className="board-energy">
+                Energy: {view.energy - spent} of {view.energy}
+              </p>
+              <p className="board-meta">
+                You are player {view.player + 1}. Opponent hand:{" "}
+                {view.opponent.handSize}; deck: {view.opponent.deckSize}. Your
+                deck: {view.own.deckSize}.
+              </p>
+              <div
+                className={cx("board-notices", css({ display: "flow-root" }))}
+              >
+                <div
+                  role="group"
+                  aria-label={`Opponent hand: ${String(view.opponent.handSize)} face-down cards`}
+                  className={css({
+                    display: "flex",
+                    gap: "xs",
+                    height: "stageTarget",
+                    float: "right",
+                  })}
+                >
+                  {Array.from(
+                    { length: view.opponent.handSize },
+                    (_, index) => (
+                      <Card key={index} faceDown size="lane" />
+                    ),
+                  )}
+                </div>
+                {notice && <p role="alert">{notice}</p>}
+                {view.opponent.committed && <p>Opponent has committed</p>}
+                {view.own.committed && <p>You have committed</p>}
+              </div>
+              <div
+                className={cx(
+                  "board-lanes",
+                  css({
+                    display: "grid",
+                    gridAutoFlow: "column",
+                    gridAutoColumns: "[minmax(0, 1fr)]",
+                    gap: "sm",
+                  }),
+                )}
+              >
+                {view.own.lanes.map((cards, lane) => (
+                  <Lane
+                    key={lane}
+                    number={lane + 1}
+                    inspectCard={(card) => {
+                      setInspection({ kind: "card", card });
+                    }}
+                    inspect={() => {
+                      setInspection({ kind: "lane", number: lane + 1 });
+                    }}
+                    playTarget={(children) => (
+                      <PlayTarget
+                        lane={lane}
+                        active={dragging !== null || selected !== null}
+                        enabled={canStage(dragging ?? selected, lane)}
+                        onPlay={() => {
+                          stage(selected, lane);
+                        }}
+                      >
+                        {children}
+                      </PlayTarget>
+                    )}
+                    own={cards}
+                    opponent={view.opponent.lanes[lane] ?? []}
+                    staged={staged
+                      .filter((play) => play.lane === lane)
+                      .flatMap((play) => {
+                        const card = view.own.hand.find(
+                          (card) => card.id === play.cardId,
+                        );
+                        return card ? [card] : [];
+                      })}
+                    ownTotal={totals?.own[lane] ?? 0}
+                    opponentTotal={totals?.opponent[lane] ?? 0}
+                  />
                 ))}
-              </ol>
-            </section>
-            {view.phase === "ended" && (
+              </div>
               <section
                 className={cx(
+                  "board-hand",
                   panel(),
                   css({
                     my: "md",
@@ -285,32 +218,201 @@ export default function ProtocolGame() {
                     overflowWrap: "anywhere",
                   }),
                 )}
-                aria-label="Match result"
+                ref={hand}
+                tabIndex={-1}
+                aria-label="Hand"
               >
-                <h2>Match result</h2>
-                <div role="group" aria-label="Winner">
-                  {outcome(view.result.winner)}
-                </div>
-                {/* The current server emits only match-ended for a forfeit; normal endings include turn-ended. */}
-                {view.events.length === 1 &&
-                  view.events[0]?.type === "match-ended" && (
-                    <p>Forfeit: opponent left the match</p>
-                  )}
-                <p>Lane scores on the final board:</p>
+                <h2>Hand</h2>
+                {view.own.hand
+                  .filter(
+                    (card) => !staged.some((play) => play.cardId === card.id),
+                  )
+                  .map((card) => (
+                    <HandCard id={card.id} disabled={locked} key={card.id}>
+                      <Card
+                        data={card}
+                        disabled={locked}
+                        selected={selected === card.id}
+                        onInspect={() => {
+                          setSelected(card.id);
+                          setInspection({ kind: "card", card });
+                        }}
+                      >
+                        {view.own.lanes.map((_, lane) => (
+                          <button
+                            className={cx(
+                              button(),
+                              css({ m: "none", p: "xs", fontSize: "small" }),
+                            )}
+                            key={lane}
+                            aria-label={`Stage ${card.name} in lane ${String(lane + 1)}`}
+                            disabled={!canStage(card.id, lane)}
+                            onClick={() => {
+                              stage(card.id, lane);
+                            }}
+                          >
+                            Lane {lane + 1}
+                          </button>
+                        ))}
+                      </Card>
+                    </HandCard>
+                  ))}
+              </section>
+              <section
+                className={cx(
+                  "board-staged",
+                  panel(),
+                  css({
+                    my: "md",
+                    p: playing ? "sm" : { base: "compact", md: "md" },
+                    overflowWrap: "anywhere",
+                  }),
+                )}
+                aria-label="Staged cards"
+              >
+                <h2>Staged cards</h2>
                 <ul>
-                  {view.result.lanes.map((winner, lane) => (
-                    <li key={lane}>
-                      Lane {lane + 1}: {outcome(winner)}
+                  {staged.map((play) => (
+                    <li key={play.cardId}>
+                      <span>Lane {play.lane + 1}</span>
+                      <button
+                        className={cx(
+                          button(),
+                          css({ m: "none", p: "xs", fontSize: "small" }),
+                        )}
+                        disabled={locked}
+                        onClick={() => {
+                          dispatch(
+                            send({
+                              type: "stage",
+                              plays: staged.filter(
+                                (other) => other.cardId !== play.cardId,
+                              ),
+                            }),
+                          );
+                        }}
+                      >
+                        Unstage{" "}
+                        {
+                          view.own.hand.find((card) => card.id === play.cardId)
+                            ?.name
+                        }
+                      </button>
                     </li>
                   ))}
                 </ul>
-                <p>Total power: {view.result.power.join(" / ")}</p>
               </section>
-            )}
-          </>
-        )}
-      </section>
-    </Stage>
+              <button
+                className={cx("board-commit", button(), css({ m: "xs" }))}
+                disabled={locked}
+                onClick={() => {
+                  dispatch(send({ type: "commit" }));
+                }}
+              >
+                Commit
+              </button>
+              <button className={cx(button(), "board-retreat")} disabled>
+                Retreat
+              </button>
+              <section
+                className={cx(
+                  "board-reveal",
+                  panel(),
+                  css({
+                    my: "md",
+                    p: playing ? "sm" : { base: "compact", md: "md" },
+                    overflowWrap: "anywhere",
+                  }),
+                )}
+                aria-label="Previous reveal"
+              >
+                <h2>Previous reveal</h2>
+                <ol>
+                  {view.events.map((event, index) => (
+                    <li key={index}>
+                      {event.type === "card-revealed"
+                        ? `Player ${String(event.player + 1)}: ${event.card.name} in lane ${String(event.lane + 1)}`
+                        : event.type === "turn-ended"
+                          ? `Turn ${String(event.turn)} ended`
+                          : "Match ended"}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+              {view.phase === "ended" && (
+                <section
+                  className={cx(
+                    panel(),
+                    css({
+                      my: "md",
+                      p: playing ? "sm" : { base: "compact", md: "md" },
+                      overflowWrap: "anywhere",
+                    }),
+                  )}
+                  aria-label="Match result"
+                >
+                  <h2>Match result</h2>
+                  <div role="group" aria-label="Winner">
+                    {outcome(view.result.winner)}
+                  </div>
+                  {/* The current server emits only match-ended for a forfeit; normal endings include turn-ended. */}
+                  {view.events.length === 1 &&
+                    view.events[0]?.type === "match-ended" && (
+                      <p>Forfeit: opponent left the match</p>
+                    )}
+                  <p>Lane scores on the final board:</p>
+                  <ul>
+                    {view.result.lanes.map((winner, lane) => (
+                      <li key={lane}>
+                        Lane {lane + 1}: {outcome(winner)}
+                      </li>
+                    ))}
+                  </ul>
+                  <p>Total power: {view.result.power.join(" / ")}</p>
+                </section>
+              )}
+            </>
+          )}
+        </section>
+      </Stage>
+      <DragOverlay dropAnimation={null}>
+        {(source) => {
+          const card = view?.own.hand.find((card) => card.id === source.id);
+          return card ? (
+            <DragPreview card={card} element={source.element} />
+          ) : null;
+        }}
+      </DragOverlay>
+      {inspection && (
+        <Inspect
+          name={
+            inspection.kind === "card"
+              ? inspection.card.name
+              : `Lane ${String(inspection.number)}`
+          }
+          onClose={(cancelSelection) => {
+            if (cancelSelection) setSelected(null);
+            setInspection(null);
+          }}
+        >
+          {inspection.kind === "card" ? (
+            <>
+              <p>
+                Cost {inspection.card.cost} · Power {inspection.card.power}
+              </p>
+              <p>No ability description available.</p>
+              {selected === inspection.card.id &&
+                !locked &&
+                available.some(
+                  (play) => play.cardId === inspection.card.id,
+                ) && <p>Choose a lane to play this card.</p>}
+            </>
+          ) : (
+            <p>No location effect.</p>
+          )}
+        </Inspect>
+      )}
+    </DragDropProvider>
   );
 }
 

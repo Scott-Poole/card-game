@@ -26,6 +26,7 @@ export const boardStyles = css({
     textAlign: "right",
   },
   "& .board-meta": { gridColumn: "1 / -1", gridRow: "3", fontSize: "small" },
+  "& .board-lanes > section": { minH: "[0]" },
   "& .board-lanes": { gridColumn: "1 / -1", gridRow: "5" },
   "& .reserved-slot": { minH: "[token(spacing.lg)]" },
   "& .reserved-slot:not(:empty)": {

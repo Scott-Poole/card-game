@@ -9,6 +9,7 @@ type CardProps = {
   staged?: boolean;
   disabled?: boolean;
   children?: ReactNode;
+  onInspect?: (() => void) | undefined;
   art?: ReactNode;
 } & ({ faceDown: true; data?: never } | { faceDown?: false; data: CardData });
 
@@ -20,6 +21,10 @@ export default function Card(props: CardProps) {
         selected: props.selected === true || props.staged === true,
         disabled: props.disabled,
       })}
+      onClick={(event) => {
+        if (event.target instanceof Element && !event.target.closest("button"))
+          props.onInspect?.();
+      }}
       aria-label={props.faceDown ? "Face-down card" : props.data.name}
       aria-description={props.staged ? "Staged, not yet revealed" : undefined}
       aria-disabled={props.disabled ? true : undefined}
@@ -49,8 +54,35 @@ export default function Card(props: CardProps) {
           {props.art ?? (
             <div aria-label="Art placeholder" role="img" data-part="art" />
           )}
-          <strong data-part="name">{props.data.name}</strong>
+          <strong data-part="name">
+            {props.size === "lane" && props.onInspect ? (
+              <button
+                className={css({
+                  display: "block",
+                  maxW: "[100%]",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  p: "none",
+                })}
+                aria-label={`Inspect ${props.data.name}`}
+                onClick={props.onInspect}
+              >
+                {props.data.name}
+              </button>
+            ) : (
+              props.data.name
+            )}
+          </strong>
         </>
+      )}
+      {props.onInspect && props.size !== "lane" && (
+        <button
+          aria-label={`Inspect ${props.faceDown ? "card" : props.data.name}`}
+          onClick={props.onInspect}
+        >
+          Inspect
+        </button>
       )}
       {props.children}
     </article>

@@ -2,6 +2,7 @@ import type { Card as CardData } from "../protocol/messages.ts";
 import { LANE_CAPACITY } from "../rules/index.ts";
 import { panel } from "../../styled-system/recipes/index.js";
 import { css, cx } from "../../styled-system/css/index.js";
+import type { ReactNode } from "react";
 import Card from "./Card.tsx";
 
 export default function Lane({
@@ -11,7 +12,13 @@ export default function Lane({
   staged,
   ownTotal,
   opponentTotal,
+  inspect,
+  inspectCard,
+  playTarget,
 }: {
+  inspect?: () => void;
+  inspectCard?: (card: CardData) => void;
+  playTarget?: (children: ReactNode) => ReactNode;
   number: number;
   own: readonly CardData[];
   opponent: readonly CardData[];
@@ -36,27 +43,58 @@ export default function Lane({
       aria-label={`Lane ${String(number)}`}
     >
       <header>
-        <h3 className={css({ fontSize: "small", m: "none" })}>Lane {number}</h3>
+        <h3 className={css({ fontSize: "small", m: "none" })}>
+          {inspect ? (
+            <button onClick={inspect}>Lane {number}</button>
+          ) : (
+            <>Lane {number}</>
+          )}
+        </h3>
         <div
           aria-label="Location"
           className={css({ minH: "[token(spacing.xs)]", color: "muted" })}
-        />
+        >
+          No location effect.
+        </div>
         <p className={css({ m: "none", fontSize: "small", color: "muted" })}>
           Opponent total: {opponentTotal} · Your total: {ownTotal}
         </p>
       </header>
-      <Slots label="Opponent cards" cards={opponent} staged={[]} />
-      <Slots label="Your cards" cards={own} staged={staged} />
+      <Slots
+        inspectCard={inspectCard}
+        label="Opponent cards"
+        cards={opponent}
+        staged={[]}
+      />
+      {playTarget ? (
+        playTarget(
+          <Slots
+            inspectCard={inspectCard}
+            label="Your cards"
+            cards={own}
+            staged={staged}
+          />,
+        )
+      ) : (
+        <Slots
+          inspectCard={inspectCard}
+          label="Your cards"
+          cards={own}
+          staged={staged}
+        />
+      )}
     </section>
   );
 }
 
 function Slots({
   label,
+  inspectCard,
   cards,
   staged,
 }: {
   label: string;
+  inspectCard?: ((card: CardData) => void) | undefined;
   cards: readonly CardData[];
   staged: readonly CardData[];
 }) {
@@ -88,7 +126,20 @@ function Slots({
               overflow: "hidden",
             })}
           >
-            {data ? <Card data={data} size="lane" staged={!revealed} /> : null}
+            {data ? (
+              <Card
+                data={data}
+                size="lane"
+                staged={!revealed}
+                onInspect={
+                  inspectCard
+                    ? () => {
+                        inspectCard(data);
+                      }
+                    : undefined
+                }
+              />
+            ) : null}
           </div>
         );
       })}
