@@ -19,7 +19,7 @@ export function HandCard({
   // Motion may animate the outer board-card wrapper; dnd-kit owns this inner node.
   const { ref } = useDraggable({ id, disabled, sensors: [PointerSensor] });
   return (
-    <CardMotion className="board-card">
+    <CardMotion id={id} className="board-card">
       <div
         ref={ref}
         role="group"

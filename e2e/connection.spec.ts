@@ -927,6 +927,10 @@ for (const width of [390, 1440]) {
     expect(previewBox.height).toBeCloseTo(original.height, 0);
     expect(previewCost.height).toBeCloseTo(cost.height, 0);
     await a.mouse.up();
+    // A commit during settle must wait for the dropped play to enter staging.
+    await expect(
+      a.getByRole("button", { name: "Commit", exact: true }),
+    ).toBeDisabled();
     await expect(
       a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
     ).toBeVisible();
@@ -1220,37 +1224,74 @@ test("direct staging clears card selection and inspection", async ({
     await expect(target).toBeDisabled();
 });
 
-test("reduced motion stages promptly, unstages, and draws next turn", async ({
-  pair: [a, b],
+test("reduced motion drag settles promptly into its lane", async ({
+  page,
+  address,
 }) => {
-  await a.emulateMedia({ reducedMotion: "reduce" });
-  const play = await reachPlayableTurn(a, b);
-  const label = await play.getAttribute("aria-label");
-  const name = label?.replace(/^Stage /, "").replace(/ in lane \d+$/, "");
-  if (!name) throw new Error("Missing playable card");
-  const turn = await a
-    .getByRole("heading", { name: /Turn .* of 6/ })
-    .innerText();
-  await play.click();
-  const staged = a
-    .getByRole("region", { name: /Lane \d/, exact: true })
-    .getByRole("article", { name, exact: true });
-  await expect(staged).toBeVisible({ timeout: 500 });
-  await a.getByRole("button", { name: `Unstage ${name}`, exact: true }).click();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const card = { id: "herald", name: "Test herald", cost: 1, power: 2 };
+  const view = {
+    player: 0,
+    phase: "planning",
+    result: null,
+    turn: 1,
+    energy: 1,
+    own: {
+      hand: [card],
+      staged: [],
+      committed: false,
+      deckSize: 6,
+      lanes: [[], [], []],
+    },
+    opponent: {
+      handSize: 3,
+      deckSize: 9,
+      committed: false,
+      lanes: [[], [], []],
+    },
+    events: [],
+  };
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.send(JSON.stringify({ type: "welcome" }));
+    socket.send(JSON.stringify({ type: "state", view }));
+    socket.onMessage(() => {
+      socket.send(
+        JSON.stringify({
+          type: "state",
+          view: {
+            ...view,
+            own: { ...view.own, staged: [{ cardId: card.id, lane: 0 }] },
+          },
+        }),
+      );
+    });
+  });
+  await page.goto(address);
+  const source = await page
+    .getByRole("region", { name: "Hand", exact: true })
+    .getByRole("article", { name: card.name, exact: true })
+    .getByRole("img", { name: "Art placeholder" })
+    .boundingBox();
+  const lane = page
+    .getByRole("region", { name: "Lane 1", exact: true })
+    .getByRole("group", { name: "Your cards" });
+  const target = await lane.boundingBox();
+  if (!source || !target) throw new Error("Missing drag endpoints");
+  await page.mouse.move(
+    source.x + source.width / 2,
+    source.y + source.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    target.x + target.width / 2,
+    target.y + target.height / 2,
+    { steps: 20 },
+  );
+  await page.mouse.up();
   await expect(
-    a
-      .getByRole("region", { name: "Hand", exact: true })
-      .getByRole("article", { name, exact: true }),
-  ).toBeVisible({ timeout: 500 });
-  if (turn !== "Turn 6 of 6") {
-    const count = await a
-      .getByRole("region", { name: "Hand", exact: true })
-      .getByRole("article")
-      .count();
-    await a.getByRole("button", { name: "Commit", exact: true }).click();
-    await b.getByRole("button", { name: "Commit", exact: true }).click();
-    await expect(
-      a.getByRole("region", { name: "Hand", exact: true }).getByRole("article"),
-    ).toHaveCount(count + 1);
-  }
+    lane.getByRole("article", { name: card.name, exact: true }),
+  ).toBeVisible({ timeout: 150 });
+  await expect(
+    page.getByRole("article", { name: card.name, exact: true }),
+  ).toHaveCount(1);
 });
