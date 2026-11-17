@@ -1114,6 +1114,8 @@ for (const width of [390, 1440]) {
         }),
       );
     });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
     await page.goto(address);
     for (const [name, lane] of [
       ["Test herald", 1],
@@ -1121,6 +1123,7 @@ for (const width of [390, 1440]) {
     ] satisfies [string, number][]) {
       const hand = page.getByRole("region", { name: "Hand", exact: true });
       const card = hand.getByRole("article", { name, exact: true });
+      await expect(card).toBeVisible();
       const before = await card.boundingBox();
       const source = await card
         .getByRole("img", { name: "Art placeholder" })
