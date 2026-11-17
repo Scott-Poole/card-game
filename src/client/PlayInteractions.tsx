@@ -1,3 +1,4 @@
+import { CardMotion } from "./motion.tsx";
 import Card from "./Card.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { PointerSensor, useDraggable, useDroppable } from "@dnd-kit/react";
@@ -18,7 +19,7 @@ export function HandCard({
   // Motion may animate the outer board-card wrapper; dnd-kit owns this inner node.
   const { ref } = useDraggable({ id, disabled, sensors: [PointerSensor] });
   return (
-    <div className="board-card">
+    <CardMotion className="board-card">
       <div
         ref={ref}
         role="group"
@@ -29,7 +30,7 @@ export function HandCard({
       >
         {children}
       </div>
-    </div>
+    </CardMotion>
   );
 }
 

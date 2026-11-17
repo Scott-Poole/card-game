@@ -1219,3 +1219,38 @@ test("direct staging clears card selection and inspection", async ({
     .all())
     await expect(target).toBeDisabled();
 });
+
+test("reduced motion stages promptly, unstages, and draws next turn", async ({
+  pair: [a, b],
+}) => {
+  await a.emulateMedia({ reducedMotion: "reduce" });
+  const play = await reachPlayableTurn(a, b);
+  const label = await play.getAttribute("aria-label");
+  const name = label?.replace(/^Stage /, "").replace(/ in lane \d+$/, "");
+  if (!name) throw new Error("Missing playable card");
+  const turn = await a
+    .getByRole("heading", { name: /Turn .* of 6/ })
+    .innerText();
+  await play.click();
+  const staged = a
+    .getByRole("region", { name: /Lane \d/, exact: true })
+    .getByRole("article", { name, exact: true });
+  await expect(staged).toBeVisible({ timeout: 500 });
+  await a.getByRole("button", { name: `Unstage ${name}`, exact: true }).click();
+  await expect(
+    a
+      .getByRole("region", { name: "Hand", exact: true })
+      .getByRole("article", { name, exact: true }),
+  ).toBeVisible({ timeout: 500 });
+  if (turn !== "Turn 6 of 6") {
+    const count = await a
+      .getByRole("region", { name: "Hand", exact: true })
+      .getByRole("article")
+      .count();
+    await a.getByRole("button", { name: "Commit", exact: true }).click();
+    await b.getByRole("button", { name: "Commit", exact: true }).click();
+    await expect(
+      a.getByRole("region", { name: "Hand", exact: true }).getByRole("article"),
+    ).toHaveCount(count + 1);
+  }
+});

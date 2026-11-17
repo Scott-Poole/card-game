@@ -71,7 +71,7 @@ export default defineConfig({
         quick: { value: "120ms" },
         reveal: { value: "240ms" },
       },
-      easings: { standard: { value: "ease-out" } },
+      easings: { standard: { value: "cubic-bezier(0, 0, 0.58, 1)" } },
       borders: {
         panel: { value: "1px solid {colors.border}" },
         focus: { value: "3px solid {colors.accent}" },

@@ -1,5 +1,7 @@
+import { animate, motion } from "motion/react";
+import { GameMotion, useGameMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
-import { useRef, useState } from "react";
+import { useRef, useState, useLayoutEffect } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import {
   DragPreview,
@@ -22,11 +24,21 @@ import { selectStaging } from "./stagingSlice.ts";
 import { send } from "./store.ts";
 
 export default function ProtocolGame() {
+  return (
+    <GameMotion>
+      <Game />
+    </GameMotion>
+  );
+}
+
+function Game() {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [inspection, setInspection] = useState<
     { kind: "card"; card: CardData } | { kind: "lane"; number: number } | null
   >(null);
+  const transition = useGameMotion();
+  const drop = useRef<{ cardId: string; lane: number } | null>(null);
   const hand = useRef<HTMLElement>(null);
   const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
@@ -62,6 +74,10 @@ export default function ProtocolGame() {
     setInspection(null);
     hand.current?.focus();
   }
+  const finishStage = useRef(stage);
+  useLayoutEffect(() => {
+    finishStage.current = stage;
+  });
   return (
     <DragDropProvider
       onDragStart={(event) => {
@@ -69,8 +85,13 @@ export default function ProtocolGame() {
       }}
       onDragEnd={(event) => {
         const { source, target } = event.operation;
-        if (!event.canceled && source && typeof target?.id === "number")
-          stage(String(source.id), target.id);
+        drop.current =
+          !event.canceled &&
+          source &&
+          typeof target?.id === "number" &&
+          canStage(String(source.id), target.id)
+            ? { cardId: String(source.id), lane: target.id }
+            : null;
         setDragging(null);
       }}
     >
@@ -208,7 +229,8 @@ export default function ProtocolGame() {
                   />
                 ))}
               </div>
-              <section
+              <motion.section
+                layoutScroll
                 className={cx(
                   "board-hand",
                   panel(),
@@ -257,7 +279,7 @@ export default function ProtocolGame() {
                       </Card>
                     </HandCard>
                   ))}
-              </section>
+              </motion.section>
               <section
                 className={cx(
                   "board-staged",
@@ -375,7 +397,38 @@ export default function ProtocolGame() {
           )}
         </section>
       </Stage>
-      <DragOverlay dropAnimation={null}>
+      <DragOverlay
+        dropAnimation={async ({ feedbackElement, element, placeholder }) => {
+          const play = drop.current;
+          // Keep the source in the hand until the overlay finishes: no duplicate lane card.
+          const lane = play
+            ? document.querySelectorAll('[aria-label="Your cards"]')[play.lane]
+            : null;
+          const slot = lane
+            ? Array.from(lane.children).find(
+                (child) => !child.querySelector("article"),
+              )
+            : null;
+          const destination = slot ?? placeholder ?? element;
+          const from = feedbackElement.getBoundingClientRect();
+          const to = destination.getBoundingClientRect();
+          if (feedbackElement instanceof HTMLElement) {
+            feedbackElement.style.transformOrigin = "top left";
+            await animate(
+              feedbackElement,
+              {
+                x: to.x - from.x,
+                y: to.y - from.y,
+                scaleX: to.width / from.width,
+                scaleY: to.height / from.height,
+              },
+              transition,
+            );
+          }
+          if (play) finishStage.current(play.cardId, play.lane);
+          drop.current = null;
+        }}
+      >
         {(source) => {
           const card = view?.own.hand.find((card) => card.id === source.id);
           return card ? (

@@ -1,3 +1,4 @@
+import { CardMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { LANE_CAPACITY } from "../rules/index.ts";
 import { panel } from "../../styled-system/recipes/index.js";
@@ -127,18 +128,20 @@ function Slots({
             })}
           >
             {data ? (
-              <Card
-                data={data}
-                size="lane"
-                staged={!revealed}
-                onInspect={
-                  inspectCard
-                    ? () => {
-                        inspectCard(data);
-                      }
-                    : undefined
-                }
-              />
+              <CardMotion enter={false}>
+                <Card
+                  data={data}
+                  size="lane"
+                  staged={!revealed}
+                  onInspect={
+                    inspectCard
+                      ? () => {
+                          inspectCard(data);
+                        }
+                      : undefined
+                  }
+                />
+              </CardMotion>
             ) : null}
           </div>
         );
