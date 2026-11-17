@@ -8,12 +8,11 @@ A bot is a protocol client that can run in-process or over a socket. Its decisio
 
 The player-facing contract is `PlayerView` in `src/protocol/messages.ts`; the engine declares a separate, structurally parallel `PlayerView` for its server-side projection. Seats are identified by `PlayerId` (`0 | 1`) and the view's `player` field; the internal `Seat` record in `src/server/match.ts` associates that side with its match.
 
-## Implementation snapshot (2026-11-15, base fdbe798)
+## Implementation snapshot (2026-11-17, base a038f1f)
 
-- `src/protocol/messages.ts` defines `ClientMessage` (`join`, `stage`, `commit`), `ServerMessage` and the wire `PlayerView`.
+- `src/protocol/messages.ts` defines `ClientMessage` (`join`, `stage`, `commit`), `ServerMessage` and the wire `PlayerView`. Its `PlayerId` (`0 | 1`) identifies the view's `player`; `src/engine/index.ts` declares a separate, structurally parallel `PlayerView`. The internal `Seat` record in `src/server/match.ts` associates a peer with its match and player side.
 - `src/engine/index.ts` owns full `MatchState`, projects each player's information with `playerView`, and applies player actions through `applyAction`. These are server-side interfaces, not player entry points.
-- `src/server/match.ts` implements `matchHost`, assigns seats by pairing queued peers, applies actions and sends each peer its own projected `state` message.
-- `src/client/App.tsx` uses protocol messages and views to play through the browser.
+- `src/server/match.ts` implements `matchHost`, with injectable seed and decks. Its returned host pairs queued peers or seats two peers directly through `start`, applies actions and sends each peer its own projected `state` message. `src/server/direct-match.test.ts` exercises direct seating.
+- `src/server/scripted-player.test-support.ts` exports the test-only `scriptedPlayer`, which imports only protocol and shared rules and chooses actions from its view. `src/server/scripted-match.test.ts` drives full matches through the host's protocol messages, checking results and hidden-information safety.
+- `src/client/store.ts` owns the browser protocol connection through `connect` and outgoing actions through `send`. It decodes incoming messages and dispatches views to `matchSlice` in `src/client/matchSlice.ts`. `src/client/App.tsx` routes the screens; `src/client/ProtocolGame.tsx` exports `ProtocolGame`, which renders match play from the protocol view in Redux and sends staging and commit messages.
 - `src/rules/index.ts` supplies shared rule constants and the pure `checkStaging` and `legalPlays` helpers over a structural view. Engine, protocol and browser code already import this module.
-
-Direct seating outside the queue and a scripted protocol player are not implemented in this checkout. In-process bots are a consequence of the decision, not an existing game mode. Follow-up tickets [#80](https://github.com/Scott-Poole/card-game/issues/80) and [#81](https://github.com/Scott-Poole/card-game/issues/81) cover those additions.
