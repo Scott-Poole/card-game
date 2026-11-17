@@ -27,6 +27,7 @@ export default function Stage({
       stage.style.visibility = "visible";
       stage.style.setProperty("--stage-scale", String(scale));
       boardScale.set(scale);
+      stage.style.transform = `scale(${String(scale)})`;
     });
     observer.observe(frame);
     return () => {

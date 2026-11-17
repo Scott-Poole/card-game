@@ -931,6 +931,13 @@ for (const width of [390, 1440]) {
     await expect(
       a.getByRole("button", { name: "Commit", exact: true }),
     ).toBeDisabled();
+    // Observe the public card geometry during settle: a frozen overlay fails this.
+    await expect
+      .poll(
+        async () => (await preview.boundingBox())?.width ?? original.width,
+        { timeout: 200, intervals: [16] },
+      )
+      .toBeLessThan(original.width - 3);
     await expect(
       a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
     ).toBeVisible();

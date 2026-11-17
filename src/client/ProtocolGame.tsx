@@ -427,7 +427,9 @@ function Game() {
               ? slots.current.get(`${String(play.lane)}:${String(slotIndex)}`)
               : null;
             const destination = slot ?? placeholder ?? element;
-            const from = feedbackElement.getBoundingClientRect();
+            const from = (
+              feedbackElement.firstElementChild ?? feedbackElement
+            ).getBoundingClientRect();
             const to = destination.getBoundingClientRect();
             try {
               if (feedbackElement instanceof HTMLElement) {
@@ -435,10 +437,11 @@ function Game() {
                 await animate(
                   feedbackElement,
                   {
-                    x: to.x - from.x,
-                    y: to.y - from.y,
-                    scaleX: to.width / from.width,
-                    scaleY: to.height / from.height,
+                    // dnd-kit pins transform !important to this variable while dragging.
+                    "--dnd-transform": [
+                      "translate(0px, 0px) scale(1, 1)",
+                      `translate(${String(to.x - from.x)}px, ${String(to.y - from.y)}px) scale(${String(to.width / from.width)}, ${String(to.height / from.height)})`,
+                    ],
                   },
                   transition,
                 );
