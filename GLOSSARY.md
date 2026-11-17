@@ -30,12 +30,14 @@ _Avoid_: Game (when referring to a particular contest)
 One numbered cycle in which both players plan and commit their plays before those plays are revealed.
 _Avoid_: Round
 
+**Resolution**:
+The step after both players commit that reveals staged cards, ends the turn and either starts the next turn or ends the match.
+
 **Phase**:
-The match's status, either planning, when players may stage and commit plays, or ended, when the result is final.
+The match's status, either planning, when uncommitted players may stage and commit plays, or ended, when the result is final.
 
 **Energy**:
 Each player's budget for the combined cost of their staged cards in a turn, starting at one and increasing by one each new turn.
-_Avoid_: Remaining energy (when referring to the full turn budget)
 
 ## Lanes
 
@@ -48,17 +50,15 @@ _Avoid_: Total power (when referring to a single lane)
 
 **Location**:
 An empty slot displayed in each lane, with no implemented effect.
-_Avoid_: Lane (when referring to the slot)
 
 ## Cards
 
 **Card**:
-An individually identified playable item with a name, cost and power.
+A playable item identified within a player's deck with a name, cost and power.
 _Avoid_: Figure (when referring to a particular playable card)
 
 **CardDefinition**:
 The engine's representation of a card's identity, name, cost and power, used for cards in a match as well as authored roster entries.
-_Avoid_: Template (when implying a separate runtime card type)
 
 **Hand**:
 The player's private collection of cards available to stage for play.
@@ -90,7 +90,7 @@ To replace the player's pending plays for the current turn with a legal set of c
 _Avoid_: Reveal, commit
 
 **Commit**:
-To lock the player's staged plays for the current turn, including an empty set, so that both players committing triggers resolution.
+To lock the player's staged plays for the current turn, including an empty set, with resolution following once both players have committed.
 _Avoid_: Stage
 
 **Reveal**:
