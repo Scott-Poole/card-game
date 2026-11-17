@@ -3,54 +3,62 @@ import type { PlayerView } from "../protocol/messages.ts";
 import { sequenceReveal, type RevealStep } from "./reveal.ts";
 import { useGameMotion } from "./motion.tsx";
 
+interface Playback {
+  seen: PlayerView | null;
+  base: PlayerView | null;
+  steps: RevealStep[];
+  index: number;
+}
+
 export function useReveal(latest: PlayerView | null) {
   const transition = useGameMotion();
-  const [seen, setSeen] = useState(latest);
-  const [timeline, setTimeline] = useState<RevealStep[]>([]);
-  const [index, setIndex] = useState(0);
-  const [base, setBase] = useState(latest);
-  const active = index < timeline.length;
+  const [playback, setPlayback] = useState<Playback>({
+    seen: latest,
+    base: latest,
+    steps: [],
+    index: 0,
+  });
+  const { seen, base, steps, index } = playback;
+  const active = transition.duration !== 0 && index < steps.length;
   if (seen !== latest) {
-    setSeen(latest);
     // A newer message interrupts playback atomically: never mix two timelines.
-    const steps =
+    const next =
       !active &&
+      transition.duration !== 0 &&
       seen &&
       latest &&
       (latest.turn !== seen.turn || latest.phase !== seen.phase)
         ? sequenceReveal(seen, latest.events)
         : [];
-    setBase(steps.length ? seen : latest);
-    setTimeline(steps);
-    setIndex(0);
+    setPlayback({ seen: latest, base: seen, steps: next, index: 0 });
   }
   useEffect(() => {
     if (!active) return;
     const timer = window.setTimeout(() => {
-      setIndex((value) =>
-        transition.duration === 0 ? timeline.length : value + 1,
-      );
+      setPlayback((current) => ({ ...current, index: current.index + 1 }));
     }, transition.duration * 1000);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [active, index, timeline, transition.duration]);
+  }, [active, index, steps, transition.duration]);
+  function skip() {
+    setPlayback((current) => ({ ...current, index: current.steps.length }));
+  }
   useEffect(() => {
     if (!active) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIndex(timeline.length);
+      if (event.key === "Escape")
+        setPlayback((current) => ({ ...current, index: current.steps.length }));
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [active, timeline.length]);
+  }, [active]);
   return {
-    view: active ? (timeline[index - 1]?.view ?? base) : latest,
+    view: active ? (steps[index - 1]?.view ?? base) : latest,
     active,
-    step: active ? timeline[index - 1] : undefined,
-    skip: () => {
-      setIndex(timeline.length);
-    },
+    step: active ? steps[index - 1] : undefined,
+    skip,
   };
 }
