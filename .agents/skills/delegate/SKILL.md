@@ -42,7 +42,7 @@ The launcher depends on **both** who you are and who the target is:
 - Call `orchestrator_capabilities` once per thread before the first `delegate_task`. Copy model ids from it; the ids above are as of 2026-11-13.
 - `target.providerInstanceId`: `codex`, `claudeAgent`, or `opencode` (DeepSeek: model `deepseek/deepseek-flash`, option `variant`: `low` for grunt work).
 - Options: Codex `{reasoningEffort: "medium"}`, Claude `{effort: "high"}`, OpenCode `{variant: "low"}`.
-- `isolation: "worktree"` whenever the child edits files while anyone else may be editing too, or the work should land as its own PR. Read-only children use `"shared"`.
+- `isolation: "worktree"` whenever the child edits files while anyone else may be editing too, or the work should land as its own PR. `"shared"` means the parent's checkout, so it is only for read-only children, or editing ones when the parent is itself in a T3 worktree: Scott's primary checkout is never an agent's workspace (see `AGENTS.md`).
 - Set `role` (`implementation`, `research`, `review`, `test`).
 
 **Before launching an editing child in a shared checkout**, record a baseline: `git rev-parse HEAD` and `git status --porcelain`. It's how step 4 tells the child's changes apart from anyone else's.
