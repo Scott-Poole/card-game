@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@dnd-kit/react':
+        specifier: 0.5.3
+        version: 0.5.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@reduxjs/toolkit':
         specifier: ^2.14.0
         version: 2.14.0(@types/react@19.3.0)(react-redux@9.3.1(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1)
@@ -180,6 +183,27 @@ packages:
   '@clack/prompts@1.7.0':
     resolution: {integrity: sha512-y7/yvZ2TPAnR9+jnc00klvNNLkJiXFFrQA/hlLCcxA9a2A4zQIOimyFQ9XfwYKiGD1fb5GY8vbKIIgO8d5Tb2A==}
     engines: {node: '>= 20.12.0'}
+
+  '@dnd-kit/abstract@0.5.3':
+    resolution: {integrity: sha512-KZQ2vftkO9BHupVzlUqB5d7JETL7ITlvslx3hrj4aObwjliAzuzV/n5wCpQllNd0Hxvg7FaQtLekJ8dplqKwbA==}
+
+  '@dnd-kit/collision@0.5.3':
+    resolution: {integrity: sha512-DBo8czkI72xnsHRWOMTn/GAyYgSWy9bmde85mrZ7ShqLhcbIbcu4PVJ3ZU9MBikePCSAVOoUTZE2gS40jogrEw==}
+
+  '@dnd-kit/dom@0.5.3':
+    resolution: {integrity: sha512-JJe+Qu/JmofGzHes3np91sQYwp5spvLcknjRkq+VO59JTqSnQNPXlhHXavRXTwQFabaaRyRzXyH/faAvubCNGw==}
+
+  '@dnd-kit/geometry@0.5.3':
+    resolution: {integrity: sha512-U+zscNjoHfJ1xUV+XDGF89jPCoILLivWSb/U9mfM7h83f6o3X9AS9uIwG46bXUpCqPvlI/9JcOlyga5uvfyjgw==}
+
+  '@dnd-kit/react@0.5.3':
+    resolution: {integrity: sha512-BGn6bakgcRSoKMRQP8cRIGu59e5lGC3/sL0zVWmDMo/9CMPSxgjCcQltDn5TDTwAARnEbuwNEksor4rLtH/yEg==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+
+  '@dnd-kit/state@0.5.3':
+    resolution: {integrity: sha512-NJTQkBglAT/SXLc+IOLiKwNvsTrWmPG5AO+7Gn0F0n8XyVaf4VCbTCuPuU48sDBfcpg23O0tfGkfZNiZbYTvMw==}
 
   '@emnapi/core@1.11.0':
     resolution: {integrity: sha512-l9Oo58x0HOP5znGzVhYW9U3e5wVuA4LAZU2AGezTmkhO1CgQRFDhDg4nneHsu/t3WniXg9QrG2nIXL/ZS8ln8Q==}
@@ -891,6 +915,9 @@ packages:
     resolution: {integrity: sha512-y+NCIRm2LvY4slUVWvGh1nujJ8RF/hEisIsq2mtUPgdQC4L701bq5hZGMhrpeXjACvwvO9tj5dJqhvM6TP9lbw==}
     engines: {node: '>=20'}
     hasBin: true
+
+  '@preact/signals-core@1.14.5':
+    resolution: {integrity: sha512-vcRv7Ityz5JVmeiVqIluLFzT/PDS/AlhHUpw3/aUWqcVUs6bDGIPXE/6RSC4evBNWYvnniozg5Syfj33al3gkg==}
 
   '@reduxjs/toolkit@2.14.0':
     resolution: {integrity: sha512-m/PxMwRe0xLL6XUsAgy0YjInklHcfi9uMwFhJk+QINqjxqPvyc89T5cMjszA5bDmTE0gwGc7zr9LRO4gL+mhaw==}
@@ -2561,6 +2588,45 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
+  '@dnd-kit/abstract@0.5.3':
+    dependencies:
+      '@dnd-kit/geometry': 0.5.3
+      '@dnd-kit/state': 0.5.3
+      tslib: 2.9.1
+
+  '@dnd-kit/collision@0.5.3':
+    dependencies:
+      '@dnd-kit/abstract': 0.5.3
+      '@dnd-kit/geometry': 0.5.3
+      tslib: 2.9.1
+
+  '@dnd-kit/dom@0.5.3':
+    dependencies:
+      '@dnd-kit/abstract': 0.5.3
+      '@dnd-kit/collision': 0.5.3
+      '@dnd-kit/geometry': 0.5.3
+      '@dnd-kit/state': 0.5.3
+      tslib: 2.9.1
+
+  '@dnd-kit/geometry@0.5.3':
+    dependencies:
+      '@dnd-kit/state': 0.5.3
+      tslib: 2.9.1
+
+  '@dnd-kit/react@0.5.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@dnd-kit/abstract': 0.5.3
+      '@dnd-kit/dom': 0.5.3
+      '@dnd-kit/state': 0.5.3
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+      tslib: 2.9.1
+
+  '@dnd-kit/state@0.5.3':
+    dependencies:
+      '@preact/signals-core': 1.14.5
+      tslib: 2.9.1
+
   '@emnapi/core@1.11.0':
     dependencies:
       '@emnapi/wasi-threads': 1.2.2
@@ -3087,6 +3153,8 @@ snapshots:
   '@playwright/test@1.65.1':
     dependencies:
       playwright: 1.65.1
+
+  '@preact/signals-core@1.14.5': {}
 
   '@reduxjs/toolkit@2.14.0(@types/react@19.3.0)(react-redux@9.3.1(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1)':
     dependencies:
