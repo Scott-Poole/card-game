@@ -941,6 +941,38 @@ for (const width of [390, 1440]) {
     await expect(
       a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
     ).toBeVisible();
+    const landed = a
+      .getByRole("region", { name: "Lane 1", exact: true })
+      .getByRole("article", { name: name ?? "", exact: true });
+    const opacity = await landed.evaluate((element) => {
+      let opacity = 1;
+      for (let node: Element | null = element; node; node = node.parentElement)
+        opacity *= Number(getComputedStyle(node).opacity);
+      return opacity;
+    });
+    expect(opacity).toBeGreaterThan(0.95);
+    await a
+      .getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true })
+      .click();
+    const returned = a
+      .getByRole("region", { name: "Hand", exact: true })
+      .getByRole("article", { name: name ?? "", exact: true });
+    await expect(returned).toBeVisible();
+    const widths = await returned.evaluate(async (element) => {
+      const widths = [];
+      for (let frame = 0; frame < 16; frame++) {
+        widths.push(element.getBoundingClientRect().width);
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => resolve()),
+        );
+      }
+      return widths;
+    });
+    expect(Math.max(...widths)).toBeLessThanOrEqual(original.width + 2);
+    await returned.getByRole("button", { name: /Stage .* in lane 1$/ }).click();
+    await expect(
+      a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
+    ).toBeVisible();
     await a.getByRole("button", { name: "Commit", exact: true }).click();
     await b.getByRole("button", { name: "Commit", exact: true }).click();
     await expect(
@@ -1114,13 +1146,17 @@ for (const width of [390, 1440]) {
         }),
       );
     });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
     await page.goto(address);
+    await expect(page).toHaveURL(/\/match$/);
     for (const [name, lane] of [
       ["Test herald", 1],
       ["Test sentinel", 2],
     ] satisfies [string, number][]) {
       const hand = page.getByRole("region", { name: "Hand", exact: true });
       const card = hand.getByRole("article", { name, exact: true });
+      await card.click({ trial: true });
       const before = await card.boundingBox();
       const source = await card
         .getByRole("img", { name: "Art placeholder" })
@@ -1277,6 +1313,7 @@ for (const changeDuringMatch of [false, true]) {
       });
     });
     await page.goto(address);
+    await expect(page).toHaveURL(/\/match$/);
     await page.getByRole("heading", { name: "Turn 1 of 6" }).waitFor();
     if (changeDuringMatch) await page.emulateMedia({ reducedMotion: "reduce" });
     const source = await page

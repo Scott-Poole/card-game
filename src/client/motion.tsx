@@ -59,19 +59,21 @@ export function CardMotion({
   children,
   className,
   id,
+  appear = false,
 }: {
   children: ReactNode;
   className?: string;
   id: string;
+  appear?: boolean;
 }) {
   const transition = useGameMotion();
   const dragging = useContext(DraggingCard) === id;
   return (
     <motion.div
       transition={transition}
-      layout="position"
+      layout
       {...(dragging ? {} : { layoutId: id })}
-      initial={dragging ? false : { opacity: 0 }}
+      initial={appear && !dragging ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       className={className}
       style={{ height: "100%" }}
