@@ -17,11 +17,13 @@ Spend in this order: **subscriptions first** (Claude and Codex are flat-rate, so
 |---|---|---|---|
 | **judge** | grilling, specs, architecture, final review, orchestrating other agents | Claude Opus 5.5 (usually the session itself) | stay in-session; ask the user |
 | **explore** | find code, read docs, summarise; read-only | Claude Haiku 5.5 | DeepSeek Flash |
-| **implement** | a ticket with acceptance criteria and a command that proves it | Codex `gpt-6.1-sol`, effort `medium` | Claude Sonnet 5.5 |
+| **implement** | a ticket with acceptance criteria and a command that proves it | Split by usage: Codex `gpt-6.1-sol` `medium` or Claude Sonnet 5.5 `high`; ticket automation uses `implement.claudeShare` in `tick/config.json`, ad-hoc delegation picks whichever subscription has more headroom | the other one |
 | **plan** | a planner run: survey one category, file tickets an agent can take unattended | Claude Sonnet 5.5, effort `high` | Codex `gpt-6.1-sol` `medium` |
 | **review** | review a diff; **never the author's family** | Claude-written → Codex `gpt-6.1-sol` `medium`; Codex-written → Claude Sonnet 5.5 | Claude-written → Codex `gpt-6.1-terra` `medium`; Codex-written → DeepSeek Flash (a third family) |
 | **grunt** | mechanical, fully specified: card data entry, boilerplate, fixtures, renames, lint-fix sweeps | DeepSeek Flash | Claude Haiku 5.5; Codex `gpt-6-luna` |
 | **hard** | an implement attempt failed, or the problem is a gnarly algorithm | Codex `gpt-6.1-terra`, effort `max` | Codex `gpt-6-astra` (rare: strong but token-hungry, poor value) |
+
+**Balance the two subscriptions.** Implement plus its fix rounds is the biggest spend, and the cross-family review puts the other half on the other subscription, so the implement split is the lever. In week one Codex implemented every ticket and ran far ahead of Claude (about 66% of the weekly allowance used against 18% by day three). Scott reads both weekly meters (no API exposes them) and sets `claudeShare` accordingly; a weekly `/retro` is the place to revisit it.
 
 **Claude's cheap models out of usage?** Move explore/grunt to Codex `gpt-6.1-terra` `medium` or `gpt-6-luna`, then DeepSeek. **No other-family reviewer available?** Say so in the result; a same-family review is not a cross-review.
 
@@ -33,17 +35,15 @@ The launcher depends on **both** who you are and who the target is:
 
 | You are | Target | Tool |
 |---|---|---|
-| Claude | Claude model, no extra settings, shared checkout | native `Agent` with `model: haiku \| sonnet \| opus`, `run_in_background: false` |
+| Claude | Claude model, no extra settings, read-only (an editing child needs its own worktree) | native `Agent` with `model: haiku \| sonnet \| opus`, `run_in_background: false` |
 | anyone | anything else (other provider, effort setting, separate checkout) | T3 `delegate_task` |
 
 `delegate_task` notes:
 - Call `orchestrator_capabilities` once per thread before the first `delegate_task`. Copy model ids from it; the ids above are as of 2026-11-13.
 - `target.providerInstanceId`: `codex`, `claudeAgent`, or `opencode` (DeepSeek: model `deepseek/deepseek-flash`, option `variant`: `low` for grunt work).
 - Options: Codex `{reasoningEffort: "medium"}`, Claude `{effort: "high"}`, OpenCode `{variant: "low"}`.
-- `isolation: "worktree"` whenever the child edits files while anyone else may be editing too, or the work should land as its own PR. Read-only children use `"shared"`.
+- `isolation: "worktree"` for every child that edits files, whatever else is running: Scott's primary checkout is never an agent's workspace (see `AGENTS.md`), and `"shared"` means the parent's checkout. Only read-only children use `"shared"`.
 - Set `role` (`implementation`, `research`, `review`, `test`).
-
-**Before launching an editing child in a shared checkout**, record a baseline: `git rev-parse HEAD` and `git status --porcelain`. It's how step 4 tells the child's changes apart from anyone else's.
 
 ## 3. Write the brief
 
@@ -60,10 +60,9 @@ The child gets **only** the brief: no conversation, and non-Claude children get 
 Trust artifacts, never self-reports. Verify **in the child's checkout, over the child's range**:
 
 - Committed work: `git -C <checkout> diff --stat <base>..<head>`, plus `git -C <checkout> status --short` for anything left uncommitted.
-- Shared checkout: compare against the step-2 baseline.
 - Then run the done-when command yourself in that checkout, at that head.
 
-Out-of-scope changes the child clearly made (absent from the baseline, inside its checkout) get reverted. Anything you can't attribute stays put: ask the user before touching it.
+Out-of-scope changes the child clearly made (inside its checkout) get reverted. Anything you can't attribute stays put: ask the user before touching it.
 
 On failure: retry once at the same tier with a sharper brief; then step up a tier (grunt → implement → hard).
 
