@@ -6,13 +6,15 @@ The repo is equally a testbed for Scott's agent workflow: how work is planned, r
 
 ## Current state
 
-One pnpm-managed ESM TypeScript package. Source lives in `src/{engine,protocol,server,client}`; lint enforces their import boundaries. Protocol decoders, the WebSocket server and a React connection-status client are implemented. For player integrations and shared rule knowledge, read [ADR-0001: every player uses the protocol view](docs/adr/0001-players-use-the-protocol-view.md).
+One pnpm-managed ESM TypeScript package. Source areas: `src/rules` (shared constants and staging legality; imports nothing), `src/engine` (match resolution), `src/protocol` (wire messages and decoders), `src/server` (authoritative WebSocket host), and `src/client` (browser UI). Lint keeps engine and protocol independent of each other and server/client, restricts both to local imports, and forbids server↔client imports; only client may import styled-system.
+
+The React client routes Home/Waiting/Match/Result screens, manages session state with Redux Toolkit, styles with Panda CSS, supports drag/tap/keyboard card play, animates with Motion, and has Storybook stories. For player integrations and shared rule knowledge, read [ADR-0001: every player uses the protocol view](docs/adr/0001-players-use-the-protocol-view.md).
 
 Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 147 binary. Versions are pinned in `.nvmrc` and `package.json`.
 
 ## Commands
 
-- `pnpm check`: typecheck, lint, format check, unit tests, git guardrail, queue and boundary regression suites, production build and Chromium browser tests, with `CI=true` for parity with GitHub.
+- `pnpm check`: typecheck, lint, format check, unit tests, git guardrail, queue, boundary and skill-link regression suites, production build and Chromium browser tests, with `CI=true` for parity with GitHub.
 - `pnpm install --frozen-lockfile` installs Husky hooks. Commits format staged files; pushes run the full check; run `pnpm check` before pushing too. GitHub repeats the same gate as independent verification.
 - `pnpm fix`: format and lint auto-fix.
 - Tests live beside source in `src/`; Vitest config has its own tooling typecheck. ESLint configuration is executed by the lint gate and is not typechecked.
@@ -20,6 +22,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 - `pnpm build`: build the React client into `dist`.
 - `pnpm start`: serve `dist` and `/ws` together (`PORT` defaults to 4747).
 - Agents can drive the running app with Playwright to verify UI work. `pnpm test:browser` tests the production build on a free port.
+- `pnpm storybook`: run the component story explorer; `pnpm build-storybook`: build it for static hosting.
 - Each gate has its own script in `package.json`.
 
 ## Working rules
