@@ -9,6 +9,7 @@ import Card from "./Card.tsx";
 
 export default function Lane({
   number,
+  revealingCard,
   own,
   opponent,
   staged,
@@ -25,12 +26,19 @@ export default function Lane({
   inspectCard?: (card: CardData) => void;
   playTarget?: (children: ReactNode) => ReactNode;
   number: number;
+  revealingCard?: string | undefined;
   own: readonly CardData[];
   opponent: readonly CardData[];
   staged: readonly CardData[];
   ownTotal: number;
   opponentTotal: number;
 }) {
+  const lead =
+    ownTotal > opponentTotal
+      ? "own"
+      : ownTotal < opponentTotal
+        ? "opponent"
+        : "tied";
   return (
     <section
       className={cx(
@@ -56,33 +64,27 @@ export default function Lane({
           )}
         </h3>
         <div
-          aria-label="Location"
+          aria-label="Lane leadership"
           className={css({ minH: "[token(spacing.xs)]", color: "muted" })}
         >
           <motion.span
-            key={
-              ownTotal === opponentTotal
-                ? "tied"
-                : ownTotal > opponentTotal
-                  ? "own"
-                  : "opponent"
-            }
+            key={lead}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className={css({
               m: "none",
               fontSize: "small",
               color:
-                ownTotal > opponentTotal
+                lead === "own"
                   ? "positive"
-                  : ownTotal < opponentTotal
+                  : lead === "opponent"
                     ? "negative"
                     : "muted",
             })}
           >
-            {ownTotal === opponentTotal
+            {lead === "tied"
               ? "Lane tied"
-              : ownTotal > opponentTotal
+              : lead === "own"
                 ? "You lead"
                 : "Opponent leads"}
           </motion.span>
@@ -97,6 +99,7 @@ export default function Lane({
         </motion.p>
       </header>
       <Slots
+        revealingCard={revealingCard}
         inspectCard={inspectCard}
         label="Opponent cards"
         cards={opponent}
@@ -105,6 +108,7 @@ export default function Lane({
       {playTarget ? (
         playTarget(
           <Slots
+            revealingCard={revealingCard}
             inspectCard={inspectCard}
             registerSlot={registerSlot}
             label="Your cards"
@@ -114,6 +118,7 @@ export default function Lane({
         )
       ) : (
         <Slots
+          revealingCard={revealingCard}
           inspectCard={inspectCard}
           registerSlot={registerSlot}
           label="Your cards"
@@ -126,6 +131,7 @@ export default function Lane({
 }
 
 function Slots({
+  revealingCard,
   registerSlot,
   label,
   inspectCard,
@@ -134,6 +140,7 @@ function Slots({
 }: {
   registerSlot?:
     ((slot: number, element: HTMLDivElement | null) => void) | undefined;
+  revealingCard?: string | undefined;
   label: string;
   inspectCard?: ((card: CardData) => void) | undefined;
   cards: readonly CardData[];
@@ -169,7 +176,7 @@ function Slots({
             })}
           >
             {data ? (
-              <CardMotion id={data.id} flip={!!revealed}>
+              <CardMotion id={data.id} flip={data.id === revealingCard}>
                 <Card
                   data={data}
                   size="lane"

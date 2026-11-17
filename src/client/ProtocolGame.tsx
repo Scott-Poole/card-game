@@ -44,6 +44,7 @@ function Game() {
   const slots = useRef(new Map<string, HTMLDivElement>());
   const [settling, setSettling] = useState(false);
   const hand = useRef<HTMLElement>(null);
+  const wasRevealing = useRef(false);
   const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
   const { view: latest, pending } = useAppSelector(selectMatch);
@@ -90,6 +91,8 @@ function Game() {
   const finishStage = useRef(stage);
   useLayoutEffect(() => {
     finishStage.current = stage;
+    if (wasRevealing.current && !revealing) hand.current?.focus();
+    wasRevealing.current = revealing;
   });
   return (
     <CardMotionScope dragging={dragging}>
@@ -209,6 +212,11 @@ function Game() {
                   {view.own.lanes.map((cards, lane) => (
                     <Lane
                       key={lane}
+                      revealingCard={
+                        step?.event.type === "card-revealed"
+                          ? step.event.card.id
+                          : undefined
+                      }
                       registerSlot={(slot, element) => {
                         const key = `${String(lane)}:${String(slot)}`;
                         if (element) slots.current.set(key, element);
@@ -372,21 +380,24 @@ function Game() {
                 >
                   <h2>Previous reveal</h2>
                   {revealing && (
-                    <button className={button()} onClick={skip}>
+                    <button autoFocus className={button()} onClick={skip}>
                       Skip reveal
                     </button>
                   )}
+                  {revealing && <p>Escape skips reveal</p>}
                   {revealing && (
                     <p role="status">
                       {step?.event.type === "card-revealed"
                         ? `Revealed ${step.event.card.name}`
                         : step?.event.type === "turn-ended"
                           ? "Turn ended"
-                          : "Revealing turn…"}
+                          : step?.event.type === "match-ended"
+                            ? "Match ended"
+                            : "Revealing turn…"}
                     </p>
                   )}
                   <ol>
-                    {view.events.map((event, index) => (
+                    {(revealing ? [] : view.events).map((event, index) => (
                       <li key={index}>
                         {event.type === "card-revealed"
                           ? `Player ${String(event.player + 1)}: ${event.card.name} in lane ${String(event.lane + 1)}`

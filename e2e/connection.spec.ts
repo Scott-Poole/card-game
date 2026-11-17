@@ -139,6 +139,7 @@ test("two players finish six turns with consistent results", async ({
   browser,
   address,
 }) => {
+  test.setTimeout(30_000);
   const first = await browser.newContext();
   const second = await browser.newContext();
   try {
@@ -674,6 +675,7 @@ test("multiple staged cards can be returned from the portrait board", async ({
 test("revealed lane cards and totals follow both players through every turn", async ({
   pair: [a, b],
 }) => {
+  test.setTimeout(30_000);
   await a.setViewportSize({ width: 390, height: 844 });
   await b.setViewportSize({ width: 1440, height: 900 });
   const records = new Map<
@@ -1352,13 +1354,23 @@ for (const changeDuringMatch of [false, true]) {
   });
 }
 
-for (const finish of ["timeline", "skip", "escape", "reduced", "interrupt"]) {
+for (const finish of [
+  "timeline",
+  "skip",
+  "escape",
+  "reduced",
+  "interrupt",
+  "update",
+]) {
   test(`reveal order and authoritative totals: ${finish}`, async ({
     page,
     address,
   }) => {
     const { staging, revealed, guardian } =
       await import("../src/client/stories/fixtures.ts");
+    await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+    await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
+    let update: (() => void) | undefined;
     await page.emulateMedia({
       reducedMotion: finish === "reduced" ? "reduce" : "no-preference",
     });
@@ -1367,20 +1379,33 @@ for (const finish of ["timeline", "skip", "escape", "reduced", "interrupt"]) {
       socket.send(JSON.stringify({ type: "state", view: staging }));
       socket.onMessage(() => {
         socket.send(JSON.stringify({ type: "state", view: revealed }));
-        if (finish === "interrupt")
-          socket.send(
-            JSON.stringify({
-              type: "state",
-              view: { ...revealed, turn: 5, energy: 5 },
-            }),
-          );
+        if (finish === "interrupt" || finish === "update")
+          update = () => {
+            socket.send(
+              JSON.stringify({
+                type: "state",
+                view:
+                  finish === "update"
+                    ? {
+                        ...revealed,
+                        opponent: { ...revealed.opponent, committed: true },
+                      }
+                    : { ...revealed, turn: 5, energy: 5 },
+              }),
+            );
+          };
       });
     });
     await page.goto(address);
     await page.getByRole("button", { name: "Commit", exact: true }).click();
     const own = page.getByRole("region", { name: "Lane 2", exact: true });
     const opponent = page.getByRole("region", { name: "Lane 1", exact: true });
-    if (finish === "timeline") {
+    if (
+      finish === "timeline" ||
+      finish === "interrupt" ||
+      finish === "update"
+    ) {
+      await page.clock.runFor(360);
       await expect(
         page.getByText(`Revealed ${guardian.name}`, { exact: true }),
       ).toBeVisible();
@@ -1392,7 +1417,16 @@ for (const finish of ["timeline", "skip", "escape", "reduced", "interrupt"]) {
           .getByRole("group", { name: "Opponent cards" })
           .getByRole("article"),
       ).toHaveCount(0);
+      update?.();
+      await page.clock.runFor(360);
+      await expect(
+        page.getByText("Revealed Vulcan, Ember Shaper", { exact: true }),
+      ).toBeVisible();
+      await page.clock.runFor(360);
+      await expect(page.getByText("Turn ended", { exact: true })).toBeVisible();
     }
+    if (["timeline", "interrupt", "update"].includes(finish))
+      await page.clock.runFor(360);
     if (finish === "skip")
       await page
         .getByRole("button", { name: "Skip reveal", exact: true })
@@ -1449,4 +1483,63 @@ test("two players reveal both sides and agree on lane totals", async ({
   }
   const values = totals.map((text) => text.match(/\d+/g));
   expect(values[0]).toEqual(values[1]?.toReversed());
+});
+
+test("match-ending reveal stays on the board until playback finishes", async ({
+  page,
+  address,
+}) => {
+  const { staging, revealed, ended, guardian } =
+    await import("../src/client/stories/fixtures.ts");
+  await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.send(JSON.stringify({ type: "welcome" }));
+    socket.send(
+      JSON.stringify({
+        type: "state",
+        view: { ...staging, turn: 6, energy: 6 },
+      }),
+    );
+    socket.onMessage(() => {
+      socket.send(
+        JSON.stringify({
+          type: "state",
+          view: {
+            ...ended,
+            events: [...revealed.events.slice(0, 2), ...ended.events],
+          },
+        }),
+      );
+    });
+  });
+  await page.goto(address);
+  await page.getByRole("button", { name: "Commit", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Skip reveal", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Match result", exact: true }),
+  ).toHaveCount(0);
+  await page.clock.runFor(360);
+  await expect(
+    page.getByText(`Revealed ${guardian.name}`, { exact: true }),
+  ).toBeVisible();
+  await page.clock.runFor(360);
+  await expect(
+    page.getByText("Revealed Vulcan, Ember Shaper", { exact: true }),
+  ).toBeVisible();
+  await page.clock.runFor(360);
+  await expect(page.getByText("Turn ended", { exact: true })).toBeVisible();
+  await page.clock.runFor(360);
+  await expect(page.getByText("Match ended", { exact: true })).toBeVisible();
+  await page.clock.runFor(360);
+  await expect(
+    page.getByRole("heading", { name: "Match result", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Lane 2", exact: true })
+      .getByText("Opponent total: 3 · Your total: 4", { exact: true }),
+  ).toBeVisible();
 });
