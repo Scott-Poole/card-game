@@ -35,17 +35,15 @@ The launcher depends on **both** who you are and who the target is:
 
 | You are | Target | Tool |
 |---|---|---|
-| Claude | Claude model, no extra settings, shared checkout | native `Agent` with `model: haiku \| sonnet \| opus`, `run_in_background: false` |
+| Claude | Claude model, no extra settings, read-only (an editing child needs its own worktree) | native `Agent` with `model: haiku \| sonnet \| opus`, `run_in_background: false` |
 | anyone | anything else (other provider, effort setting, separate checkout) | T3 `delegate_task` |
 
 `delegate_task` notes:
 - Call `orchestrator_capabilities` once per thread before the first `delegate_task`. Copy model ids from it; the ids above are as of 2026-11-13.
 - `target.providerInstanceId`: `codex`, `claudeAgent`, or `opencode` (DeepSeek: model `deepseek/deepseek-flash`, option `variant`: `low` for grunt work).
 - Options: Codex `{reasoningEffort: "medium"}`, Claude `{effort: "high"}`, OpenCode `{variant: "low"}`.
-- `isolation: "worktree"` whenever the child edits files while anyone else may be editing too, or the work should land as its own PR. `"shared"` means the parent's checkout, so it is only for read-only children, or editing ones when the parent is itself in a T3 worktree: Scott's primary checkout is never an agent's workspace (see `AGENTS.md`).
+- `isolation: "worktree"` for every child that edits files, whatever else is running: Scott's primary checkout is never an agent's workspace (see `AGENTS.md`), and `"shared"` means the parent's checkout. Only read-only children use `"shared"`.
 - Set `role` (`implementation`, `research`, `review`, `test`).
-
-**Before launching an editing child in a shared checkout**, record a baseline: `git rev-parse HEAD` and `git status --porcelain`. It's how step 4 tells the child's changes apart from anyone else's.
 
 ## 3. Write the brief
 
@@ -62,10 +60,9 @@ The child gets **only** the brief: no conversation, and non-Claude children get 
 Trust artifacts, never self-reports. Verify **in the child's checkout, over the child's range**:
 
 - Committed work: `git -C <checkout> diff --stat <base>..<head>`, plus `git -C <checkout> status --short` for anything left uncommitted.
-- Shared checkout: compare against the step-2 baseline.
 - Then run the done-when command yourself in that checkout, at that head.
 
-Out-of-scope changes the child clearly made (absent from the baseline, inside its checkout) get reverted. Anything you can't attribute stays put: ask the user before touching it.
+Out-of-scope changes the child clearly made (inside its checkout) get reverted. Anything you can't attribute stays put: ask the user before touching it.
 
 On failure: retry once at the same tier with a sharper brief; then step up a tier (grunt → implement → hard).
 

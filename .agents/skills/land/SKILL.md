@@ -24,7 +24,7 @@ Stop if it's closed or a draft. **Land handles only PRs whose branch lives in th
 
 Record `PIN=<headRefOid>` and `BASE=origin/<baseRefName>`, then `git fetch origin <baseRefName> <headRefName>`. Find the **PR checkout** (call its path `WT`):
 
-- `git worktree list` shows a worktree on `<headRefName>` → use it.
+- `git worktree list` shows a worktree on `<headRefName>` → use it, unless it is the first entry (Scott's primary checkout, which agents never edit): then stop and comment that Scott has the branch checked out.
 - Else, the local branch exists → `git worktree add "$HOME/.t3/worktrees/card-game/pr-<n>" <headRefName>`.
 - Else → `git worktree add --track -b <headRefName> "$HOME/.t3/worktrees/card-game/pr-<n>" origin/<headRefName>`.
 
@@ -78,7 +78,7 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
    (`gh pr merge` can hit the Projects-classic GraphQL bug noted in `AGENTS.md`; REST avoids it.)
 4. **Clean up**: if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git fetch origin main` (never pull in Scott's primary checkout; it is his to update), and delete the local `<headRefName>` if no worktree still uses it. A squash leaves the branch's commits off `main`'s history, so `git branch -d` refuses and the guardrail blocks `-D`: leave the local branch; GitHub already deleted the remote one, and `git fetch --prune` drops the tracking ref. Trivial merges also get the `merged-unreviewed` label, except **record-only** PRs (every changed path is `docs/agents/delegation-log.md`), which need no audit.
 
-Done when `main` contains the squash commit and step 4.4 is done.
+Done when `origin/main` contains the squash commit and step 4.4 is done.
 
 ## 5. Escalate
 
