@@ -4,6 +4,9 @@
   "maxDailyClaims": 12,
   "maxEscalated": 2,
   "staleHours": 8,
+  "implement": {
+    "claudeShare": 0.6
+  },
   "planning": {
     "enabled": true,
     "maxDailyRuns": 3,

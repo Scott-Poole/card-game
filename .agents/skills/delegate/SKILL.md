@@ -17,11 +17,13 @@ Spend in this order: **subscriptions first** (Claude and Codex are flat-rate, so
 |---|---|---|---|
 | **judge** | grilling, specs, architecture, final review, orchestrating other agents | Claude Opus 5.5 (usually the session itself) | stay in-session; ask the user |
 | **explore** | find code, read docs, summarise; read-only | Claude Haiku 5.5 | DeepSeek Flash |
-| **implement** | a ticket with acceptance criteria and a command that proves it | Codex `gpt-6.1-sol`, effort `medium` | Claude Sonnet 5.5 |
+| **implement** | a ticket with acceptance criteria and a command that proves it | Split by usage: Codex `gpt-6.1-sol` `medium` or Claude Sonnet 5.5 `high`; ticket automation uses `implement.claudeShare` in `tick/config.json`, ad-hoc delegation picks whichever subscription has more headroom | the other one |
 | **plan** | a planner run: survey one category, file tickets an agent can take unattended | Claude Sonnet 5.5, effort `high` | Codex `gpt-6.1-sol` `medium` |
 | **review** | review a diff; **never the author's family** | Claude-written → Codex `gpt-6.1-sol` `medium`; Codex-written → Claude Sonnet 5.5 | Claude-written → Codex `gpt-6.1-terra` `medium`; Codex-written → DeepSeek Flash (a third family) |
 | **grunt** | mechanical, fully specified: card data entry, boilerplate, fixtures, renames, lint-fix sweeps | DeepSeek Flash | Claude Haiku 5.5; Codex `gpt-6-luna` |
 | **hard** | an implement attempt failed, or the problem is a gnarly algorithm | Codex `gpt-6.1-terra`, effort `max` | Codex `gpt-6-astra` (rare: strong but token-hungry, poor value) |
+
+**Balance the two subscriptions.** Implement plus its fix rounds is the biggest spend, and the cross-family review puts the other half on the other subscription, so the implement split is the lever. In week one Codex implemented every ticket and ran far ahead of Claude (about 66% of the weekly allowance used against 18% by day three). Scott reads both weekly meters (no API exposes them) and sets `claudeShare` accordingly; a weekly `/retro` is the place to revisit it.
 
 **Claude's cheap models out of usage?** Move explore/grunt to Codex `gpt-6.1-terra` `medium` or `gpt-6-luna`, then DeepSeek. **No other-family reviewer available?** Say so in the result; a same-family review is not a cross-review.
 
