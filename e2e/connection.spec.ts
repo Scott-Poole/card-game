@@ -1352,7 +1352,14 @@ for (const changeDuringMatch of [false, true]) {
   });
 }
 
-for (const finish of ["timeline", "skip", "escape", "reduced", "interrupt"]) {
+for (const finish of [
+  "timeline",
+  "skip",
+  "escape",
+  "reduced",
+  "interrupt",
+  "update",
+]) {
   test(`reveal order and authoritative totals: ${finish}`, async ({
     page,
     address,
@@ -1367,20 +1374,32 @@ for (const finish of ["timeline", "skip", "escape", "reduced", "interrupt"]) {
       socket.send(JSON.stringify({ type: "state", view: staging }));
       socket.onMessage(() => {
         socket.send(JSON.stringify({ type: "state", view: revealed }));
-        if (finish === "interrupt")
-          socket.send(
-            JSON.stringify({
-              type: "state",
-              view: { ...revealed, turn: 5, energy: 5 },
-            }),
-          );
+        if (finish === "interrupt" || finish === "update")
+          setTimeout(() => {
+            socket.send(
+              JSON.stringify({
+                type: "state",
+                view:
+                  finish === "update"
+                    ? {
+                        ...revealed,
+                        opponent: { ...revealed.opponent, committed: true },
+                      }
+                    : { ...revealed, turn: 5, energy: 5 },
+              }),
+            );
+          }, 400);
       });
     });
     await page.goto(address);
     await page.getByRole("button", { name: "Commit", exact: true }).click();
     const own = page.getByRole("region", { name: "Lane 2", exact: true });
     const opponent = page.getByRole("region", { name: "Lane 1", exact: true });
-    if (finish === "timeline") {
+    if (
+      finish === "timeline" ||
+      finish === "interrupt" ||
+      finish === "update"
+    ) {
       await expect(
         page.getByText(`Revealed ${guardian.name}`, { exact: true }),
       ).toBeVisible();
@@ -1392,6 +1411,10 @@ for (const finish of ["timeline", "skip", "escape", "reduced", "interrupt"]) {
           .getByRole("group", { name: "Opponent cards" })
           .getByRole("article"),
       ).toHaveCount(0);
+      await expect(
+        page.getByText("Revealed Vulcan, Ember Shaper", { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText("Turn ended", { exact: true })).toBeVisible();
     }
     if (finish === "skip")
       await page
@@ -1449,4 +1472,54 @@ test("two players reveal both sides and agree on lane totals", async ({
   }
   const values = totals.map((text) => text.match(/\d+/g));
   expect(values[0]).toEqual(values[1]?.toReversed());
+});
+
+test("match-ending reveal stays on the board until playback finishes", async ({
+  page,
+  address,
+}) => {
+  const { staging, revealed, ended, guardian } =
+    await import("../src/client/stories/fixtures.ts");
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.send(JSON.stringify({ type: "welcome" }));
+    socket.send(
+      JSON.stringify({
+        type: "state",
+        view: { ...staging, turn: 6, energy: 6 },
+      }),
+    );
+    socket.onMessage(() => {
+      socket.send(
+        JSON.stringify({
+          type: "state",
+          view: {
+            ...ended,
+            events: [...revealed.events.slice(0, 2), ...ended.events],
+          },
+        }),
+      );
+    });
+  });
+  await page.goto(address);
+  await page.getByRole("button", { name: "Commit", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Skip reveal", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Match result", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(`Revealed ${guardian.name}`, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Revealed Vulcan, Ember Shaper", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Match result", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Lane 2", exact: true })
+      .getByText("Opponent total: 3 · Your total: 4", { exact: true }),
+  ).toBeVisible();
 });

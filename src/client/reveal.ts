@@ -1,10 +1,8 @@
 import type { MatchEvent, PlayerView } from "../protocol/messages.ts";
-import { selectLaneTotals } from "./laneTotals.ts";
 
 export interface RevealStep {
   readonly event: MatchEvent;
   readonly view: PlayerView;
-  readonly totals: ReturnType<typeof selectLaneTotals>;
 }
 
 // Event order belongs here; playback only walks the resulting timeline.
@@ -51,6 +49,6 @@ export function sequenceReveal(
         return exhaustive;
       }
     }
-    return { event, view, totals: selectLaneTotals(view) };
+    return { event, view };
   });
 }
