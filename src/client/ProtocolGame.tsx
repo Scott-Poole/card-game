@@ -209,6 +209,11 @@ function Game() {
                   {view.own.lanes.map((cards, lane) => (
                     <Lane
                       key={lane}
+                      revealingCard={
+                        step?.event.type === "card-revealed"
+                          ? step.event.card.id
+                          : undefined
+                      }
                       registerSlot={(slot, element) => {
                         const key = `${String(lane)}:${String(slot)}`;
                         if (element) slots.current.set(key, element);
@@ -382,11 +387,13 @@ function Game() {
                         ? `Revealed ${step.event.card.name}`
                         : step?.event.type === "turn-ended"
                           ? "Turn ended"
-                          : "Revealing turn…"}
+                          : step?.event.type === "match-ended"
+                            ? "Match ended"
+                            : "Revealing turn…"}
                     </p>
                   )}
                   <ol>
-                    {view.events.map((event, index) => (
+                    {(revealing ? [] : view.events).map((event, index) => (
                       <li key={index}>
                         {event.type === "card-revealed"
                           ? `Player ${String(event.player + 1)}: ${event.card.name} in lane ${String(event.lane + 1)}`
