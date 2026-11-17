@@ -25,6 +25,9 @@ export const smith: Card = {
   power: 5,
 };
 
+const opponentVoyager: Card = { ...voyager, id: "opponent-voyager" };
+const opponentSmith: Card = { ...smith, id: "opponent-smith" };
+
 export const opening: PlayerView = {
   player: 0,
   phase: "planning",
@@ -52,7 +55,11 @@ export const staging: PlayerView = {
     lanes: [[herald], [], []],
     staged: [{ cardId: guardian.id, lane: 1 }],
   },
-  opponent: { ...opening.opponent, deckSize: 6, lanes: [[], [voyager], []] },
+  opponent: {
+    ...opening.opponent,
+    deckSize: 6,
+    lanes: [[], [opponentVoyager], []],
+  },
 };
 export const revealed: PlayerView = {
   ...staging,
@@ -64,10 +71,13 @@ export const revealed: PlayerView = {
     staged: [],
     lanes: [[herald], [guardian], []],
   },
-  opponent: { ...staging.opponent, lanes: [[smith], [voyager], []] },
+  opponent: {
+    ...staging.opponent,
+    lanes: [[opponentSmith], [opponentVoyager], []],
+  },
   events: [
     { type: "card-revealed", player: 0, lane: 1, card: guardian },
-    { type: "card-revealed", player: 1, lane: 0, card: smith },
+    { type: "card-revealed", player: 1, lane: 0, card: opponentSmith },
     { type: "turn-ended", turn: 3 },
   ],
 };
@@ -102,5 +112,20 @@ export const full: PlayerView = {
       [],
       [],
     ],
+  },
+};
+
+export const tied: PlayerView = {
+  ...opening,
+  turn: 2,
+  energy: 2,
+  own: {
+    ...opening.own,
+    hand: [guardian, voyager, smith],
+    lanes: [[herald], [], []],
+  },
+  opponent: {
+    ...opening.opponent,
+    lanes: [[{ ...herald, id: "opponent-herald" }], [], []],
   },
 };

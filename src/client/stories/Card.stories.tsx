@@ -9,7 +9,7 @@ const meta = {
   component: Card,
   decorators: [
     (Story) => (
-      <div className={css({ width: "handCard", height: "[240px]", m: "md" })}>
+      <div className={css({ width: "handCard", height: "lanePanel", m: "md" })}>
         <Story />
       </div>
     ),
