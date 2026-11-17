@@ -963,7 +963,9 @@ for (const width of [390, 1440]) {
       for (let frame = 0; frame < 16; frame++) {
         widths.push(element.getBoundingClientRect().width);
         await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => resolve()),
+          requestAnimationFrame(() => {
+            resolve();
+          }),
         );
       }
       return widths;
