@@ -730,18 +730,20 @@ test("revealed lane cards and totals follow both players through every turn", as
         await expect(preview).toHaveAccessibleDescription(
           "Staged, not yet revealed",
         );
-        const previewBox = await preview.boundingBox();
-        const nameBox = await preview
-          .getByText(name, { exact: true })
-          .boundingBox();
-        if (!previewBox || !nameBox) throw new Error("Missing preview text");
-        const statBox = await preview.getByLabel(/^Power /).boundingBox();
-        if (!statBox) throw new Error("Missing preview power");
-        expect(nameBox.height).toBeLessThanOrEqual(statBox.height + 1);
+        await expect(async () => {
+          const previewBox = await preview.boundingBox();
+          const nameBox = await preview
+            .getByText(name, { exact: true })
+            .boundingBox();
+          if (!previewBox || !nameBox) throw new Error("Missing preview text");
+          const statBox = await preview.getByLabel(/^Power /).boundingBox();
+          if (!statBox) throw new Error("Missing preview power");
+          expect(nameBox.height).toBeLessThanOrEqual(statBox.height + 1);
 
-        expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
-          previewBox.y + previewBox.height + 1,
-        );
+          expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
+            previewBox.y + previewBox.height + 1,
+          );
+        }).toPass({ timeout: 1000 });
         records.get(page)?.push({
           name,
           power: Number(powerText.replace("Power ", "")),
@@ -809,19 +811,21 @@ test("revealed lane cards and totals follow both players through every turn", as
               exact: true,
             });
             await expect(article).toBeVisible();
-            const box = await article.boundingBox();
-            const nameBox = await article
-              .getByText(card.name, { exact: true })
-              .boundingBox();
-            const regionBox = await region.boundingBox();
-            if (!box || !nameBox || !regionBox)
-              throw new Error("Missing card text or lane");
-            expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
-              box.y + box.height + 1,
-            );
-            expect(box.y + box.height).toBeLessThanOrEqual(
-              regionBox.y + regionBox.height + 1,
-            );
+            await expect(async () => {
+              const box = await article.boundingBox();
+              const nameBox = await article
+                .getByText(card.name, { exact: true })
+                .boundingBox();
+              const regionBox = await region.boundingBox();
+              if (!box || !nameBox || !regionBox)
+                throw new Error("Missing card text or lane");
+              expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
+                box.y + box.height + 1,
+              );
+              expect(box.y + box.height).toBeLessThanOrEqual(
+                regionBox.y + regionBox.height + 1,
+              );
+            }).toPass({ timeout: 1000 });
           }
         }
       }
@@ -927,6 +931,51 @@ for (const width of [390, 1440]) {
     expect(previewBox.height).toBeCloseTo(original.height, 0);
     expect(previewCost.height).toBeCloseTo(cost.height, 0);
     await a.mouse.up();
+    // A commit during settle must wait for the dropped play to enter staging.
+    await expect(
+      a.getByRole("button", { name: "Commit", exact: true }),
+    ).toBeDisabled();
+    // Observe the public card geometry during settle: a frozen overlay fails this.
+    await expect
+      .poll(
+        async () => (await preview.boundingBox())?.width ?? original.width,
+        { timeout: 200, intervals: [16] },
+      )
+      .toBeLessThan(original.width - 3);
+    await expect(
+      a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
+    ).toBeVisible();
+    const landed = a
+      .getByRole("region", { name: "Lane 1", exact: true })
+      .getByRole("article", { name: name ?? "", exact: true });
+    const opacity = await landed.evaluate((element) => {
+      let opacity = 1;
+      for (let node: Element | null = element; node; node = node.parentElement)
+        opacity *= Number(getComputedStyle(node).opacity);
+      return opacity;
+    });
+    expect(opacity).toBeGreaterThan(0.95);
+    await a
+      .getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true })
+      .click();
+    const returned = a
+      .getByRole("region", { name: "Hand", exact: true })
+      .getByRole("article", { name: name ?? "", exact: true });
+    await expect(returned).toBeVisible();
+    const widths = await returned.evaluate(async (element) => {
+      const widths = [];
+      for (let frame = 0; frame < 16; frame++) {
+        widths.push(element.getBoundingClientRect().width);
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => {
+            resolve();
+          }),
+        );
+      }
+      return widths;
+    });
+    expect(Math.max(...widths)).toBeLessThanOrEqual(original.width + 2);
+    await returned.getByRole("button", { name: /Stage .* in lane 1$/ }).click();
     await expect(
       a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
     ).toBeVisible();
@@ -1103,13 +1152,17 @@ for (const width of [390, 1440]) {
         }),
       );
     });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
     await page.goto(address);
+    await expect(page).toHaveURL(/\/match$/);
     for (const [name, lane] of [
       ["Test herald", 1],
       ["Test sentinel", 2],
     ] satisfies [string, number][]) {
       const hand = page.getByRole("region", { name: "Hand", exact: true });
       const card = hand.getByRole("article", { name, exact: true });
+      await card.click({ trial: true });
       const before = await card.boundingBox();
       const source = await card
         .getByRole("img", { name: "Art placeholder" })
@@ -1219,3 +1272,82 @@ test("direct staging clears card selection and inspection", async ({
     .all())
     await expect(target).toBeDisabled();
 });
+
+for (const changeDuringMatch of [false, true]) {
+  test(`reduced motion drag settles promptly (live change: ${String(changeDuringMatch)})`, async ({
+    page,
+    address,
+  }) => {
+    await page.emulateMedia({
+      reducedMotion: changeDuringMatch ? "no-preference" : "reduce",
+    });
+    const card = { id: "herald", name: "Test herald", cost: 1, power: 2 };
+    const view = {
+      player: 0,
+      phase: "planning",
+      result: null,
+      turn: 1,
+      energy: 1,
+      own: {
+        hand: [card],
+        staged: [],
+        committed: false,
+        deckSize: 6,
+        lanes: [[], [], []],
+      },
+      opponent: {
+        handSize: 3,
+        deckSize: 9,
+        committed: false,
+        lanes: [[], [], []],
+      },
+      events: [],
+    };
+    await page.routeWebSocket("**/ws", (socket) => {
+      socket.send(JSON.stringify({ type: "welcome" }));
+      socket.send(JSON.stringify({ type: "state", view }));
+      socket.onMessage(() => {
+        socket.send(
+          JSON.stringify({
+            type: "state",
+            view: {
+              ...view,
+              own: { ...view.own, staged: [{ cardId: card.id, lane: 0 }] },
+            },
+          }),
+        );
+      });
+    });
+    await page.goto(address);
+    await expect(page).toHaveURL(/\/match$/);
+    await page.getByRole("heading", { name: "Turn 1 of 6" }).waitFor();
+    if (changeDuringMatch) await page.emulateMedia({ reducedMotion: "reduce" });
+    const source = await page
+      .getByRole("region", { name: "Hand", exact: true })
+      .getByRole("article", { name: card.name, exact: true })
+      .getByRole("img", { name: "Art placeholder" })
+      .boundingBox();
+    const lane = page
+      .getByRole("region", { name: "Lane 1", exact: true })
+      .getByRole("group", { name: "Your cards" });
+    const target = await lane.boundingBox();
+    if (!source || !target) throw new Error("Missing drag endpoints");
+    await page.mouse.move(
+      source.x + source.width / 2,
+      source.y + source.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      target.x + target.width / 2,
+      target.y + target.height / 2,
+      { steps: 20 },
+    );
+    await page.mouse.up();
+    await expect(
+      lane.getByRole("article", { name: card.name, exact: true }),
+    ).toBeVisible({ timeout: 150 });
+    await expect(
+      page.getByRole("article", { name: card.name, exact: true }),
+    ).toHaveCount(1);
+  });
+}

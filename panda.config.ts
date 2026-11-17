@@ -1,3 +1,4 @@
+import { motionTokens } from "./src/client/motionTokens.ts";
 import presetBase from "@pandacss/preset-base";
 import { defineConfig } from "@pandacss/dev";
 
@@ -67,11 +68,15 @@ export default defineConfig({
         notification: { value: "20" },
       },
       durations: {
-        instant: { value: "0ms" },
-        quick: { value: "120ms" },
-        reveal: { value: "240ms" },
+        instant: { value: `${String(motionTokens.instant)}ms` },
+        quick: { value: `${String(motionTokens.quick)}ms` },
+        reveal: { value: `${String(motionTokens.reveal)}ms` },
       },
-      easings: { standard: { value: "ease-out" } },
+      easings: {
+        standard: {
+          value: `cubic-bezier(${motionTokens.standard.join(", ")})`,
+        },
+      },
       borders: {
         panel: { value: "1px solid {colors.border}" },
         focus: { value: "3px solid {colors.accent}" },

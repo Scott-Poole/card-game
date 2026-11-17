@@ -1,3 +1,4 @@
+import { CardMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { LANE_CAPACITY } from "../rules/index.ts";
 import { panel } from "../../styled-system/recipes/index.js";
@@ -15,7 +16,10 @@ export default function Lane({
   inspect,
   inspectCard,
   playTarget,
+  registerSlot,
 }: {
+  registerSlot?:
+    ((slot: number, element: HTMLDivElement | null) => void) | undefined;
   inspect?: () => void;
   inspectCard?: (card: CardData) => void;
   playTarget?: (children: ReactNode) => ReactNode;
@@ -70,6 +74,7 @@ export default function Lane({
         playTarget(
           <Slots
             inspectCard={inspectCard}
+            registerSlot={registerSlot}
             label="Your cards"
             cards={own}
             staged={staged}
@@ -78,6 +83,7 @@ export default function Lane({
       ) : (
         <Slots
           inspectCard={inspectCard}
+          registerSlot={registerSlot}
           label="Your cards"
           cards={own}
           staged={staged}
@@ -88,11 +94,14 @@ export default function Lane({
 }
 
 function Slots({
+  registerSlot,
   label,
   inspectCard,
   cards,
   staged,
 }: {
+  registerSlot?:
+    ((slot: number, element: HTMLDivElement | null) => void) | undefined;
   label: string;
   inspectCard?: ((card: CardData) => void) | undefined;
   cards: readonly CardData[];
@@ -116,7 +125,8 @@ function Slots({
         const data = revealed ?? staged[slot - cards.length];
         return (
           <div
-            key={slot}
+            key={data?.id ?? `empty-${String(slot)}`}
+            ref={(element) => registerSlot?.(slot, element)}
             className={css({
               border: "panel",
               borderRadius: "control",
@@ -127,18 +137,20 @@ function Slots({
             })}
           >
             {data ? (
-              <Card
-                data={data}
-                size="lane"
-                staged={!revealed}
-                onInspect={
-                  inspectCard
-                    ? () => {
-                        inspectCard(data);
-                      }
-                    : undefined
-                }
-              />
+              <CardMotion id={data.id}>
+                <Card
+                  data={data}
+                  size="lane"
+                  staged={!revealed}
+                  onInspect={
+                    inspectCard
+                      ? () => {
+                          inspectCard(data);
+                        }
+                      : undefined
+                  }
+                />
+              </CardMotion>
             ) : null}
           </div>
         );
