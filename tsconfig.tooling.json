@@ -4,5 +4,10 @@
     "lib": ["ES2024"],
     "types": ["node"]
   },
-  "include": ["*.config.ts", "e2e/**/*.ts"]
+  "include": [
+    "*.config.ts",
+    "e2e/**/*.ts",
+    ".storybook/*.ts",
+    "src/client/styles.d.ts"
+  ]
 }

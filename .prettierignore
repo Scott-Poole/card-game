@@ -6,3 +6,5 @@ pnpm-lock.yaml
 docs/agents/delegation-log.md
 
 styled-system/
+
+storybook-static/
