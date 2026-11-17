@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import type { Meta, StoryObj } from "@storybook/react-vite";
@@ -7,11 +7,12 @@ import ProtocolGame from "../ProtocolGame.tsx";
 import { connectionSlice } from "../connectionSlice.ts";
 import { matchSlice } from "../matchSlice.ts";
 import { stagingSlice } from "../stagingSlice.ts";
+import { css } from "../../../styled-system/css/index.js";
 import { opening, staging, revealed, ended } from "./fixtures.ts";
 
 // Each mount gets a fresh store. No transport is connected; these are inspection fixtures.
 function FixtureBoard({ view }: { view: PlayerView }) {
-  const [store] = useState(() => {
+  const store = useMemo(() => {
     const store = configureStore({
       reducer: {
         connection: connectionSlice.reducer,
@@ -23,9 +24,23 @@ function FixtureBoard({ view }: { view: PlayerView }) {
     store.dispatch(matchSlice.actions.viewReceived(view));
     store.dispatch(stagingSlice.actions.replaced(view.own.staged));
     return store;
-  });
+  }, [view]);
   return (
     <Provider store={store}>
+      <aside
+        className={css({
+          position: "fixed",
+          top: "none",
+          left: "none",
+          zIndex: "notification",
+          maxW: "handCard",
+          bg: "panel",
+          p: "xs",
+          fontSize: "small",
+        })}
+      >
+        Static fixture. Play actions require the live app.
+      </aside>
       <ProtocolGame />
     </Provider>
   );
@@ -33,7 +48,7 @@ function FixtureBoard({ view }: { view: PlayerView }) {
 const meta = {
   title: "Board",
   component: FixtureBoard,
-  render: ({ view }) => <FixtureBoard key={JSON.stringify(view)} view={view} />,
+
   parameters: {
     docs: {
       description: {
