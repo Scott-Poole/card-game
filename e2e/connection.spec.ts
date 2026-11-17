@@ -809,19 +809,21 @@ test("revealed lane cards and totals follow both players through every turn", as
               exact: true,
             });
             await expect(article).toBeVisible();
-            const box = await article.boundingBox();
-            const nameBox = await article
-              .getByText(card.name, { exact: true })
-              .boundingBox();
-            const regionBox = await region.boundingBox();
-            if (!box || !nameBox || !regionBox)
-              throw new Error("Missing card text or lane");
-            expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
-              box.y + box.height + 1,
-            );
-            expect(box.y + box.height).toBeLessThanOrEqual(
-              regionBox.y + regionBox.height + 1,
-            );
+            await expect(async () => {
+              const box = await article.boundingBox();
+              const nameBox = await article
+                .getByText(card.name, { exact: true })
+                .boundingBox();
+              const regionBox = await region.boundingBox();
+              if (!box || !nameBox || !regionBox)
+                throw new Error("Missing card text or lane");
+              expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
+                box.y + box.height + 1,
+              );
+              expect(box.y + box.height).toBeLessThanOrEqual(
+                regionBox.y + regionBox.height + 1,
+              );
+            }).toPass({ timeout: 1000 });
           }
         }
       }
