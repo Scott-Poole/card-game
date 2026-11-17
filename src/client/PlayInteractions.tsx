@@ -1,4 +1,6 @@
-import { useDraggable, useDroppable } from "@dnd-kit/react";
+import Card from "./Card.tsx";
+import type { Card as CardData } from "../protocol/messages.ts";
+import { PointerSensor, useDraggable, useDroppable } from "@dnd-kit/react";
 import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { css, cx } from "../../styled-system/css/index.js";
@@ -14,10 +16,17 @@ export function HandCard({
   children: ReactNode;
 }) {
   // Motion may animate the outer board-card wrapper; dnd-kit owns this inner node.
-  const { ref } = useDraggable({ id, disabled });
+  const { ref } = useDraggable({ id, disabled, sensors: [PointerSensor] });
   return (
     <div className="board-card">
-      <div ref={ref} className={css({ touchAction: "none", height: "[100%]" })}>
+      <div
+        ref={ref}
+        role="group"
+        tabIndex={-1}
+        aria-roledescription="card"
+        aria-describedby=""
+        className={css({ touchAction: "pan-x", height: "[100%]" })}
+      >
         {children}
       </div>
     </div>
@@ -109,12 +118,6 @@ export function Inspect({
     <dialog
       ref={ref}
       aria-label={name}
-      onCancel={() => {
-        onClose(true);
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
       className={cx(
         panel(),
         css({
@@ -130,7 +133,6 @@ export function Inspect({
           width: { base: "[100%]", md: "inspectPanel" },
           maxW: "content",
           zIndex: "overlay",
-          _backdrop: { bg: "surface", opacity: "disabled" },
         }),
       )}
     >
@@ -146,5 +148,28 @@ export function Inspect({
       </button>
     </dialog>,
     document.body,
+  );
+}
+
+export function DragPreview({
+  card,
+  element,
+}: {
+  card: CardData;
+  element: Element | null | undefined;
+}) {
+  if (!(element instanceof HTMLElement)) return null;
+  const scale = element.getBoundingClientRect().width / element.offsetWidth;
+  return (
+    <div
+      style={{
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+        transform: `scale(${String(scale)})`,
+        transformOrigin: "top left",
+      }}
+    >
+      <Card data={card} />
+    </div>
   );
 }

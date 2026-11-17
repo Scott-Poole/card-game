@@ -848,12 +848,17 @@ test("inspect and select a card, then play it with the keyboard", async ({
   const sheet = a.getByRole("dialog");
   await expect(sheet).toContainText(name ?? "");
   await expect(sheet).toContainText("Power");
-  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet.getByRole("button", { name: "Close" })).toBeFocused();
+  await a.keyboard.press("Enter");
   const target = a.getByRole("button", {
     name: "Play selected card in lane 1",
     exact: true,
   });
-  await target.focus();
+  for (let step = 0; step < 60; step++) {
+    if (await target.and(a.locator(":focus")).count()) break;
+    await a.keyboard.press("Shift+Tab");
+  }
+  await expect(target).toBeFocused();
   await a.keyboard.press("Enter");
   await expect(
     a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
@@ -884,6 +889,8 @@ for (const width of [390, 1440]) {
       })
       .first();
     const name = await card.getAttribute("aria-label");
+    const original = await card.boundingBox();
+    const cost = await card.getByRole("img", { name: /^Cost / }).boundingBox();
     const source = await card
       .getByRole("img", { name: "Art placeholder" })
       .boundingBox();
@@ -907,6 +914,18 @@ for (const width of [390, 1440]) {
       target.y + target.height / 2,
       { steps: 20 },
     );
+    const preview = a
+      .getByRole("article", { name: name ?? "", exact: true })
+      .last();
+    const previewBox = await preview.boundingBox();
+    const previewCost = await preview
+      .getByRole("img", { name: /^Cost / })
+      .boundingBox();
+    if (!original || !previewBox || !cost || !previewCost)
+      throw new Error("Missing drag preview");
+    expect(previewBox.width).toBeCloseTo(original.width, 0);
+    expect(previewBox.height).toBeCloseTo(original.height, 0);
+    expect(previewCost.height).toBeCloseTo(cost.height, 0);
     await a.mouse.up();
     await expect(
       a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
@@ -940,7 +959,37 @@ test("touch drag stages a card inside the scaled phone board", async ({
         .getByRole("button", { name: "Find match", exact: true })
         .click();
     }
-    await reachPlayableTurn(a, b);
+    for (let turn = 1; turn < 6; turn++) {
+      for (const page of [a, b]) {
+        await expect(
+          page.getByRole("heading", { name: `Turn ${String(turn)} of 6` }),
+        ).toBeVisible();
+        await page.getByRole("button", { name: "Commit", exact: true }).click();
+      }
+    }
+    await expect(a.getByRole("heading", { name: "Turn 6 of 6" })).toBeVisible();
+    const cdp = await context.newCDPSession(a);
+    const hand = a.getByRole("region", { name: "Hand", exact: true });
+    const handBox = await hand.boundingBox();
+    if (!handBox) throw new Error("Missing hand");
+    for (let swipe = 0; swipe < 3; swipe++) {
+      const x = handBox.x + handBox.width - 15;
+      const y = handBox.y + handBox.height / 2;
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x, y }],
+      });
+      for (let step = 1; step <= 10; step++) {
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x: x - ((handBox.width - 30) * step) / 10, y }],
+        });
+      }
+      await cdp.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        touchPoints: [],
+      });
+    }
     const card = a
       .getByRole("region", { name: "Hand", exact: true })
       .getByRole("article")
@@ -949,8 +998,14 @@ test("touch drag stages a card inside the scaled phone board", async ({
           .getByRole("button", { name: /Stage .* in lane 1$/ })
           .and(a.locator(":enabled")),
       })
-      .first();
+      .last();
     const name = await card.getAttribute("aria-label");
+    await expect
+      .poll(async () => {
+        const box = await card.boundingBox();
+        return box ? box.x + box.width : Infinity;
+      })
+      .toBeLessThanOrEqual(handBox.x + handBox.width);
     const source = await card
       .getByRole("img", { name: "Art placeholder" })
       .boundingBox();
@@ -959,7 +1014,6 @@ test("touch drag stages a card inside the scaled phone board", async ({
       .getByRole("group", { name: "Your cards" })
       .boundingBox();
     if (!source || !target) throw new Error("Missing touch endpoints");
-    const cdp = await context.newCDPSession(a);
     const x = source.x + source.width / 2;
     const y = source.y + source.height / 2;
     await cdp.send("Input.dispatchTouchEvent", {
@@ -1140,4 +1194,28 @@ test("tap a card then tap a lane without closing inspection", async ({
       .getByRole("group", { name: "Opponent cards" })
       .getByRole("article", { name: name ?? "", exact: true }),
   ).toBeVisible();
+});
+
+test("direct staging clears card selection and inspection", async ({
+  pair: [a, b],
+}) => {
+  const direct = await reachPlayableTurn(a, b);
+  const label = await direct.getAttribute("aria-label");
+  const name = label?.replace(/^Stage /, "").replace(/ in lane \d+$/, "");
+  if (!name) throw new Error("Missing playable card");
+  await a.getByRole("button", { name: `Inspect ${name}`, exact: true }).click();
+  await a.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+  await direct.click();
+  await expect(a.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    a.getByRole("button", { name: /Play selected card in lane/ }),
+  ).toHaveText(["Play here", "Play here", "Play here"]);
+  await a.getByRole("button", { name: `Unstage ${name}`, exact: true }).click();
+  await a.getByRole("button", { name: `Inspect ${name}`, exact: true }).click();
+  await a.keyboard.press("Escape");
+  await expect(a.getByRole("dialog")).toHaveCount(0);
+  for (const target of await a
+    .getByRole("button", { name: /Play selected card in lane/ })
+    .all())
+    await expect(target).toBeDisabled();
 });

@@ -1,6 +1,12 @@
-import { useState } from "react";
+import type { Card as CardData } from "../protocol/messages.ts";
+import { useRef, useState } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
-import { HandCard, Inspect, PlayTarget } from "./PlayInteractions.tsx";
+import {
+  DragPreview,
+  HandCard,
+  Inspect,
+  PlayTarget,
+} from "./PlayInteractions.tsx";
 import Card from "./Card.tsx";
 import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
@@ -18,11 +24,10 @@ import { send } from "./store.ts";
 export default function ProtocolGame() {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
-  const [inspection, setInspection] = useState<{
-    name: string;
-    cost?: number;
-    power?: number;
-  } | null>(null);
+  const [inspection, setInspection] = useState<
+    { kind: "card"; card: CardData } | { kind: "lane"; number: number } | null
+  >(null);
+  const hand = useRef<HTMLElement>(null);
   const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
   const { view, pending } = useAppSelector(selectMatch);
@@ -44,15 +49,18 @@ export default function ProtocolGame() {
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   const totals = view ? selectLaneTotals(view) : null;
   const playing = view?.phase === "planning";
+  function canStage(cardId: string | null, lane: number) {
+    return (
+      !locked &&
+      available.some((play) => play.cardId === cardId && play.lane === lane)
+    );
+  }
   function stage(cardId: string | null, lane: number) {
-    if (
-      locked ||
-      !available.some((play) => play.cardId === cardId && play.lane === lane) ||
-      cardId === null
-    )
-      return;
+    if (cardId === null || !canStage(cardId, lane)) return;
     dispatch(send({ type: "stage", plays: [...staged, { cardId, lane }] }));
     setSelected(null);
+    setInspection(null);
+    hand.current?.focus();
   }
   return (
     <DragDropProvider
@@ -168,23 +176,16 @@ export default function ProtocolGame() {
                     key={lane}
                     number={lane + 1}
                     inspectCard={(card) => {
-                      setInspection(card);
+                      setInspection({ kind: "card", card });
                     }}
                     inspect={() => {
-                      setInspection({ name: `Lane ${String(lane + 1)}` });
+                      setInspection({ kind: "lane", number: lane + 1 });
                     }}
                     playTarget={(children) => (
                       <PlayTarget
                         lane={lane}
                         active={dragging !== null || selected !== null}
-                        enabled={
-                          !locked &&
-                          available.some(
-                            (play) =>
-                              play.cardId === (dragging ?? selected) &&
-                              play.lane === lane,
-                          )
-                        }
+                        enabled={canStage(dragging ?? selected, lane)}
                         onPlay={() => {
                           stage(selected, lane);
                         }}
@@ -217,6 +218,8 @@ export default function ProtocolGame() {
                     overflowWrap: "anywhere",
                   }),
                 )}
+                ref={hand}
+                tabIndex={-1}
                 aria-label="Hand"
               >
                 <h2>Hand</h2>
@@ -232,7 +235,7 @@ export default function ProtocolGame() {
                         selected={selected === card.id}
                         onInspect={() => {
                           setSelected(card.id);
-                          setInspection(card);
+                          setInspection({ kind: "card", card });
                         }}
                       >
                         {view.own.lanes.map((_, lane) => (
@@ -243,20 +246,9 @@ export default function ProtocolGame() {
                             )}
                             key={lane}
                             aria-label={`Stage ${card.name} in lane ${String(lane + 1)}`}
-                            disabled={
-                              locked ||
-                              !available.some(
-                                (play) =>
-                                  play.cardId === card.id && play.lane === lane,
-                              )
-                            }
+                            disabled={!canStage(card.id, lane)}
                             onClick={() => {
-                              dispatch(
-                                send({
-                                  type: "stage",
-                                  plays: [...staged, { cardId: card.id, lane }],
-                                }),
-                              );
+                              stage(card.id, lane);
                             }}
                           >
                             Lane {lane + 1}
@@ -386,24 +378,34 @@ export default function ProtocolGame() {
       <DragOverlay dropAnimation={null}>
         {(source) => {
           const card = view?.own.hand.find((card) => card.id === source.id);
-          return card ? <Card data={card} /> : null;
+          return card ? (
+            <DragPreview card={card} element={source.element} />
+          ) : null;
         }}
       </DragOverlay>
       {inspection && (
         <Inspect
-          name={inspection.name}
+          name={
+            inspection.kind === "card"
+              ? inspection.card.name
+              : `Lane ${String(inspection.number)}`
+          }
           onClose={(cancelSelection) => {
             if (cancelSelection) setSelected(null);
             setInspection(null);
           }}
         >
-          {inspection.cost !== undefined ? (
+          {inspection.kind === "card" ? (
             <>
               <p>
-                Cost {inspection.cost} · Power {inspection.power}
+                Cost {inspection.card.cost} · Power {inspection.card.power}
               </p>
               <p>No ability description available.</p>
-              <p>Choose a lane to play this card.</p>
+              {selected === inspection.card.id &&
+                !locked &&
+                available.some(
+                  (play) => play.cardId === inspection.card.id,
+                ) && <p>Choose a lane to play this card.</p>}
             </>
           ) : (
             <p>No location effect.</p>
