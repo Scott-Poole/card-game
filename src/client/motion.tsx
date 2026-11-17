@@ -1,53 +1,58 @@
 import {
+  LayoutGroup,
   MotionConfig,
   useReducedMotion,
   motion,
-  cubicBezier,
 } from "motion/react";
-import type { ReactNode } from "react";
-import { token } from "../../styled-system/tokens/index.js";
+import { createContext, useContext, useId, type ReactNode } from "react";
+import { motionTokens } from "./motionTokens.ts";
 
-// Theme durations are CSS milliseconds; Motion transitions use seconds.
+const normal = {
+  duration: motionTokens.reveal / 1000,
+  ease: motionTokens.standard,
+};
+const reduced = { ...normal, duration: motionTokens.instant / 1000 };
+const DraggingCard = createContext<string | null>(null);
+
 export function useGameMotion() {
-  const reduced = useReducedMotion();
-  const [x1, y1, x2, y2] = token("easings.standard")
-    .replace(/^cubic-bezier\(|\)$/g, "")
-    .split(",")
-    .map(Number);
-  if (
-    x1 === undefined ||
-    y1 === undefined ||
-    x2 === undefined ||
-    y2 === undefined
-  )
-    throw new Error("Expected theme cubic-bezier easing");
-  return {
-    duration:
-      Number.parseFloat(
-        token(reduced ? "durations.instant" : "durations.reveal"),
-      ) / 1000,
-    ease: cubicBezier(x1, y1, x2, y2),
-  };
+  return useReducedMotion() ? reduced : normal;
 }
 
 export function GameMotion({ children }: { children: ReactNode }) {
   const transition = useGameMotion();
-  return <MotionConfig transition={transition}>{children}</MotionConfig>;
+  const id = useId();
+  return (
+    <MotionConfig transition={transition}>
+      <LayoutGroup id={id}>{children}</LayoutGroup>
+    </MotionConfig>
+  );
+}
+
+export function CardMotionScope({
+  dragging,
+  children,
+}: {
+  dragging: string | null;
+  children: ReactNode;
+}) {
+  return <DraggingCard value={dragging}>{children}</DraggingCard>;
 }
 
 export function CardMotion({
   children,
   className,
-  enter = true,
+  id,
 }: {
   children: ReactNode;
   className?: string;
-  enter?: boolean;
+  id: string;
 }) {
+  const dragging = useContext(DraggingCard) === id;
   return (
     <motion.div
       layout="position"
-      initial={enter ? { opacity: 0 } : false}
+      {...(dragging ? {} : { layoutId: id })}
+      initial={dragging ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       className={className}
       style={{ height: "100%" }}
