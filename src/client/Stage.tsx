@@ -1,3 +1,4 @@
+import { motion, useMotionValue } from "motion/react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { css } from "../../styled-system/css/index.js";
 import { token } from "../../styled-system/tokens/index.js";
@@ -9,6 +10,7 @@ export default function Stage({
   active: boolean;
   children: ReactNode;
 }) {
+  const boardScale = useMotionValue(1);
   const viewport = useRef<HTMLDivElement>(null);
   const board = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -24,13 +26,13 @@ export default function Stage({
       );
       stage.style.visibility = "visible";
       stage.style.setProperty("--stage-scale", String(scale));
-      stage.style.transform = `scale(${String(scale)})`;
+      boardScale.set(scale);
     });
     observer.observe(frame);
     return () => {
       observer.disconnect();
     };
-  }, [active]);
+  }, [active, boardScale]);
   if (!active) return children;
   return (
     <div
@@ -48,7 +50,8 @@ export default function Stage({
         pr: "safeRight",
       })}
     >
-      <section
+      <motion.section
+        style={{ scale: boardScale }}
         ref={board}
         aria-label="Match board"
         className={css({
@@ -61,7 +64,7 @@ export default function Stage({
         })}
       >
         {children}
-      </section>
+      </motion.section>
     </div>
   );
 }

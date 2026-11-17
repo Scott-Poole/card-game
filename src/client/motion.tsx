@@ -1,10 +1,11 @@
+import { LayoutGroup, MotionConfig, motion } from "motion/react";
 import {
-  LayoutGroup,
-  MotionConfig,
-  useReducedMotion,
-  motion,
-} from "motion/react";
-import { createContext, useContext, useId, type ReactNode } from "react";
+  createContext,
+  useContext,
+  useId,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { motionTokens } from "./motionTokens.ts";
 
 const normal = {
@@ -14,8 +15,24 @@ const normal = {
 const reduced = { ...normal, duration: motionTokens.instant / 1000 };
 const DraggingCard = createContext<string | null>(null);
 
+const mediaQuery = "(prefers-reduced-motion: reduce)";
+function subscribeMotion(callback: () => void) {
+  const query = window.matchMedia(mediaQuery);
+  query.addEventListener("change", callback);
+  return () => {
+    query.removeEventListener("change", callback);
+  };
+}
+function reducedSnapshot() {
+  return window.matchMedia(mediaQuery).matches;
+}
+
+// Motion's useReducedMotion snapshots the setting at mount in this version.
+// Subscribe here so changing the OS preference also updates imperative settles.
 export function useGameMotion() {
-  return useReducedMotion() ? reduced : normal;
+  return useSyncExternalStore(subscribeMotion, reducedSnapshot, () => true)
+    ? reduced
+    : normal;
 }
 
 export function GameMotion({ children }: { children: ReactNode }) {
@@ -47,9 +64,11 @@ export function CardMotion({
   className?: string;
   id: string;
 }) {
+  const transition = useGameMotion();
   const dragging = useContext(DraggingCard) === id;
   return (
     <motion.div
+      transition={transition}
       layout="position"
       {...(dragging ? {} : { layoutId: id })}
       initial={dragging ? false : { opacity: 0 }}

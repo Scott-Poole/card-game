@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 import { animate, motion } from "motion/react";
 import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
@@ -428,23 +429,31 @@ function Game() {
             const destination = slot ?? placeholder ?? element;
             const from = feedbackElement.getBoundingClientRect();
             const to = destination.getBoundingClientRect();
-            if (feedbackElement instanceof HTMLElement) {
-              feedbackElement.style.transformOrigin = "top left";
-              await animate(
-                feedbackElement,
-                {
-                  x: to.x - from.x,
-                  y: to.y - from.y,
-                  scaleX: to.width / from.width,
-                  scaleY: to.height / from.height,
-                },
-                transition,
-              );
+            try {
+              if (feedbackElement instanceof HTMLElement) {
+                feedbackElement.style.transformOrigin = "top left";
+                await animate(
+                  feedbackElement,
+                  {
+                    x: to.x - from.x,
+                    y: to.y - from.y,
+                    scaleX: to.width / from.width,
+                    scaleY: to.height / from.height,
+                  },
+                  transition,
+                );
+              }
+            } catch {
+              // A detached overlay may cancel its cosmetic animation; still apply the play.
+            } finally {
+              // Commit the destination before dnd-kit removes the overlay and reveals its source.
+              flushSync(() => {
+                if (play) finishStage.current(play.cardId, play.lane, true);
+                if (drop.current === play) drop.current = null;
+                setDragging(null);
+                setSettling(false);
+              });
             }
-            if (play) finishStage.current(play.cardId, play.lane, true);
-            drop.current = null;
-            setDragging(null);
-            setSettling(false);
           }}
         >
           {(source) => {
