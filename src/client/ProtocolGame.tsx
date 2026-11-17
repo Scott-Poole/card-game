@@ -1,3 +1,4 @@
+import { useReveal } from "./useReveal.ts";
 import { flushSync } from "react-dom";
 import { animate, motion } from "motion/react";
 import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
@@ -45,9 +46,12 @@ function Game() {
   const hand = useRef<HTMLElement>(null);
   const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
-  const { view, pending } = useAppSelector(selectMatch);
-  const staged = useAppSelector(selectStaging);
+  const { view: latest, pending } = useAppSelector(selectMatch);
+  const { view, active: revealing, skip, step } = useReveal(latest);
+  const stagedPlays = useAppSelector(selectStaging);
+  const staged = revealing ? [] : stagedPlays;
   const actionLocked =
+    revealing ||
     pending !== null ||
     status !== "connected" ||
     (view?.own.committed ?? false) ||
@@ -64,7 +68,7 @@ function Game() {
   const outcome = (winner: number | null) =>
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   const totals = view ? selectLaneTotals(view) : null;
-  const playing = view?.phase === "planning";
+  const playing = view?.phase === "planning" || revealing;
   function canStage(
     cardId: string | null,
     lane: number,
@@ -367,6 +371,20 @@ function Game() {
                   aria-label="Previous reveal"
                 >
                   <h2>Previous reveal</h2>
+                  {revealing && (
+                    <button className={button()} onClick={skip}>
+                      Skip reveal
+                    </button>
+                  )}
+                  {revealing && (
+                    <p role="status">
+                      {step?.event.type === "card-revealed"
+                        ? `Revealed ${step.event.card.name}`
+                        : step?.event.type === "turn-ended"
+                          ? "Turn ended"
+                          : "Revealing turn…"}
+                    </p>
+                  )}
                   <ol>
                     {view.events.map((event, index) => (
                       <li key={index}>

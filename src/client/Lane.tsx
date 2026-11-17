@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { CardMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { LANE_CAPACITY } from "../rules/index.ts";
@@ -60,10 +61,42 @@ export default function Lane({
         >
           No location effect.
         </div>
-        <p className={css({ m: "none", fontSize: "small", color: "muted" })}>
+        <motion.p
+          key={`${String(ownTotal)}:${String(opponentTotal)}`}
+          initial={{ opacity: 0.5 }}
+          animate={{ opacity: 1 }}
+          className={css({ m: "none", fontSize: "small", color: "muted" })}
+        >
           Opponent total: {opponentTotal} · Your total: {ownTotal}
-        </p>
+        </motion.p>
       </header>
+      <motion.p
+        key={
+          ownTotal === opponentTotal
+            ? "tied"
+            : ownTotal > opponentTotal
+              ? "own"
+              : "opponent"
+        }
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={css({
+          m: "none",
+          fontSize: "small",
+          color:
+            ownTotal > opponentTotal
+              ? "positive"
+              : ownTotal < opponentTotal
+                ? "negative"
+                : "muted",
+        })}
+      >
+        {ownTotal === opponentTotal
+          ? "Lane tied"
+          : ownTotal > opponentTotal
+            ? "You lead"
+            : "Opponent leads"}
+      </motion.p>
       <Slots
         inspectCard={inspectCard}
         label="Opponent cards"
@@ -137,7 +170,7 @@ function Slots({
             })}
           >
             {data ? (
-              <CardMotion id={data.id}>
+              <CardMotion id={data.id} flip={!!revealed}>
                 <Card
                   data={data}
                   size="lane"

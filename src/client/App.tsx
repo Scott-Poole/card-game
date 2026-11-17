@@ -24,7 +24,7 @@ function SessionRoute() {
 
 function Shell() {
   const { pathname } = useLocation();
-  if (pathname === "/match")
+  if (pathname === "/match" || pathname === "/result")
     return (
       <main>
         <ProtocolGame />
