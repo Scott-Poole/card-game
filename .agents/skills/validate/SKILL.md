@@ -15,3 +15,7 @@ Own the evidence before GitHub runs. A green pipeline confirms local work; it do
 6. Before opening or updating a PR, record commands, results, interactions performed, any unverified acceptance criterion, and git diff --stat. Claim completion only when every applicable criterion has evidence.
 
 Done when the final tree passes the full local gate, changed behavior has been exercised through its public interface, and the PR evidence reflects what actually ran.
+
+## Stories for UI validation
+
+Use `pnpm storybook` to inspect Card, Lane and Board stories, including odd states such as full lanes, staging, ties and ended matches. Add or adjust protocol-typed fixtures beside the stories when a changed state needs coverage. Take screenshots of the relevant stories during browser validation and record what you inspected. Storybook is a development tool outside `pnpm check`; use `pnpm build-storybook` when changing its setup.
