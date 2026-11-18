@@ -192,6 +192,11 @@ touch "$(git -C "$READ_MAIN_DIR" rev-parse --absolute-git-dir)/index.lock"
 run "$WORK/primary"
 check "a stale index.lock triggers a rebuild that succeeds" '[ "$CODE" -eq 0 ] && grep -Fq "rebuilding it" <<<"$ERR" && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ] && [ -e "$(git -C "$READ_MAIN_DIR" rev-parse --absolute-git-dir)/read-main-view" ]'
 
+# 17c. The same rebuild works when the caller stands inside the view being rebuilt.
+touch "$(git -C "$READ_MAIN_DIR" rev-parse --absolute-git-dir)/index.lock"
+run "$READ_MAIN_DIR"
+check "a rebuild from inside the view succeeds and leaves the view registered" '[ "$CODE" -eq 0 ] && grep -Fq "rebuilding it" <<<"$ERR" && git -C "$WORK/primary" worktree list --porcelain | grep -Fq "worktree $READ_MAIN_DIR" && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ]'
+
 # 18. A detached worktree the script did not create is refused untouched.
 git -C "$WORK/primary" worktree add -q --detach "$WORK/pin" origin/main >/dev/null 2>&1
 echo precious >"$WORK/pin/wip.txt"

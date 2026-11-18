@@ -53,7 +53,8 @@ marker() { echo "$(git -C "$VIEW" rev-parse --absolute-git-dir)/read-main-view";
 create() {
 	mkdir -p "$(dirname "$VIEW")"
 	# -f: a registration whose directory is gone would otherwise block the add.
-	git -C "$CALLER" worktree add --quiet --detach -f "$VIEW" "$SHA"
+	# From the common dir, not $CALLER: the caller may be standing inside the view being rebuilt.
+	git -C "$COMMON" worktree add --quiet --detach -f "$VIEW" "$SHA"
 	touch "$(marker)"
 }
 view_files() { (cd "$VIEW" && find . -path ./.git -prune -o \( -type f -o -type l \) -print0 | sed -z 's|^\./||' | sort -z); }
@@ -85,7 +86,7 @@ if [ -e "$VIEW" ]; then
 	# Reader state the reset cannot clear (a stale index.lock, say): rebuild the view, and say so.
 	if ! RESET_ERR=$(reset 2>&1); then
 		echo "read-main: the reset left the view unclean (${RESET_ERR//$'\n'/ }); rebuilding it" >&2
-		git -C "$CALLER" worktree remove --force --force "$VIEW" ||
+		git -C "$COMMON" worktree remove --force --force "$VIEW" ||
 			die "could not remove $VIEW; delete the directory by hand, run 'git worktree prune', and re-run"
 		create
 	fi
