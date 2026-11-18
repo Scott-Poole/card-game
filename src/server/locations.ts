@@ -25,7 +25,7 @@ export const locations: readonly LocationDefinition[] = [
   {
     id: "hesperides-grove",
     name: "Grove of the Hesperides",
-    text: "Golden fruit feeds all who gather: each of your cards here adds 1 power.",
+    text: "Each card you play here adds 1 power.",
     effect: { kind: "power-per-card", amount: 1 },
   },
   {
@@ -43,7 +43,7 @@ export const locations: readonly LocationDefinition[] = [
   {
     id: "forge-beneath-etna",
     name: "Forge Beneath Etna",
-    text: "The furnace roars for every worker: each of your cards here adds 2 power.",
+    text: "Each card you play here adds 2 power.",
     effect: { kind: "power-per-card", amount: 2 },
   },
   {

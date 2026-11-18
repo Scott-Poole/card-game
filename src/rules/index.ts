@@ -6,9 +6,6 @@ export const DECK_SIZE = 12;
 export const MAX_LOCATION_NAME = 40;
 export const MAX_LOCATION_TEXT = 160;
 
-export const MIN_POWER_PER_CARD = 1;
-export const MAX_POWER_PER_CARD = 2;
-
 /** What a location does. Closed union: adding a kind fails the typecheck at
  * LOCATION_EFFECT_KINDS and at laneTotal's exhaustive switch until both
  * handle it. */
@@ -18,8 +15,7 @@ export interface NoLocationEffect {
 /** Each of a player's revealed cards in the lane adds `amount` power. */
 export interface PowerPerCardEffect {
   readonly kind: "power-per-card";
-  /** An integer from MIN_POWER_PER_CARD to MAX_POWER_PER_CARD. */
-  readonly amount: number;
+  readonly amount: 1 | 2;
 }
 export type LocationEffect = NoLocationEffect | PowerPerCardEffect;
 export type LocationEffectKind = LocationEffect["kind"];
@@ -33,17 +29,11 @@ export function isLocationEffectKind(
   return typeof kind === "string" && Object.hasOwn(LOCATION_EFFECT_KINDS, kind);
 }
 /** True for an amount a `power-per-card` effect may carry. */
-export function isPowerPerCardAmount(amount: unknown): amount is number {
-  return (
-    typeof amount === "number" &&
-    Number.isInteger(amount) &&
-    amount >= MIN_POWER_PER_CARD &&
-    amount <= MAX_POWER_PER_CARD
-  );
+export function isPowerPerCardAmount(amount: unknown): amount is 1 | 2 {
+  return amount === 1 || amount === 2;
 }
 /** One player's lane total: printed power of their revealed cards plus what
- * the lane's location effect adds. The single implementation: engine scoring
- * and the client's running totals both call it. */
+ * the lane's location effect adds. */
 export function laneTotal(
   cards: readonly { readonly power: number }[],
   effect: LocationEffect,
@@ -59,6 +49,17 @@ export function laneTotal(
       return exhaustive;
     }
   }
+}
+/** One side's lane totals in lane order, given the match's lane locations.
+ * The single implementation: engine scoring and the client's running totals
+ * both call it. */
+export function laneTotals(
+  lanes: readonly (readonly { readonly power: number }[])[],
+  locations: readonly { readonly effect: LocationEffect }[],
+): number[] {
+  return lanes.map((cards, lane) =>
+    laneTotal(cards, locations[lane]?.effect ?? { kind: "none" }),
+  );
 }
 export interface LocationDefinition {
   readonly id: string;

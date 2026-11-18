@@ -25,12 +25,12 @@ const test = base.extend<{
   address: string;
   pair: readonly [Page, Page];
   controlledClock: boolean;
-  // "shipped" is the real pool; "plain" and "boosted" pin the pool through
-  // e2e/server.ts: no effects, or one power-per-card lane.
+  // "plain" (default, so totals equal printed power) and "boosted" pin the
+  // pool through e2e/server.ts; "shipped" is the real random pool.
   locationPool: "shipped" | "plain" | "boosted";
 }>({
   controlledClock: [false, { option: true }],
-  locationPool: ["shipped", { option: true }],
+  locationPool: ["plain", { option: true }],
   pair: async ({ browser, address, controlledClock }, use) => {
     const first = await browser.newContext();
     const second = await browser.newContext();
@@ -301,9 +301,6 @@ test("two players finish six turns with consistent results", async ({
   }
 });
 
-// Totals here must equal printed power, so no lane may carry an effect.
-const plainTest = test.extend({ locationPool: "plain" });
-
 async function reachPlayableTurn(a: Page, b: Page) {
   // Real shuffled decks can lack an affordable opening card. Empty commits are legal.
   for (let turn = 1; turn <= 6; turn++) {
@@ -322,28 +319,31 @@ async function reachPlayableTurn(a: Page, b: Page) {
   throw new Error("No playable card in six turns");
 }
 
-test("both players see the same three locations, one per lane in lane order", async ({
-  pair,
-}) => {
-  const { locations: pool } = await import("../src/server/locations.ts");
-  const seen = [];
-  for (const page of pair) {
-    const names = [];
-    for (const number of [1, 2, 3]) {
-      const lane = page.getByRole("region", {
-        name: `Lane ${String(number)}`,
-        exact: true,
-      });
-      const text = (await lane.textContent()) ?? "";
-      const matches = pool.filter(({ name }) => text.includes(name));
-      expect(matches).toHaveLength(1);
-      await expect(lane).toContainText(matches[0]?.text ?? "");
-      names.push(matches[0]?.name);
+test.describe("shipped location pool", () => {
+  test.use({ locationPool: "shipped" });
+  test("both players see the same three locations, one per lane in lane order", async ({
+    pair,
+  }) => {
+    const { locations: pool } = await import("../src/server/locations.ts");
+    const seen = [];
+    for (const page of pair) {
+      const names = [];
+      for (const number of [1, 2, 3]) {
+        const lane = page.getByRole("region", {
+          name: `Lane ${String(number)}`,
+          exact: true,
+        });
+        const text = (await lane.textContent()) ?? "";
+        const matches = pool.filter(({ name }) => text.includes(name));
+        expect(matches).toHaveLength(1);
+        await expect(lane).toContainText(matches[0]?.text ?? "");
+        names.push(matches[0]?.name);
+      }
+      expect(new Set(names).size).toBe(3);
+      seen.push(names);
     }
-    expect(new Set(names).size).toBe(3);
-    seen.push(names);
-  }
-  expect(seen[0]).toEqual(seen[1]);
+    expect(seen[0]).toEqual(seen[1]);
+  });
 });
 test("staging prevents overspend, returns unstaged cards, and locks after commit", async ({
   pair: [a, b],
@@ -774,147 +774,145 @@ test("multiple staged cards can be returned from the portrait board", async ({
   await expect(buttons).toHaveCount(0);
 });
 
-plainTest(
-  "revealed lane cards and totals follow both players through every turn",
-  async ({ pair: [a, b] }) => {
-    test.setTimeout(30_000);
-    await a.setViewportSize({ width: 390, height: 844 });
-    await b.setViewportSize({ width: 1440, height: 900 });
-    const records = new Map<
-      Page,
-      { name: string; power: number; lane: number }[]
-    >([
-      [a, []],
-      [b, []],
-    ]);
-    for (let turn = 1; turn <= 6; turn++) {
-      for (const page of [a, b]) {
-        await expect(
-          page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
-        ).toBeVisible();
-        const choices = page
-          .getByRole("button", { name: /Stage .* in lane/ })
-          .and(page.locator(":enabled"));
-        const preferred = choices.filter({
-          hasText: `Lane ${String((turn % 3) + 1)}`,
+test("revealed lane cards and totals follow both players through every turn", async ({
+  pair: [a, b],
+}) => {
+  test.setTimeout(30_000);
+  await a.setViewportSize({ width: 390, height: 844 });
+  await b.setViewportSize({ width: 1440, height: 900 });
+  const records = new Map<
+    Page,
+    { name: string; power: number; lane: number }[]
+  >([
+    [a, []],
+    [b, []],
+  ]);
+  for (let turn = 1; turn <= 6; turn++) {
+    for (const page of [a, b]) {
+      await expect(
+        page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
+      ).toBeVisible();
+      const choices = page
+        .getByRole("button", { name: /Stage .* in lane/ })
+        .and(page.locator(":enabled"));
+      const preferred = choices.filter({
+        hasText: `Lane ${String((turn % 3) + 1)}`,
+      });
+      const play = (await preferred.count())
+        ? preferred.first()
+        : choices.first();
+      if (await play.count()) {
+        const label = await play.getAttribute("aria-label");
+        const match = /^Stage (.*) in lane (\d+)$/.exec(label ?? "");
+        if (!match?.[1] || !match[2]) throw new Error("Missing play label");
+        const name = match[1];
+        const powerText = await page
+          .getByRole("region", { name: "Hand", exact: true })
+          .getByRole("article", { name, exact: true })
+          .getByText(/^Power /)
+          .innerText();
+        const laneRegion = page.getByRole("region", {
+          name: `Lane ${match[2]}`,
+          exact: true,
         });
-        const play = (await preferred.count())
-          ? preferred.first()
-          : choices.first();
-        if (await play.count()) {
-          const label = await play.getAttribute("aria-label");
-          const match = /^Stage (.*) in lane (\d+)$/.exec(label ?? "");
-          if (!match?.[1] || !match[2]) throw new Error("Missing play label");
-          const name = match[1];
-          const powerText = await page
-            .getByRole("region", { name: "Hand", exact: true })
-            .getByRole("article", { name, exact: true })
-            .getByText(/^Power /)
-            .innerText();
-          const laneRegion = page.getByRole("region", {
-            name: `Lane ${match[2]}`,
-            exact: true,
-          });
-          const totalBefore = await laneRegion
-            .getByText(/^Opponent total:/)
-            .innerText();
-          await play.press("Enter");
-          await expect(
-            page
-              .getByRole("region", { name: `Lane ${match[2]}`, exact: true })
-              .getByRole("group", { name: "Your cards" })
-              .getByRole("article", { name, exact: true }),
-          ).toBeVisible();
-          await expect(laneRegion.getByText(/^Opponent total:/)).toHaveText(
-            totalBefore,
-          );
-          const preview = laneRegion
-            .getByRole("group", { name: "Your cards" })
-            .getByRole("article", { name, exact: true });
-          await expect(preview).toHaveAccessibleDescription(
-            "Staged, not yet revealed",
-          );
-          await expect(async () => {
-            const previewBox = await preview.boundingBox();
-            const nameBox = await preview
-              .getByText(name, { exact: true })
-              .boundingBox();
-            if (!previewBox || !nameBox)
-              throw new Error("Missing preview text");
-            const statBox = await preview.getByLabel(/^Power /).boundingBox();
-            if (!statBox) throw new Error("Missing preview power");
-            expect(nameBox.height).toBeLessThanOrEqual(statBox.height + 1);
-
-            expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
-              previewBox.y + previewBox.height + 1,
-            );
-          }).toPass({ timeout: 1000 });
-          records.get(page)?.push({
-            name,
-            power: Number(powerText.replace("Power ", "")),
-            lane: Number(match[2]),
-          });
-        }
-        await commitButton(page).click();
-      }
-      for (const page of [a, b]) {
+        const totalBefore = await laneRegion
+          .getByText(/^Opponent total:/)
+          .innerText();
+        await play.press("Enter");
         await expect(
-          page.getByRole("button", {
-            name: turn === 6 ? "View result" : `End turn ${String(turn + 1)}/6`,
-            exact: true,
-          }),
+          page
+            .getByRole("region", { name: `Lane ${match[2]}`, exact: true })
+            .getByRole("group", { name: "Your cards" })
+            .getByRole("article", { name, exact: true }),
         ).toBeVisible();
-        for (let lane = 1; lane <= 3; lane++) {
-          const own = (records.get(page) ?? []).filter(
-            (card) => card.lane === lane,
+        await expect(laneRegion.getByText(/^Opponent total:/)).toHaveText(
+          totalBefore,
+        );
+        const preview = laneRegion
+          .getByRole("group", { name: "Your cards" })
+          .getByRole("article", { name, exact: true });
+        await expect(preview).toHaveAccessibleDescription(
+          "Staged, not yet revealed",
+        );
+        await expect(async () => {
+          const previewBox = await preview.boundingBox();
+          const nameBox = await preview
+            .getByText(name, { exact: true })
+            .boundingBox();
+          if (!previewBox || !nameBox) throw new Error("Missing preview text");
+          const statBox = await preview.getByLabel(/^Power /).boundingBox();
+          if (!statBox) throw new Error("Missing preview power");
+          expect(nameBox.height).toBeLessThanOrEqual(statBox.height + 1);
+
+          expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
+            previewBox.y + previewBox.height + 1,
           );
-          const opponent = (records.get(page === a ? b : a) ?? []).filter(
-            (card) => card.lane === lane,
-          );
-          const region = page.getByRole("region", {
-            name: `Lane ${String(lane)}`,
-            exact: true,
-          });
-          await expect(
-            region.getByText(
-              `Opponent total: ${String(opponent.reduce((sum, card) => sum + card.power, 0))} · Your total: ${String(own.reduce((sum, card) => sum + card.power, 0))}`,
-              { exact: true },
-            ),
-          ).toBeVisible();
-          for (const [label, cards] of [
-            ["Your cards", own],
-            ["Opponent cards", opponent],
-          ] satisfies [string, typeof own][]) {
-            const group = region.getByRole("group", { name: label });
-            await expect(group.getByRole("article")).toHaveCount(cards.length);
-            for (const card of cards) {
-              const article = group.getByRole("article", {
-                name: card.name,
-                exact: true,
-              });
-              await expect(article).toBeVisible();
-              await expect(async () => {
-                const box = await article.boundingBox();
-                const nameBox = await article
-                  .getByText(card.name, { exact: true })
-                  .boundingBox();
-                const regionBox = await region.boundingBox();
-                if (!box || !nameBox || !regionBox)
-                  throw new Error("Missing card text or lane");
-                expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
-                  box.y + box.height + 1,
-                );
-                expect(box.y + box.height).toBeLessThanOrEqual(
-                  regionBox.y + regionBox.height + 1,
-                );
-              }).toPass({ timeout: 1000 });
-            }
+        }).toPass({ timeout: 1000 });
+        records.get(page)?.push({
+          name,
+          power: Number(powerText.replace("Power ", "")),
+          lane: Number(match[2]),
+        });
+      }
+      await commitButton(page).click();
+    }
+    for (const page of [a, b]) {
+      await expect(
+        page.getByRole("button", {
+          name: turn === 6 ? "View result" : `End turn ${String(turn + 1)}/6`,
+          exact: true,
+        }),
+      ).toBeVisible();
+      for (let lane = 1; lane <= 3; lane++) {
+        const own = (records.get(page) ?? []).filter(
+          (card) => card.lane === lane,
+        );
+        const opponent = (records.get(page === a ? b : a) ?? []).filter(
+          (card) => card.lane === lane,
+        );
+        const region = page.getByRole("region", {
+          name: `Lane ${String(lane)}`,
+          exact: true,
+        });
+        await expect(
+          region.getByText(
+            `Opponent total: ${String(opponent.reduce((sum, card) => sum + card.power, 0))} · Your total: ${String(own.reduce((sum, card) => sum + card.power, 0))}`,
+            { exact: true },
+          ),
+        ).toBeVisible();
+        for (const [label, cards] of [
+          ["Your cards", own],
+          ["Opponent cards", opponent],
+        ] satisfies [string, typeof own][]) {
+          const group = region.getByRole("group", { name: label });
+          await expect(group.getByRole("article")).toHaveCount(cards.length);
+          for (const card of cards) {
+            const article = group.getByRole("article", {
+              name: card.name,
+              exact: true,
+            });
+            await expect(article).toBeVisible();
+            await expect(async () => {
+              const box = await article.boundingBox();
+              const nameBox = await article
+                .getByText(card.name, { exact: true })
+                .boundingBox();
+              const regionBox = await region.boundingBox();
+              if (!box || !nameBox || !regionBox)
+                throw new Error("Missing card text or lane");
+              expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(
+                box.y + box.height + 1,
+              );
+              expect(box.y + box.height).toBeLessThanOrEqual(
+                regionBox.y + regionBox.height + 1,
+              );
+            }).toPass({ timeout: 1000 });
           }
         }
       }
     }
-  },
-);
+  }
+});
 
 test("inspect and select a card, then play it with the keyboard", async ({
   pair: [a, b],
@@ -1555,41 +1553,40 @@ for (const finish of [
   });
 }
 
-plainTest(
-  "two players reveal both sides and agree on lane totals",
-  async ({ pair: [a, b] }) => {
-    // By turn three every opening hand contains an affordable card.
-    for (let turn = 1; turn < 3; turn++) {
-      for (const page of [a, b]) await commitButton(page).click();
-      for (const page of [a, b])
-        await expect(
-          page.getByRole("button", { name: `End turn ${String(turn + 1)}/6` }),
-        ).toBeVisible();
-    }
-    for (const page of [a, b]) {
-      await page
-        .getByRole("button", { name: /Stage .* in lane 1$/ })
-        .and(page.locator(":enabled"))
-        .first()
-        .press("Enter");
-      await commitButton(page).click();
-    }
-    const totals: string[] = [];
-    for (const page of [a, b]) {
+test("two players reveal both sides and agree on lane totals", async ({
+  pair: [a, b],
+}) => {
+  // By turn three every opening hand contains an affordable card.
+  for (let turn = 1; turn < 3; turn++) {
+    for (const page of [a, b]) await commitButton(page).click();
+    for (const page of [a, b])
       await expect(
-        page.getByRole("button", { name: "End turn 4/6" }),
+        page.getByRole("button", { name: `End turn ${String(turn + 1)}/6` }),
       ).toBeVisible();
-      const lane = page.getByRole("region", { name: "Lane 1", exact: true });
-      for (const side of ["Your cards", "Opponent cards"])
-        await expect(
-          lane.getByRole("group", { name: side }).getByRole("article"),
-        ).toHaveCount(1);
-      totals.push(await lane.getByText(/^Opponent total:/).innerText());
-    }
-    const values = totals.map((text) => text.match(/\d+/g));
-    expect(values[0]).toEqual(values[1]?.toReversed());
-  },
-);
+  }
+  for (const page of [a, b]) {
+    await page
+      .getByRole("button", { name: /Stage .* in lane 1$/ })
+      .and(page.locator(":enabled"))
+      .first()
+      .press("Enter");
+    await commitButton(page).click();
+  }
+  const totals: string[] = [];
+  for (const page of [a, b]) {
+    await expect(
+      page.getByRole("button", { name: "End turn 4/6" }),
+    ).toBeVisible();
+    const lane = page.getByRole("region", { name: "Lane 1", exact: true });
+    for (const side of ["Your cards", "Opponent cards"])
+      await expect(
+        lane.getByRole("group", { name: side }).getByRole("article"),
+      ).toHaveCount(1);
+    totals.push(await lane.getByText(/^Opponent total:/).innerText());
+  }
+  const values = totals.map((text) => text.match(/\d+/g));
+  expect(values[0]).toEqual(values[1]?.toReversed());
+});
 
 test("match-ending reveal stays on the board until playback finishes", async ({
   page,
@@ -1828,15 +1825,28 @@ test.describe("power-per-card location", () => {
     test.setTimeout(30_000);
     const boosted = a
       .getByRole("region", { name: /^Lane \d$/ })
-      .filter({ hasText: "Boosted Grove" });
-    await expect(boosted).toContainText("adds 2 power");
+      .filter({ hasText: "Forge Beneath Etna" });
+    // The shipped rule text must be readable, not clipped by the lane header.
+    for (const [page, size] of [
+      [a, { width: 390, height: 844 }],
+      [b, { width: 1440, height: 900 }],
+    ] as const) {
+      await page.setViewportSize(size);
+      const rule = page
+        .getByRole("region", { name: /^Lane \d$/ })
+        .getByText("Each card you play here adds 2 power.", { exact: true });
+      await expect(rule).toBeVisible();
+      expect(
+        await rule.evaluate((el) => el.scrollHeight <= el.clientHeight),
+      ).toBe(true);
+    }
     const laneName = (await boosted.getAttribute("aria-label")) ?? "";
     const lane = /^Lane (\d)$/.exec(laneName)?.[1];
     if (!lane) throw new Error("Missing boosted lane");
     await expect(
       b
         .getByRole("region", { name: `Lane ${lane}`, exact: true })
-        .getByText("Boosted Grove", { exact: true }),
+        .getByText("Forge Beneath Etna", { exact: true }),
     ).toBeVisible();
     const powers = new Map<Page, number[]>([
       [a, []],

@@ -563,6 +563,13 @@ test("power-per-card flips a lane winner, the reveal order and the match winner 
       hand1.slice(0, 2).map((card) => ({ cardId: card.id, lane: 0 })),
     ).state;
     const revealFirst = playerView(state, 0).revealFirst;
+    // Branch: if turn 2 staged a card each, the first reveal event follows
+    // the order. The main line stages nothing, so totals stay as set above.
+    const branch = turn(state, play(state, 0, 1), play(state, 1, 2));
+    const firstReveal = branch.events.find((e) => e.type === "card-revealed");
+    expect(firstReveal?.type === "card-revealed" && firstReveal.player).toBe(
+      revealFirst,
+    );
     for (let t = 2; t <= 6; t++) state = turn(state).state;
     return { state, revealFirst };
   };

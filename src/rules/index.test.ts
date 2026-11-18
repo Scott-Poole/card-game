@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { checkStaging, laneTotal, legalPlays } from "./index.ts";
+import { checkStaging, laneTotal, laneTotals, legalPlays } from "./index.ts";
 import type { LocationEffect } from "./index.ts";
 
 test("move generation excludes spent energy, full lanes and already staged cards", () => {
@@ -65,7 +65,7 @@ test("replacement staging preserves established errors and precedence", () => {
 const cardsOf = (count: number) =>
   [3, 1, 2, 4].slice(0, count).map((power) => ({ power }));
 const none: LocationEffect = { kind: "none" };
-const perCard = (amount: number): LocationEffect => ({
+const perCard = (amount: 1 | 2): LocationEffect => ({
   kind: "power-per-card",
   amount,
 });
@@ -86,3 +86,15 @@ test.each([
     expect(laneTotal(cardsOf(count), effect)).toBe(total);
   },
 );
+
+test("lane totals apply each lane's own location effect, defaulting to none", () => {
+  expect(
+    laneTotals(
+      [cardsOf(2), cardsOf(2), cardsOf(2)],
+      [{ effect: none }, { effect: perCard(1) }, { effect: perCard(2) }],
+    ),
+  ).toEqual([4, 6, 8]);
+  expect(
+    laneTotals([cardsOf(2), cardsOf(2)], [{ effect: perCard(2) }]),
+  ).toEqual([8, 4]);
+});

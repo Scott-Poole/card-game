@@ -1,28 +1,21 @@
 // Starts the production server for browser tests with a controlled location
-// pool: `E2E_LOCATIONS` is "boosted" (one power-per-card lane among two plain
-// ones) or "plain" (no effects, so totals equal printed power).
+// pool built from the shipped content: `E2E_LOCATIONS` is "boosted" (the
+// Forge Beneath Etna power-per-card lane among two plain ones) or "plain"
+// (no effects, so totals equal printed power).
 import { startServer } from "../src/server/index.ts";
-import type { LocationDefinition } from "../src/rules/index.ts";
+import { locations } from "../src/server/locations.ts";
 
-const plain = (id: string): LocationDefinition => ({
-  id: `plain-${id}`,
-  name: `Plain ${id}`,
-  text: "No effect for now.",
-  effect: { kind: "none" },
-});
-const pool: readonly LocationDefinition[] =
+const plain = locations
+  .filter((location) => location.effect.kind === "none")
+  .slice(0, 3);
+const forge = locations.find(
+  (location) => location.id === "forge-beneath-etna",
+);
+if (!forge) throw new Error("shipped pool lost the Forge Beneath Etna");
+const pool =
   process.env.E2E_LOCATIONS === "boosted"
-    ? [
-        {
-          id: "boosted-grove",
-          name: "Boosted Grove",
-          text: "Each of your cards here adds 2 power.",
-          effect: { kind: "power-per-card", amount: 2 },
-        },
-        plain("one"),
-        plain("two"),
-      ]
-    : [plain("one"), plain("two"), plain("three")];
+    ? [forge, ...plain.slice(0, 2)]
+    : plain;
 
 const server = await startServer({
   port: Number(process.env.PORT ?? "0"),

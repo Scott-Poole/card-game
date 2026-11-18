@@ -1,4 +1,4 @@
-import { laneTotal } from "../rules/index.ts";
+import { laneTotals } from "../rules/index.ts";
 import type { LocationEffect } from "../rules/index.ts";
 
 interface RevealedLanes {
@@ -12,9 +12,8 @@ export function selectLaneTotals(view: {
   readonly opponent: RevealedLanes;
   readonly locations: readonly { readonly effect: LocationEffect }[];
 }) {
-  const totals = (side: RevealedLanes) =>
-    side.lanes.map((cards, lane) =>
-      laneTotal(cards, view.locations[lane]?.effect ?? { kind: "none" }),
-    );
-  return { own: totals(view.own), opponent: totals(view.opponent) };
+  return {
+    own: laneTotals(view.own.lanes, view.locations),
+    opponent: laneTotals(view.opponent.lanes, view.locations),
+  };
 }

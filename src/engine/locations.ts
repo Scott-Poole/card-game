@@ -50,12 +50,16 @@ export function validateLocations(
     if (!entry.text.trim() || entry.text.length > MAX_LOCATION_TEXT)
       add("text");
     if (!isLocationEffectKind(entry.effect.kind)) add("effect");
-    else if (entry.effect.kind === "power-per-card") {
-      if (!isPowerPerCardAmount(entry.effect.amount)) add("effect");
-      // Rule text must state the amount so players read what the lane does.
-      else if (!entry.text.includes(String(entry.effect.amount)))
-        add("effect-text");
-    }
+    else if (entry.effect.kind === "none") {
+      if ("amount" in entry.effect) add("effect");
+    } else if (!isPowerPerCardAmount(entry.effect.amount)) add("effect");
+    // Rule text must state the amount as a whole number, not inside another.
+    else if (
+      !new RegExp(`(?<!\\d)${String(entry.effect.amount)}(?!\\d)`).test(
+        entry.text,
+      )
+    )
+      add("effect-text");
   });
   return issues;
 }

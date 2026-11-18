@@ -56,6 +56,27 @@ test.each([
     [{ code: "effect", index: 0 }],
   ],
   [
+    "effect-text stating 10 for amount 1",
+    {
+      text: "Each card here adds 10 power.",
+      effect: { kind: "power-per-card", amount: 1 },
+    },
+    [{ code: "effect-text", index: 0 }],
+  ],
+  [
+    "effect-text stating 12 for amount 2",
+    {
+      text: "Each card here adds 12 power.",
+      effect: { kind: "power-per-card", amount: 2 },
+    },
+    [{ code: "effect-text", index: 0 }],
+  ],
+  [
+    "a none effect carrying an amount",
+    { effect: { kind: "none", amount: 1 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
     "effect-text without the amount",
     {
       text: "Each card here adds power.",
