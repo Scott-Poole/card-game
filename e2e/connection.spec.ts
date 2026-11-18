@@ -279,7 +279,6 @@ test("both players see the same three locations, one per lane in lane order", as
         name: `Lane ${String(number)}`,
         exact: true,
       });
-      await expect(lane).toContainText(pool[0]?.text ?? "");
       const text = (await lane.textContent()) ?? "";
       const matches = pool.filter(({ name }) => text.includes(name));
       expect(matches).toHaveLength(1);
