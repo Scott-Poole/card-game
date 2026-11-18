@@ -17,11 +17,18 @@ export type RosterIssue =
         | "power"
         | "tradition"
         | "figure"
+        | "name-figure"
         | "flavor";
       readonly index: number;
     };
 
-/** Validates authored content, without changing the roster or throwing. */
+/**
+ * Validates authored content, without changing the roster or throwing.
+ *
+ * Each card's name must read `"<figure>, <epithet>"`: it starts with the
+ * trimmed `figure` (case-sensitive), then `", "`, then a non-blank epithet. A
+ * blank figure is reported as `figure` only, since no name can match it.
+ */
 export function validateRoster(
   entries: readonly (Omit<RosterEntry, "tradition"> & {
     readonly tradition: string;
@@ -53,7 +60,13 @@ export function validateRoster(
       add("power");
     if (entry.tradition !== "greek" && entry.tradition !== "roman")
       add("tradition");
-    if (!entry.figure.trim()) add("figure");
+    const figure = entry.figure.trim();
+    if (!figure) add("figure");
+    else if (
+      !card.name.startsWith(`${figure}, `) ||
+      !card.name.slice(figure.length + 2).trim()
+    )
+      add("name-figure");
     if (!entry.flavor.trim() || entry.flavor.length > 120) add("flavor");
   });
   for (let cost = 1; cost <= 6; cost++) {
