@@ -22,7 +22,7 @@ PRIMARY=$(worktrees | sed -n '1s/^worktree //p')
 
 # One lock per repository: concurrent agents serialise instead of fighting over the ref and the checkout.
 exec 9>"$COMMON/read-main.lock"
-flock -w 120 9 || die "another read-main run has held the lock for 120s; try again"
+flock -w 120 9 || die "another read-main run (a slow fetch?) has held the lock for 120s; try again"
 
 # A stale view is the failure this script exists to prevent: if the fetch fails, fail with it.
 # The explicit refspec moves origin/main whatever the clone's configured refspec says.
@@ -74,8 +74,9 @@ reset() {
 		matches_tip
 }
 
-if [ -d "$VIEW" ]; then
-	registered "$VIEW" || die "$VIEW exists but is not a worktree of this repo ($(cat "$VIEW/.git" 2>/dev/null || echo 'no .git file')); if it is a leftover, remove it and re-run"
+if [ -e "$VIEW" ]; then
+	[ -d "$VIEW" ] || die "$VIEW exists and is not a directory; remove it and re-run"
+	registered "$VIEW" || die "$VIEW exists but is not a worktree of this repo ($(if [ -f "$VIEW/.git" ]; then cat "$VIEW/.git"; elif [ -e "$VIEW/.git" ]; then echo 'holds its own repository'; else echo 'no .git entry'; fi)); if it is a leftover, remove it and re-run"
 	# The reset discards everything in the directory, so only ever reset a view this script made:
 	# never the primary checkout, never a worktree on a branch, never a worktree it did not create.
 	[ "$VIEW" != "$(realpath -m "$PRIMARY")" ] || die "$VIEW is the primary checkout; refusing to reset it"

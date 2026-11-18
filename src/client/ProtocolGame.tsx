@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { animate, motion } from "motion/react";
 import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
-import { useRef, useState, useLayoutEffect } from "react";
+import { useRef, useState, useLayoutEffect, type ReactNode } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import {
   DragPreview,
@@ -155,7 +155,13 @@ function Game() {
             {view && (
               <>
                 <header className="board-tags">
-                  <span>Opponent · Player {view.player === 0 ? 2 : 1}</span>
+                  <PlayerTag
+                    revealsFirst={
+                      view.revealFirst === (view.player === 0 ? 1 : 0)
+                    }
+                  >
+                    Opponent · Player {view.player === 0 ? 2 : 1}
+                  </PlayerTag>
                   <div
                     className={css({ textAlign: "center", fontSize: "small" })}
                   >
@@ -167,7 +173,9 @@ function Game() {
                       of {view.own.lanes.length} lanes
                     </span>
                   </div>
-                  <span>You · Player {view.player + 1}</span>
+                  <PlayerTag revealsFirst={view.revealFirst === view.player}>
+                    You · Player {view.player + 1}
+                  </PlayerTag>
                 </header>
                 <div className="board-notices">
                   <ConnectionIndicator status={status} />
@@ -553,6 +561,34 @@ function Game() {
         )}
       </DragDropProvider>
     </CardMotionScope>
+  );
+}
+
+/** Lights up for the player whose cards reveal first this turn. */
+function PlayerTag({
+  revealsFirst,
+  children,
+}: {
+  revealsFirst: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      data-reveals-first={revealsFirst || undefined}
+      className={css({
+        px: "sm",
+        borderRadius: "control",
+        border: "[1px solid transparent]",
+        "&[data-reveals-first]": {
+          color: "text",
+          borderColor: "accent",
+          bg: "raised",
+        },
+      })}
+    >
+      {children}
+      {revealsFirst && " · Reveals first"}
+    </span>
   );
 }
 

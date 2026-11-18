@@ -144,7 +144,7 @@ test.each([
   { a: [0, 1], b: [2, 2], ap: 1, bp: 9, first: 0 },
   { a: [0, 0], b: [1, 1], ap: 1, bp: 9, first: 1 },
 ])(
-  "initiative uses lane wins then total power: %j",
+  "reveal order uses lane wins then total power: %j",
   ({ a, b, ap, bp, first }) => {
     let state = createMatch(42, [deck(ap), deck(bp)], testLocations);
     for (let i = 0; i < 2; i++)
@@ -153,6 +153,8 @@ test.each([
         play(state, 0, a[i] ?? 0),
         play(state, 1, b[i] ?? 0),
       ).state;
+    expect(playerView(state, 0).revealFirst).toBe(first);
+    expect(playerView(state, 1).revealFirst).toBe(first);
     const events = turn(state, play(state, 0, 2), play(state, 1, 2)).events;
     expect(
       events.filter((e) => e.type === "card-revealed").map((e) => e.player),
@@ -160,8 +162,8 @@ test.each([
   },
 );
 
-test("seeded initiative can pick either player and is reproducible", () => {
-  const firsts = new Set<number>();
+test("a tied board's seeded flip can pick either player and is reproducible", () => {
+  const firsts = new Set<number | null>();
   for (let seed = 0; seed < 20; seed++) {
     const state = createMatch(seed, [deck(), deck()], testLocations);
     const a = play(state, 0, 0);
@@ -169,9 +171,64 @@ test("seeded initiative can pick either player and is reproducible", () => {
     const result = turn(state, a, b);
     expect(result).toEqual(turn(state, a, b));
     const event = result.events[0];
-    if (event?.type === "card-revealed") firsts.add(event.player);
+    if (event?.type !== "card-revealed") throw new Error("Expected a reveal");
+    expect(playerView(state, 0).revealFirst).toBe(event.player);
+    firsts.add(event.player);
   }
   expect([...firsts].sort()).toEqual([0, 1]);
+});
+
+// Golden vector: the flip takes exactly one sample after setup (shuffles and
+// location draws), as before reveal order was exposed in the view.
+test("a tied turn 1 draws one flip sample and pins the seeded replay", () => {
+  const initial = createMatch(42, [deck(), deck()], testLocations);
+  expect(playerView(initial, 0).revealFirst).toBe(1);
+  expect(initial.rng).toBe(4050676697);
+  const resolved = turn(initial, play(initial, 0, 0), play(initial, 1, 0));
+  expect(resolved.state.rng).toBe(3528319844);
+  expect(
+    resolved.events.flatMap((e) =>
+      e.type === "card-revealed" ? [e.player] : [],
+    ),
+  ).toEqual([1, 0]);
+});
+
+test("every view names the player who reveals first, before and after staging, matching resolution", () => {
+  // Mixed powers so the lead changes hands as well as tying.
+  const varied = (reverse: boolean) =>
+    deck().map((card, i) => ({
+      ...card,
+      power: reverse ? 3 - (i % 3) : 1 + (i % 3),
+    }));
+  let decidedLanes = 0;
+  let tied = 0;
+  for (const seed of [0, 1, 2, 3, 4, 5]) {
+    let state = createMatch(seed, [varied(false), varied(true)], testLocations);
+    for (let i = 0; i < 6; i++) {
+      const first = playerView(state, 0).revealFirst;
+      expect(playerView(state, 1).revealFirst).toBe(first);
+      const a = play(state, 0, i % 3);
+      const b = play(state, 1, (2 * i) % 3);
+      const staged = unwrap(stage(unwrap(stage(state, 0, a)), 1, b));
+      expect(playerView(staged, 0).revealFirst).toBe(first);
+      const resolved = turn(state, a, b);
+      const players = resolved.events.flatMap((e) =>
+        e.type === "card-revealed" ? [e.player] : [],
+      );
+      // Cards reveal in order: the first player's, then the other's.
+      if (players.length === 2) expect(players[0]).toBe(first);
+      const total = (id: 0 | 1) =>
+        state.players[id].lanes.map((l) => l.reduce((n, c) => n + c.power, 0));
+      const lanes = total(0).map((n, lane) =>
+        Math.sign(n - (total(1)[lane] ?? 0)),
+      );
+      if (lanes.some((n) => n !== 0)) decidedLanes++;
+      else tied++;
+      state = resolved.state;
+    }
+  }
+  expect(decidedLanes).toBeGreaterThan(0);
+  expect(tied).toBeGreaterThan(0);
 });
 
 test.each([

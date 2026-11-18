@@ -60,6 +60,7 @@ export const opening: PlayerView = {
   result: null,
   turn: 1,
   energy: 1,
+  revealFirst: 0,
   locations,
   own: {
     hand: [herald, guardian, voyager, smith],
@@ -71,10 +72,12 @@ export const opening: PlayerView = {
   opponent: { handSize: 4, deckSize: 8, committed: false, lanes: [[], [], []] },
   events: [],
 };
+// The opponent leads these boards on power (lanes are level), so it reveals first.
 export const staging: PlayerView = {
   ...opening,
   turn: 3,
   energy: 3,
+  revealFirst: 1,
   own: {
     ...opening.own,
     hand: [guardian, voyager, smith],
@@ -115,6 +118,7 @@ export const ended: PlayerView = {
   result,
   turn: 6,
   energy: 6,
+  revealFirst: null,
   own: { ...revealed.own, committed: true },
   opponent: { ...revealed.opponent, committed: true },
   events: [

@@ -95,6 +95,15 @@ run "$WORK/primary"
 check "foreign directory is refused" '[ "$CODE" -ne 0 ] && grep -Fq "not a worktree" <<<"$ERR" && [ -f "$READ_MAIN_DIR/keep.txt" ]'
 rm -rf "$READ_MAIN_DIR"
 
+# 7b. The refusal names where a stale view points; a plain file at the path is refused cleanly.
+mkdir -p "$READ_MAIN_DIR" && echo 'gitdir: /nowhere/.git/worktrees/gone' >"$READ_MAIN_DIR/.git"
+run "$WORK/primary"
+check "an unregistered view's .git target is shown" '[ "$CODE" -ne 0 ] && grep -Fq "gitdir: /nowhere/.git/worktrees/gone" <<<"$ERR"'
+rm -rf "$READ_MAIN_DIR" && echo debris >"$READ_MAIN_DIR"
+run "$WORK/primary"
+check "a plain file at the view path is refused with a hint" '[ "$CODE" -ne 0 ] && grep -Fq "not a directory" <<<"$ERR" && [ -f "$READ_MAIN_DIR" ]'
+rm -f "$READ_MAIN_DIR"
+
 # 8. Concurrent runs after a new commit all succeed and land on the same sha.
 advance three
 TIP=$(git -C "$WORK/origin.git" rev-parse main)

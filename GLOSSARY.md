@@ -85,6 +85,10 @@ _Avoid_: Power
 A choice of a card from the player's hand and the lane where it is to be revealed.
 _Avoid_: Card (when referring to the choice of card and lane)
 
+**Reveal order**:
+Which player's staged cards are revealed first in a turn, known from the start of planning and shown in each player's view. The player leading the board reveals first: more lanes won, then higher total power. A tied board, including turn 1, is broken by a flip seeded by the match seed, drawn again on each tied turn. It orders only cards that are revealed: a player who stages nothing reveals nothing, first or not. It changes only event order and display; whether it affects ability timing is left to the abilities design.
+_Avoid_: Initiative, priority
+
 **Stage**:
 To replace the player's pending plays for the current turn with a legal set of card and lane choices before committing.
 _Avoid_: Reveal, commit

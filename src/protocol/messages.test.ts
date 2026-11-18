@@ -106,6 +106,7 @@ const view = {
   player: 0,
   turn: 1,
   energy: 1,
+  revealFirst: 1,
   locations,
   phase: "planning",
   result: null,
@@ -131,7 +132,10 @@ const view = {
 it.each([
   { type: "waiting" },
   { type: "state", view },
-  { type: "state", view: { ...view, phase: "ended", result: score } },
+  {
+    type: "state",
+    view: { ...view, phase: "ended", result: score, revealFirst: null },
+  },
 ])("decodes $type", (message) => {
   expect(decodeServerMessage(JSON.stringify(message))).toEqual({
     ok: true,
@@ -210,6 +214,12 @@ it.each([
   { ...view, events: [{ type: "unknown" }] },
   { ...view, events: {} },
   { ...view, phase: "ended" },
+  { ...view, phase: "ended", result: score },
+  { ...view, revealFirst: null },
+  { ...view, revealFirst: 2 },
+  Object.fromEntries(
+    Object.entries(view).filter(([key]) => key !== "revealFirst"),
+  ),
   { ...view, result: score },
   { ...view, turn: 1.5 },
   { ...view, energy: Infinity },
