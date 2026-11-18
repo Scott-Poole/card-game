@@ -28,7 +28,7 @@ echo x >"$WORK/seed/with space.txt"
 echo y >"$WORK/seed/$(printf 'new\nline.txt')"
 ln -s file.txt "$WORK/seed/link.txt"
 git -C "$WORK/seed" update-index --add --cacheinfo 160000,1111111111111111111111111111111111111111,vendor
-git -C "$WORK/seed" add -- . && git -C "$WORK/seed" commit -q -m "first commit" && git -C "$WORK/seed" push -q origin main
+git -C "$WORK/seed" add -- file.txt "with space.txt" link.txt ./new*line.txt && git -C "$WORK/seed" commit -q -m "first commit" && git -C "$WORK/seed" push -q origin main
 git clone -q "$WORK/origin.git" "$WORK/primary"
 git -C "$WORK/primary" worktree add -q -b feature "$WORK/feature" >/dev/null 2>&1
 
@@ -42,6 +42,8 @@ run() { # run <dir>: sets OUT, ERR, CODE
 	ERR=$(cat "$WORK/err")
 }
 snapshot() { echo "$(git -C "$1" rev-parse HEAD) $(git -C "$1" branch --show-current) $(git -C "$1" status --porcelain | wc -l)"; }
+files() { (cd "$1" && find . -path ./.git -prune -o \( -type f -o -type l \) -print0 | sed -z 's|^\./||' | sort -z | tr '\0' '|'); }
+tree_files() { git -C "$1" ls-tree -r -z HEAD | sed -z '/^160000 /d; s/^[^\t]*\t//' | sort -z | tr '\0' '|'; }
 
 # 1. First run creates the view at origin/main and prints path, sha, subject.
 run "$WORK/primary"
@@ -51,6 +53,7 @@ check "first run prints the view path" 'grep -Fq "main-view   $READ_MAIN_DIR" <<
 check "first run prints sha and subject" 'grep -Fq "origin/main  $TIP first commit" <<<"$OUT"'
 check "view holds the tip's files" '[ "$(cat "$READ_MAIN_DIR/file.txt")" = one ]'
 check "view is detached" '[ -z "$(git -C "$READ_MAIN_DIR" branch --show-current)" ]'
+check "the first tip has a gitlink and the view still matches it" '[ -n "$(git -C "$WORK/origin.git" ls-tree -r "$TIP" | grep "^160000 ")" ] && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ] && [ ! -f "$READ_MAIN_DIR/vendor" ]'
 check "current primary shows no behind line" '! grep -q behind <<<"$OUT"'
 
 # 2. A new remote commit: the view advances, the primary checkout stays put and is reported behind.
@@ -163,8 +166,6 @@ OUT=$(cd "$WORK/primary" && env -u READ_MAIN_DIR HOME="$WORK/home" bash "$SCRIPT
 check "default path is under HOME/.t3/worktrees/card-game" '[ "$CODE" -eq 0 ] && grep -Fq "main-view   $WORK/home/.t3/worktrees/card-game/main-view" <<<"$OUT"'
 
 # 17. A reader's git state cannot hide files from the view or wedge it.
-files() { (cd "$1" && find . -path ./.git -prune -o \( -type f -o -type l \) -print0 | sed -z 's|^\./||' | sort -z | tr '\0' '|'); }
-tree_files() { git -C "$1" ls-tree -r -z HEAD | sed -z '/^160000 /d; s/^[^\t]*\t//' | sort -z | tr '\0' '|'; }
 git -C "$WORK/seed" pull -q origin main 2>/dev/null; echo more >"$WORK/seed/extra.txt"
 git -C "$WORK/seed" add . && git -C "$WORK/seed" commit -q -m "add extra" && git -C "$WORK/seed" push -q origin main
 run "$WORK/primary"

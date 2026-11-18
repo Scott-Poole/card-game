@@ -22,7 +22,7 @@ PRIMARY=$(worktrees | sed -n '1s/^worktree //p')
 
 # One lock per repository: concurrent agents serialise instead of fighting over the ref and the checkout.
 exec 9>"$COMMON/read-main.lock"
-flock 9
+flock -w 120 9 || die "another read-main run has held the lock for 120s; try again"
 
 # A stale view is the failure this script exists to prevent: if the fetch fails, fail with it.
 # The explicit refspec moves origin/main whatever the clone's configured refspec says.
@@ -46,7 +46,7 @@ registered_branch() { # registered_branch <path>: the branch a registration hold
 while read -r other; do
 	other=$(realpath -m "$other")
 	if [[ $VIEW == "$other"/* ]]; then die "$VIEW is inside the checkout $other; pick a path outside it"; fi
-	if [[ $other == "$VIEW"/* ]]; then die "the worktree $other is inside $VIEW; refusing to reset the view around it"; fi
+	if [[ $other == "$VIEW"/* ]]; then die "the worktree $other is inside $VIEW; refusing to reset the view around it (if it is stale, run 'git worktree prune')"; fi
 done < <(worktrees | sed -n 's/^worktree //p')
 
 marker() { echo "$(git -C "$VIEW" rev-parse --absolute-git-dir)/read-main-view"; }
@@ -64,7 +64,8 @@ tip_files() { git -C "$VIEW" ls-tree -r -z "$SHA" | sed -z '/^160000 /d; s/^[^\t
 matches_tip() {
 	local flags
 	flags=$(git -C "$VIEW" ls-files -v)
-	! grep -qv '^H ' <<<"$flags" && cmp -s <(view_files) <(tip_files)
+	if grep -qv '^H ' <<<"$flags"; then echo "an index flag hides files" >&2; return 1; fi
+	cmp -s <(view_files) <(tip_files) || { echo "the files on disk differ from the tip's" >&2; return 1; }
 }
 reset() {
 	git -C "$VIEW" sparse-checkout disable 2>/dev/null || true
@@ -74,7 +75,7 @@ reset() {
 }
 
 if [ -d "$VIEW" ]; then
-	registered "$VIEW" || die "$VIEW exists but is not a worktree of this repo (another clone's view?); if it is a leftover, remove it and re-run"
+	registered "$VIEW" || die "$VIEW exists but is not a worktree of this repo ($(cat "$VIEW/.git" 2>/dev/null || echo 'no .git file')); if it is a leftover, remove it and re-run"
 	# The reset discards everything in the directory, so only ever reset a view this script made:
 	# never the primary checkout, never a worktree on a branch, never a worktree it did not create.
 	[ "$VIEW" != "$(realpath -m "$PRIMARY")" ] || die "$VIEW is the primary checkout; refusing to reset it"
