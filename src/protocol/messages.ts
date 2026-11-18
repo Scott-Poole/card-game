@@ -140,7 +140,9 @@ interface ViewFields {
   readonly player: PlayerId;
   readonly turn: number;
   readonly energy: number;
-  /** Who reveals first this turn; null once the match has ended. */
+  /** Who reveals first in the turn `turn`; null once the match has ended.
+   * `events` report the turn before, so a frame that carries resolved events
+   * already names the next turn's order. */
   readonly revealFirst: PlayerId | null;
   readonly own: OwnPlayer;
   readonly opponent: Opponent;

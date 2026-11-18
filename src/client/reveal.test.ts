@@ -59,8 +59,6 @@ test("the opponent's reveals play first when the events put them first", () => {
     own: [2, 0, 0],
     opponent: [5, 3, 0],
   });
-  // The tag stays lit for the turn being played, then clears with the match.
-  expect(steps.every((step) => step.view.revealFirst === 1)).toBe(true);
 });
 
 test("match ending follows the turn and preserves final lanes", () => {

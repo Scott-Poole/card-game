@@ -155,20 +155,41 @@ test("socket closure displays error", async ({ page, address }) => {
   await expect(page.getByRole("status")).toHaveText("error");
 });
 
-test("both players see the same player reveal first", async ({ pair }) => {
-  const tags = pair.map((page) =>
-    page
-      .locator("[data-reveals-first]")
-      .evaluateAll((nodes) => nodes.map((node) => node.textContent)),
-  );
-  const [a, b] = await Promise.all(tags);
-  expect(a).toHaveLength(1);
-  expect(b).toHaveLength(1);
-  // "You · Player 1 · Reveals first" on one page is "Opponent · Player 1 · …" on the other.
-  expect(a?.[0]?.replace(/^(You|Opponent)/, "")).toBe(
-    b?.[0]?.replace(/^(You|Opponent)/, ""),
-  );
-  expect(a?.[0]?.startsWith("You")).not.toBe(b?.[0]?.startsWith("You"));
+test("the Reveals first tag follows the view's seat and holds through playback", async ({
+  page,
+  address,
+}) => {
+  const { staging, revealed } =
+    await import("../src/client/stories/fixtures.ts");
+  await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.send(JSON.stringify({ type: "welcome" }));
+    socket.send(JSON.stringify({ type: "state", view: staging }));
+    socket.onMessage(() => {
+      // The resolved frame already names the next turn's order.
+      socket.send(
+        JSON.stringify({
+          type: "state",
+          view: { ...revealed, revealFirst: 1 },
+        }),
+      );
+    });
+  });
+  await page.goto(address);
+  const lit = page.locator("[data-reveals-first]");
+  await expect(lit).toHaveCount(1);
+  await expect(lit).toHaveText("You · Player 1 · Reveals first");
+  await commitButton(page).click();
+  await page.clock.runFor(360);
+  await expect(
+    page.getByRole("button", { name: "Skip reveal", exact: true }),
+  ).toBeVisible();
+  // Mid-playback the tag still shows the order of the turn being played.
+  await expect(lit).toHaveText("You · Player 1 · Reveals first");
+  await page.getByRole("button", { name: "Skip reveal", exact: true }).click();
+  await expect(lit).toHaveCount(1);
+  await expect(lit).toHaveText("Opponent · Player 2 · Reveals first");
 });
 
 test("two players finish six turns with consistent results", async ({

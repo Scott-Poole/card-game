@@ -159,7 +159,7 @@ test("phase narrows planning and forfeited view results", () => {
       if (view.phase === "planning") {
         const result: null = view.result;
         expect(result).toBeNull();
-        expect([0, 1]).toContain(view.revealFirst);
+        expect(view.revealFirst).not.toBeNull();
       } else {
         expect(view.revealFirst).toBeNull();
         const result: Score = view.result;

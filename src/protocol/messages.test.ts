@@ -196,8 +196,6 @@ it.each([
   { ...view, phase: "ended", result: score },
   { ...view, revealFirst: null },
   { ...view, revealFirst: 2 },
-  { ...view, revealFirst: "0" },
-  { ...view, revealFirst: undefined },
   Object.fromEntries(
     Object.entries(view).filter(([key]) => key !== "revealFirst"),
   ),

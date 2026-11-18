@@ -76,7 +76,7 @@ export function shuffle(
 }
 /** Card IDs must be unique within each supplied deck.
  * Seeds normalize to uint32. RNG consumption: player 0 shuffle, player 1
- * shuffle, then one sample for each tied reveal-priority flip. Replay uses this ruleset. */
+ * shuffle, then one sample for each tied reveal-order flip. Replay uses this ruleset. */
 export function createMatch(
   seed: number,
   decks: readonly [readonly CardDefinition[], readonly CardDefinition[]],
@@ -198,12 +198,12 @@ function score(state: MatchState): Score {
       ) ?? winner(...power),
   };
 }
-/** Who reveals first this turn: the player leading the board (lanes, then
- * total power); a tied board, including turn 1, is broken by a flip seeded
- * from the match RNG. Pure: `rng` is the state after the flip, which only
+/** Who reveals first this turn (the glossary's reveal order): the player
+ * leading the board (lanes, then total power); a tied board, including turn 1,
+ * is broken by a flip seeded from the match RNG, drawn fresh on each tied turn. Pure: `rng` is the state after the flip, which only
  * resolution commits. Board and RNG are fixed during planning, so the answer
  * is stable from the start of the turn until it resolves. */
-function revealPriority(state: MatchState): {
+function firstToReveal(state: MatchState): {
   readonly first: PlayerId;
   readonly rng: number;
 } {
@@ -218,7 +218,7 @@ export function resolve(state: MatchState): Result<{
 }> {
   if (state.phase !== "planning" || !state.players.every((p) => p.committed))
     return { ok: false, error: "wrong-phase" };
-  const { first, rng } = revealPriority(state);
+  const { first, rng } = firstToReveal(state);
   const order: PlayerId[] = [first, first === 0 ? 1 : 0];
   let next: MatchState = { ...state, rng };
   const events: MatchEvent[] = [];
@@ -286,7 +286,10 @@ interface PlayerViewFields {
   readonly opponent: PublicPlayerView & { readonly handSize: number };
   readonly turn: number;
   readonly energy: number;
-  /** Who reveals first this turn; null once the match has ended. */
+  /** Who reveals first in the turn `turn`; null once the match has ended.
+   * `events` report the turn before, so a frame that carries resolved events
+   * already names the next turn's order. Orders only reveals that exist: a
+   * player who staged nothing reveals nothing, first or not. */
   readonly revealFirst: PlayerId | null;
   readonly events: readonly MatchEvent[];
 }
@@ -306,7 +309,7 @@ export function playerView(state: MatchState, id: PlayerId): PlayerView {
     player: id,
     turn: state.turn,
     energy: state.energy,
-    revealFirst: state.phase === "ended" ? null : revealPriority(state).first,
+    revealFirst: state.phase === "ended" ? null : firstToReveal(state).first,
     own: { ...publicPlayer(own), hand: own.hand, staged: own.staged },
     opponent: { ...publicPlayer(opponent), handSize: opponent.hand.length },
     events: state.events,
