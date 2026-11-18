@@ -19,15 +19,8 @@ export const boardStyles = css({
     alignItems: "center",
     color: "muted",
   },
-  "& .board-turn": { gridColumn: "1 / 3", gridRow: "2" },
-  "& .board-connection": {
-    gridColumn: "3",
-    gridRow: "2",
-    textAlign: "right",
-  },
-  "& .board-meta": { gridColumn: "1 / -1", gridRow: "3", fontSize: "small" },
   "& .board-lanes > section": { minH: "[0]" },
-  "& .board-lanes": { gridColumn: "1 / -1", gridRow: "5" },
+  "& .board-lanes": { gridColumn: "1 / -1", gridRow: "3" },
   "& .reserved-slot": { minH: "[token(spacing.lg)]" },
   "& .reserved-slot:not(:empty)": {
     border: "panel",
@@ -37,7 +30,7 @@ export const boardStyles = css({
   },
   "& .board-hand": {
     gridColumn: "1 / -1",
-    gridRow: "6",
+    gridRow: "4",
     overflow: "auto",
     display: "flex",
     gap: "sm",
@@ -60,19 +53,15 @@ export const boardStyles = css({
     m: "none",
     display: "block",
   },
-  "& .board-energy": {
-    gridColumn: "2",
-    gridRow: "7",
-    alignSelf: "center",
-    textAlign: "center",
-  },
-  "& .board-retreat": { gridColumn: "1", gridRow: "7" },
-  "& .board-commit": {
-    gridColumn: "3",
-    gridRow: "7",
+  "& .board-actions": {
+    gridColumn: "1 / -1",
+    gridRow: "5",
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    alignItems: "center",
   },
   "& .board-staged, & .board-reveal": {
-    gridRow: "8",
+    gridRow: "6",
     overflow: "auto",
     p: "xs",
     fontSize: "small",
@@ -101,6 +90,11 @@ export const boardStyles = css({
   "& .board-reveal": { gridColumn: "3" },
   "& > section > h2": { fontSize: "small", m: "none" },
   "& > section button": { fontSize: "small", p: "xs" },
-  "& .board-notices": { gridColumn: "1 / -1", gridRow: "4", fontSize: "small" },
+  "& .board-notices": {
+    gridColumn: "1 / -1",
+    gridRow: "2",
+    fontSize: "small",
+    overflow: "hidden",
+  },
   "& .board-notices p": { m: "none" },
 });

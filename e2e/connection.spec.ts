@@ -2,6 +2,10 @@ import type { Page } from "@playwright/test";
 import { test as base, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+const commitButton = (page: Page) =>
+  page.getByRole("button", { name: /^End turn \d+\/6$/ });
+const energy = (page: Page) =>
+  page.getByRole("meter", { name: "Energy remaining" });
 const test = base.extend<{ address: string; pair: readonly [Page, Page] }>({
   pair: async ({ browser, address }, use) => {
     const first = await browser.newContext();
@@ -19,7 +23,7 @@ const test = base.extend<{ address: string; pair: readonly [Page, Page] }>({
       }
       for (const page of pages)
         await expect(
-          page.getByRole("heading", { name: "Turn 1 of 6" }),
+          page.getByRole("button", { name: "End turn 1/6" }),
         ).toBeVisible();
       await use(pages);
     } finally {
@@ -68,7 +72,7 @@ test("production page connects and reconnects after reload", async ({
   address,
 }) => {
   await page.goto(address);
-  await expect(page.getByRole("status")).toHaveText("connected");
+  await expect(page.getByRole("status")).toHaveCount(0);
   await expect(page.locator("body")).toHaveCSS(
     "background-color",
     "rgb(21, 23, 25)",
@@ -79,7 +83,7 @@ test("production page connects and reconnects after reload", async ({
   await expect(join).toHaveCSS("outline-offset", "2px");
 
   await page.reload();
-  await expect(page.getByRole("status")).toHaveText("connected");
+  await expect(page.getByRole("status")).toHaveCount(0);
 });
 test("stays connecting until a welcome arrives", async ({ page, address }) => {
   const opened = Promise.withResolvers<undefined>();
@@ -154,7 +158,7 @@ test("two players finish six turns with consistent results", async ({
     for (let turn = 1; turn <= 6; turn++) {
       for (const page of pages) {
         await expect(
-          page.getByRole("heading", { name: `Turn ${String(turn)} of 6` }),
+          page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
         ).toBeVisible();
         const playable = page
           .getByRole("button", { name: /Stage .* in lane/ })
@@ -166,7 +170,7 @@ test("two players finish six turns with consistent results", async ({
             page.getByRole("button", { name: /Unstage/ }),
           ).toHaveCount(1);
         }
-        await page.getByRole("button", { name: "Commit", exact: true }).click();
+        await commitButton(page).click();
       }
     }
     expect(stagedPlayers.size).toBe(2);
@@ -216,15 +220,15 @@ async function reachPlayableTurn(a: Page, b: Page) {
   for (let turn = 1; turn <= 6; turn++) {
     for (const page of [a, b])
       await expect(
-        page.getByRole("heading", { name: `Turn ${String(turn)} of 6` }),
+        page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
       ).toBeVisible();
     const enabled = a
       .getByRole("region", { name: "Hand" })
       .getByRole("button", { name: /Stage .* in lane/ })
       .and(a.locator(":enabled"));
     if (await enabled.count()) return enabled.first();
-    await a.getByRole("button", { name: "Commit", exact: true }).click();
-    await b.getByRole("button", { name: "Commit", exact: true }).click();
+    await commitButton(a).click();
+    await commitButton(b).click();
   }
   throw new Error("No playable card in six turns");
 }
@@ -254,19 +258,11 @@ test("staging prevents overspend, returns unstaged cards, and locks after commit
   ).toBeEnabled();
   await hand.getByRole("button", { name: label, exact: true }).click();
   await expect(unstage).toBeEnabled();
-  await a.getByRole("button", { name: "Commit", exact: true }).click();
+  await commitButton(a).click();
   await expect(unstage).toBeDisabled();
-  const committedBounds = await a
-    .getByText("You have committed", { exact: true })
-    .boundingBox();
-  const laneBounds = await a
-    .getByRole("region", { name: "Lane 1", exact: true })
-    .boundingBox();
-  if (!committedBounds || !laneBounds)
-    throw new Error("Missing committed board");
-  expect(committedBounds.y + committedBounds.height).toBeLessThanOrEqual(
-    laneBounds.y,
-  );
+  await expect(
+    a.getByRole("button", { name: "Waiting for opponent…", exact: true }),
+  ).toBeDisabled();
 
   await expect(
     hand
@@ -296,7 +292,7 @@ test("opponent staged cards stay hidden until resolution", async ({
   await expect(
     b.getByRole("region", { name: "Staged cards" }).getByRole("listitem"),
   ).toHaveCount(0);
-  await a.getByRole("button", { name: "Commit", exact: true }).click();
+  await commitButton(a).click();
   await expect(
     b.getByText("Opponent has committed", { exact: true }),
   ).toBeVisible();
@@ -315,7 +311,7 @@ test("opponent staged cards stay hidden until resolution", async ({
         .getByRole("region", { name: `Lane ${String(lane)}`, exact: true })
         .getByRole("listitem"),
     ).toHaveCount(0);
-  await b.getByRole("button", { name: "Commit", exact: true }).click();
+  await commitButton(b).click();
   await expect(
     b.getByRole("region", { name: "Previous reveal" }),
   ).toContainText(name);
@@ -400,9 +396,7 @@ test("opponent updates do not unlock an unacknowledged stage", async ({
   await expect(
     page.getByRole("button", { name: "Stage Thaleia in lane 1", exact: true }),
   ).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: "Commit", exact: true }),
-  ).toBeDisabled();
+  await expect(commitButton(page)).toBeDisabled();
   acknowledge();
   await expect(
     page.getByRole("button", { name: "Unstage Asteron", exact: true }),
@@ -433,7 +427,7 @@ test("server rejection after welcome permits another action", async ({
   await page.goto(address);
   await page.getByRole("button", { name: "Find match", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Request rejected");
-  await expect(page.getByRole("status")).toHaveText("connected");
+  await expect(page.getByRole("status")).toHaveCount(0);
   await page.getByRole("button", { name: "Find match", exact: true }).click();
   await expect(page.getByText("Waiting for an opponent…")).toBeVisible();
 });
@@ -489,7 +483,7 @@ test("Play joins and moves to Waiting; a state message moves to Match and Result
   address,
 }) => {
   await page.goto(address);
-  await expect(page.getByRole("status")).toHaveText("connected");
+  await expect(page.getByRole("status")).toHaveCount(0);
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page).toHaveURL(address + "/waiting");
   await expect(page.getByText("Waiting for an opponent…")).toBeVisible();
@@ -516,7 +510,7 @@ test("deep links follow session state without interrupting live actions", async 
   address,
 }) => {
   await expect(a).toHaveURL(address + "/match");
-  await a.getByRole("button", { name: "Commit", exact: true }).click();
+  await commitButton(a).click();
   await expect(
     b.getByText("Opponent has committed", { exact: true }),
   ).toBeVisible();
@@ -535,7 +529,7 @@ test("deep links follow session state without interrupting live actions", async 
     ).toBeVisible();
   }
   await a.reload();
-  await expect(a.getByRole("status")).toHaveText("connected");
+  await expect(a.getByRole("status")).toHaveCount(0);
   await a.goto(address + "/unknown");
   await expect(
     a.getByRole("heading", { name: "Page not found", exact: true }),
@@ -594,7 +588,8 @@ for (const viewport of [
         "document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth",
       ),
     ).toBe(true);
-    await expect(a.getByText("Energy: 1 of 1", { exact: true })).toBeVisible();
+    await expect(energy(a)).toHaveAttribute("aria-valuenow", "1");
+    await expect(energy(a)).toHaveAttribute("aria-valuemax", "1");
     const handBounds = await a
       .getByRole("region", { name: "Hand", exact: true })
       .boundingBox();
@@ -610,27 +605,20 @@ for (const viewport of [
     );
     const lanes = a.getByRole("region", { name: "Lane 1", exact: true });
     const laneBeforeCommit = await lanes.boundingBox();
-    await a.getByRole("button", { name: "Commit", exact: true }).click();
+    await commitButton(a).click();
     await expect(
-      a.getByText("You have committed", { exact: true }),
-    ).toBeVisible();
+      a.getByRole("button", { name: "Waiting for opponent…", exact: true }),
+    ).toBeDisabled();
     expect(await lanes.boundingBox()).toEqual(laneBeforeCommit);
-    const meta = await a.getByText(/^You are player/).boundingBox();
-    const notice = await a
-      .getByText("You have committed", { exact: true })
-      .boundingBox();
-    if (!meta || !notice) throw new Error("Missing match information");
-    expect(meta.y + meta.height).toBeLessThanOrEqual(notice.y);
-    await expect(
-      a.getByRole("button", { name: "Commit", exact: true }),
-    ).toBeDisabled();
-    await b.getByRole("button", { name: "Commit", exact: true }).click();
-    await expect(a.getByRole("heading", { name: "Turn 2 of 6" })).toBeVisible();
-    await expect(a.getByText("Energy: 2 of 2", { exact: true })).toBeVisible();
+    await commitButton(b).click();
+    await expect(a.getByRole("button", { name: "End turn 2/6" })).toBeVisible();
+    await expect(energy(a)).toHaveAttribute("aria-valuenow", "2");
     await expect(a.getByText("Stakes", { exact: true })).toHaveCount(0);
-    await expect(
-      a.getByRole("button", { name: "Retreat", exact: true }),
-    ).toBeDisabled();
+    // The reserved retreat slot is empty in production builds.
+    const bar = await commitButton(a).boundingBox();
+    const orb = await energy(a).boundingBox();
+    if (!bar || !orb) throw new Error("Missing action bar");
+    expect(orb.x + orb.width).toBeLessThanOrEqual(bar.x);
   });
 }
 
@@ -639,10 +627,10 @@ test("multiple staged cards can be returned from the portrait board", async ({
 }) => {
   await a.setViewportSize({ width: 390, height: 844 });
   for (let turn = 1; turn < 6; turn++) {
-    await a.getByRole("button", { name: "Commit", exact: true }).click();
-    await b.getByRole("button", { name: "Commit", exact: true }).click();
+    await commitButton(a).click();
+    await commitButton(b).click();
     await expect(
-      a.getByRole("heading", { name: `Turn ${String(turn + 1)} of 6` }),
+      a.getByRole("button", { name: `End turn ${String(turn + 1)}/6` }),
     ).toBeVisible();
   }
   for (let count = 0; count < 2; count++) {
@@ -688,7 +676,7 @@ test("revealed lane cards and totals follow both players through every turn", as
   for (let turn = 1; turn <= 6; turn++) {
     for (const page of [a, b]) {
       await expect(
-        page.getByRole("heading", { name: `Turn ${String(turn)} of 6` }),
+        page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
       ).toBeVisible();
       const choices = page
         .getByRole("button", { name: /Stage .* in lane/ })
@@ -752,38 +740,15 @@ test("revealed lane cards and totals follow both players through every turn", as
           lane: Number(match[2]),
         });
       }
-      await page.getByRole("button", { name: "Commit", exact: true }).click();
+      await commitButton(page).click();
     }
     for (const page of [a, b]) {
       await expect(
-        page.getByRole("heading", {
-          name: turn === 6 ? "Match result" : `Turn ${String(turn + 1)} of 6`,
+        page.getByRole("button", {
+          name: turn === 6 ? "View result" : `End turn ${String(turn + 1)}/6`,
           exact: true,
         }),
       ).toBeVisible();
-      const meta = await page.getByText(/^You are player/).innerText();
-      const count = /Opponent hand: (\d+)/.exec(meta)?.[1];
-      if (!count) throw new Error("Missing public hand count");
-      const backs = page.getByRole("group", {
-        name: `Opponent hand: ${count} face-down cards`,
-        exact: true,
-      });
-      await expect(
-        backs.getByRole("article", { name: "Face-down card", exact: true }),
-      ).toHaveCount(Number(count));
-      await expect(
-        backs.getByRole("img", { name: "Art placeholder" }),
-      ).toHaveCount(0);
-      if (turn === 6) {
-        const backsBox = await backs.boundingBox();
-        const firstLaneBox = await page
-          .getByRole("region", { name: "Lane 1", exact: true })
-          .boundingBox();
-        if (!backsBox || !firstLaneBox) throw new Error("Missing final board");
-        expect(firstLaneBox.y).toBeGreaterThanOrEqual(
-          backsBox.y + backsBox.height,
-        );
-      }
       for (let lane = 1; lane <= 3; lane++) {
         const own = (records.get(page) ?? []).filter(
           (card) => card.lane === lane,
@@ -869,8 +834,8 @@ test("inspect and select a card, then play it with the keyboard", async ({
   await expect(
     a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
   ).toBeVisible();
-  await a.getByRole("button", { name: "Commit", exact: true }).click();
-  await b.getByRole("button", { name: "Commit", exact: true }).click();
+  await commitButton(a).click();
+  await commitButton(b).click();
   await expect(
     b
       .getByRole("region", { name: "Lane 1", exact: true })
@@ -934,9 +899,7 @@ for (const width of [390, 1440]) {
     expect(previewCost.height).toBeCloseTo(cost.height, 0);
     await a.mouse.up();
     // A commit during settle must wait for the dropped play to enter staging.
-    await expect(
-      a.getByRole("button", { name: "Commit", exact: true }),
-    ).toBeDisabled();
+    await expect(commitButton(a)).toBeDisabled();
     // Observe the public card geometry during settle: a frozen overlay fails this.
     await expect
       .poll(
@@ -981,8 +944,8 @@ for (const width of [390, 1440]) {
     await expect(
       a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
     ).toBeVisible();
-    await a.getByRole("button", { name: "Commit", exact: true }).click();
-    await b.getByRole("button", { name: "Commit", exact: true }).click();
+    await commitButton(a).click();
+    await commitButton(b).click();
     await expect(
       b
         .getByRole("region", { name: "Lane 1", exact: true })
@@ -1013,12 +976,12 @@ test("touch drag stages a card inside the scaled phone board", async ({
     for (let turn = 1; turn < 6; turn++) {
       for (const page of [a, b]) {
         await expect(
-          page.getByRole("heading", { name: `Turn ${String(turn)} of 6` }),
+          page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
         ).toBeVisible();
-        await page.getByRole("button", { name: "Commit", exact: true }).click();
+        await commitButton(page).click();
       }
     }
-    await expect(a.getByRole("heading", { name: "Turn 6 of 6" })).toBeVisible();
+    await expect(a.getByRole("button", { name: "End turn 6/6" })).toBeVisible();
     const cdp = await context.newCDPSession(a);
     const hand = a.getByRole("region", { name: "Hand", exact: true });
     const handBox = await hand.boundingBox();
@@ -1093,8 +1056,8 @@ test("touch drag stages a card inside the scaled phone board", async ({
     await expect(
       a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
     ).toBeVisible();
-    await a.getByRole("button", { name: "Commit", exact: true }).click();
-    await b.getByRole("button", { name: "Commit", exact: true }).click();
+    await commitButton(a).click();
+    await commitButton(b).click();
     await expect(
       b
         .getByRole("region", { name: "Lane 1", exact: true })
@@ -1244,8 +1207,8 @@ test("tap a card then tap a lane without closing inspection", async ({
   await expect(
     a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
   ).toBeVisible();
-  await a.getByRole("button", { name: "Commit", exact: true }).click();
-  await b.getByRole("button", { name: "Commit", exact: true }).click();
+  await commitButton(a).click();
+  await commitButton(b).click();
   await expect(
     b
       .getByRole("region", { name: "Lane 1", exact: true })
@@ -1325,7 +1288,7 @@ for (const changeDuringMatch of [false, true]) {
     });
     await page.goto(address);
     await expect(page).toHaveURL(/\/match$/);
-    await page.getByRole("heading", { name: "Turn 1 of 6" }).waitFor();
+    await page.getByRole("button", { name: "End turn 1/6" }).waitFor();
     if (changeDuringMatch) await page.emulateMedia({ reducedMotion: "reduce" });
     const source = await page
       .getByRole("region", { name: "Hand", exact: true })
@@ -1400,7 +1363,7 @@ for (const finish of [
       });
     });
     await page.goto(address);
-    await page.getByRole("button", { name: "Commit", exact: true }).click();
+    await commitButton(page).click();
     const own = page.getByRole("region", { name: "Lane 2", exact: true });
     const opponent = page.getByRole("region", { name: "Lane 1", exact: true });
     if (
@@ -1445,8 +1408,8 @@ for (const finish of [
       own.getByText("Opponent total: 3 · Your total: 4", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", {
-        name: finish === "interrupt" ? "Turn 5 of 6" : "Turn 4 of 6",
+      page.getByRole("button", {
+        name: finish === "interrupt" ? "End turn 5/6" : "End turn 4/6",
       }),
     ).toBeVisible();
   });
@@ -1457,11 +1420,10 @@ test("two players reveal both sides and agree on lane totals", async ({
 }) => {
   // By turn three every opening hand contains an affordable card.
   for (let turn = 1; turn < 3; turn++) {
-    for (const page of [a, b])
-      await page.getByRole("button", { name: "Commit", exact: true }).click();
+    for (const page of [a, b]) await commitButton(page).click();
     for (const page of [a, b])
       await expect(
-        page.getByRole("heading", { name: `Turn ${String(turn + 1)} of 6` }),
+        page.getByRole("button", { name: `End turn ${String(turn + 1)}/6` }),
       ).toBeVisible();
   }
   for (const page of [a, b]) {
@@ -1470,12 +1432,12 @@ test("two players reveal both sides and agree on lane totals", async ({
       .and(page.locator(":enabled"))
       .first()
       .click();
-    await page.getByRole("button", { name: "Commit", exact: true }).click();
+    await commitButton(page).click();
   }
   const totals: string[] = [];
   for (const page of [a, b]) {
     await expect(
-      page.getByRole("heading", { name: "Turn 4 of 6" }),
+      page.getByRole("button", { name: "End turn 4/6" }),
     ).toBeVisible();
     const lane = page.getByRole("region", { name: "Lane 1", exact: true });
     for (const side of ["Your cards", "Opponent cards"])
@@ -1517,7 +1479,7 @@ test("match-ending reveal stays on the board until playback finishes", async ({
     });
   });
   await page.goto(address);
-  await page.getByRole("button", { name: "Commit", exact: true }).click();
+  await commitButton(page).click();
   await expect(
     page.getByRole("button", { name: "Skip reveal", exact: true }),
   ).toBeVisible();
@@ -1548,4 +1510,45 @@ test("match-ending reveal stays on the board until playback finishes", async ({
       .getByRole("region", { name: "Lane 2", exact: true })
       .getByText("Opponent total: 3 · Your total: 4", { exact: true }),
   ).toBeVisible();
+});
+
+test("action bar: staging a card drops the energy orb, then commit waits", async ({
+  pair: [a, b],
+}) => {
+  const stage = await reachPlayableTurn(a, b);
+  const cost = Number(
+    /Cost (\d)/.exec(
+      await stage.locator("xpath=ancestor::article[1]").innerText(),
+    )?.[1],
+  );
+  const before = Number(await energy(a).getAttribute("aria-valuenow"));
+  await stage.click();
+  await expect(energy(a)).toHaveAttribute(
+    "aria-valuenow",
+    String(before - cost),
+  );
+  await commitButton(a).click();
+  await expect(
+    a.getByRole("button", { name: "Waiting for opponent…", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    b.getByText("Opponent has committed", { exact: true }),
+  ).toBeVisible();
+});
+
+test("planning board shows no debug text, heading or energy line", async ({
+  pair: [a],
+}) => {
+  await expect(a.getByText(/^You are player/)).toHaveCount(0);
+  await expect(a.getByText(/Opponent hand:/)).toHaveCount(0);
+  await expect(a.getByRole("group", { name: /Opponent hand/ })).toHaveCount(0);
+  await expect(a.getByText(/^Energy:/)).toHaveCount(0);
+  await expect(a.getByRole("heading", { name: /^Turn \d/ })).toHaveCount(0);
+  await expect(
+    a.getByRole("status").filter({ hasText: /connect|error/ }),
+  ).toHaveCount(0);
+  await expect(energy(a)).toBeVisible();
+  await expect(commitButton(a)).toBeEnabled();
+  await commitButton(a).focus();
+  await expect(commitButton(a)).toBeFocused();
 });
