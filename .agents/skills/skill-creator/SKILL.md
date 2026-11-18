@@ -164,7 +164,7 @@ See `references/schemas.md` for the full schema (including the `assertions` fiel
 
 This section is one continuous sequence — don't stop partway through. Do NOT use `/skill-test` or any other testing skill.
 
-Create a unique OS temporary directory with `mktemp -d` and use it as `<workspace>` for evaluation results and snapshots. Before finishing, transfer findings and useful working markdown to the owning GitHub ticket, mention the transfer in its resolution, and delete the temporary workspace after successful transfer. Keep durable skill resources in the skill directory. Within the workspace, organize results by iteration (`iteration-1/`, `iteration-2/`, etc.) and within that, each test case gets a directory (`eval-0/`, `eval-1/`, etc.). Don't create all of this upfront — just create directories as you go.
+Create a unique OS temporary directory with `mktemp -d` and use it as `<workspace>` for evaluation results and snapshots. Before finishing, transfer findings and useful working markdown to the owning GitHub ticket (create one in this repo when none exists), mention the transfer in its resolution, and delete the temporary workspace after successful transfer. Keep durable skill resources in the skill directory. Within the workspace, organize results by iteration (`iteration-1/`, `iteration-2/`, etc.) and within that, each test case gets a directory (`eval-0/`, `eval-1/`, etc.). Don't create all of this upfront — just create directories as you go.
 
 ### Step 1: Spawn all runs (with-skill AND baseline) in the same turn
 

@@ -5,16 +5,30 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { URL, fileURLToPath } from "node:url";
 
+const environment = { ...process.env };
+const localVars = spawnSync("git", ["rev-parse", "--local-env-vars"], {
+  encoding: "utf8",
+});
+if (localVars.error) throw localVars.error;
+assert.equal(localVars.status, 0, localVars.stderr);
+for (const name of localVars.stdout.trim().split("\n")) {
+  Reflect.deleteProperty(environment, name);
+}
 const root = mkdtempSync(join(tmpdir(), "working-markdown-"));
 const checker = fileURLToPath(
   new URL("./check-working-markdown.mjs", import.meta.url),
 );
 function git(...args) {
-  const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  const result = spawnSync("git", args, {
+    cwd: root,
+    encoding: "utf8",
+    env: environment,
+  });
   assert.equal(result.status, 0, result.stderr);
 }
 function run() {
   return spawnSync(process.execPath, [checker], {
+    env: environment,
     cwd: root,
     encoding: "utf8",
   });

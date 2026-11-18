@@ -7,12 +7,6 @@
       "skillPath": ".agents/skills/ast-grep/SKILL.md",
       "computedHash": "b88f55c8f3ffa7a53168aac6b3a7d72d529f29b4de620cf9e589e78687020b52"
     },
-    "chief-of-staff": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/in-progress/chief-of-staff/SKILL.md",
-      "computedHash": "dc3348d0f641956ea78dafa037aea745154c516a286ed4156b0c2ec0cbcf581b"
-    },
     "claude-handoff": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -192,12 +186,6 @@
       "sourceType": "github",
       "skillPath": "skills/productivity/wait-what/SKILL.md",
       "computedHash": "70c9bf9f5a84b6849760f9492f569d5aa12307a0310323fde5f583144730c26c"
-    },
-    "wayfinder": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/wayfinder/SKILL.md",
-      "computedHash": "bd82983c105881f6cb0c15e5d029c0d5fca756939b69eebe94e49003069a276f"
     },
     "wizard": {
       "source": "mattpocock/skills",
