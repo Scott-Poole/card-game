@@ -37,7 +37,10 @@ function Game() {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [inspection, setInspection] = useState<
-    { kind: "card"; card: CardData } | { kind: "lane"; number: number } | null
+    | { kind: "card"; card: CardData }
+    | { kind: "lane"; number: number }
+    | { kind: "player"; side: "own" | "opponent" }
+    | null
   >(null);
   const transition = useGameMotion();
   const drop = useRef<{ cardId: string; lane: number } | null>(null);
@@ -155,7 +158,13 @@ function Game() {
             {view && (
               <>
                 <header className="board-tags">
-                  <span>Opponent · Player {view.player === 0 ? 2 : 1}</span>
+                  <PlayerTag
+                    label={`Opponent · Player ${String(view.player === 0 ? 2 : 1)}`}
+                    onInspect={() => {
+                      setSelected(null);
+                      setInspection({ kind: "player", side: "opponent" });
+                    }}
+                  />
                   <div
                     className={css({ textAlign: "center", fontSize: "small" })}
                   >
@@ -167,7 +176,13 @@ function Game() {
                       of {view.own.lanes.length} lanes
                     </span>
                   </div>
-                  <span>You · Player {view.player + 1}</span>
+                  <PlayerTag
+                    label={`You · Player ${String(view.player + 1)}`}
+                    onInspect={() => {
+                      setSelected(null);
+                      setInspection({ kind: "player", side: "own" });
+                    }}
+                  />
                 </header>
                 <div className="board-notices">
                   <ConnectionIndicator status={status} />
@@ -519,7 +534,11 @@ function Game() {
             name={
               inspection.kind === "card"
                 ? inspection.card.name
-                : `Lane ${String(inspection.number)}`
+                : inspection.kind === "lane"
+                  ? `Lane ${String(inspection.number)}`
+                  : inspection.side === "own"
+                    ? `You · Player ${String((view?.player ?? 0) + 1)}`
+                    : `Opponent · Player ${String(view?.player === 0 ? 2 : 1)}`
             }
             onClose={(cancelSelection) => {
               if (cancelSelection) setSelected(null);
@@ -538,9 +557,32 @@ function Game() {
                     (play) => play.cardId === inspection.card.id,
                   ) && <p>Choose a lane to play this card.</p>}
               </>
-            ) : (
+            ) : inspection.kind === "lane" ? (
               <p>No location effect.</p>
-            )}
+            ) : view ? (
+              <>
+                <p>Deck: {view[inspection.side].deckSize}</p>
+                <p>
+                  Hand:{" "}
+                  {inspection.side === "own"
+                    ? view.own.hand.length
+                    : view.opponent.handSize}
+                </p>
+                <div
+                  className={css({
+                    display: "flex",
+                    gap: "sm",
+                    flexWrap: "wrap",
+                  })}
+                >
+                  {["Destroyed", "Discarded", "Banished"].map((zone) => (
+                    <button key={zone} className={button()} disabled>
+                      {zone}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
           </Inspect>
         )}
       </DragDropProvider>
@@ -570,5 +612,64 @@ function ConnectionIndicator({
     >
       {status}
     </p>
+  );
+}
+
+function PlayerTag({
+  label,
+  onInspect,
+}: {
+  label: string;
+  onInspect: () => void;
+}) {
+  return (
+    <button
+      className={cx(
+        button(),
+        css({
+          display: "flex",
+          alignItems: "center",
+          gap: "xs",
+          m: "none",
+          p: "xs",
+          fontSize: "small",
+          color: "text",
+          bg: "panel",
+          minW: "[0]",
+          lineHeight: "heading",
+        }),
+      )}
+      aria-label={label}
+      aria-haspopup="dialog"
+      onClick={onInspect}
+    >
+      <span
+        aria-hidden="true"
+        className={css({
+          display: "grid",
+          placeItems: "center",
+          flexShrink: 0,
+          width: "laneBadge",
+          height: "laneBadge",
+          border: "panel",
+          borderRadius: "control",
+          bg: "raised",
+          color: "muted",
+        })}
+      >
+        ◇
+      </span>
+      <span>{label}</span>
+      {/* Reserved reveal-first highlight; inactive until #115 supplies order. */}
+      <span
+        aria-hidden="true"
+        className={css({
+          width: "[token(spacing.xs)]",
+          alignSelf: "stretch",
+          borderRadius: "control",
+          flexShrink: 0,
+        })}
+      />
+    </button>
   );
 }
