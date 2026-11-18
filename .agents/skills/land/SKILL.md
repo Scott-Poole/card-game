@@ -12,7 +12,7 @@ Owned by this repo. Scott's policy: **trivial** PRs merge without review and get
 
 `main` is protected on GitHub: PR required, no force push or deletion, linear history, squash merges only. Each PR lands as one commit whose title is the PR title and whose body is the PR body, so the PR title must be a conventional commit (`<type>(<scope>): <description>`). The run may be unattended, so every step works from an explicit **pin**: the PR's head SHA you evaluated. Anything learned about one SHA says nothing about another.
 
-**Author-run**: the PR's author may land its own PR (the `work-ticket` flow does), so the agent with the full context fixes the findings. Reviewers then come from the family that isn't the author's, and the author-run rules in steps 3 and 4 apply.
+**Author-run**: the PR's author may land its own PR (the `work-ticket` flow does), so the agent with the full context fixes the findings. Reviewers then come from a family that isn't the author's (delegate's review row names it), and the author-run rules in steps 3 and 4 apply.
 
 ## 1. Read and pin
 
