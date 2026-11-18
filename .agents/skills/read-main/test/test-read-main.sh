@@ -9,6 +9,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 SCRIPT=$HERE/../read-main.sh
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
+# A developer's global git config (core.abbrev, commit.gpgsign, ...) must not change the outcome.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.invalid GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.invalid
 export READ_MAIN_DIR=$WORK/main-view
 
@@ -41,7 +43,7 @@ run "$WORK/primary"
 TIP=$(git -C "$WORK/origin.git" rev-parse main)
 check "first run exits 0" '[ "$CODE" -eq 0 ]'
 check "first run prints the view path" 'grep -Fq "main-view   $READ_MAIN_DIR" <<<"$OUT"'
-check "first run prints sha and subject" 'grep -Fq "origin/main  ${TIP:0:7} first commit" <<<"$OUT"'
+check "first run prints sha and subject" 'grep -Fq "origin/main  $TIP first commit" <<<"$OUT"'
 check "view holds the tip's files" '[ "$(cat "$READ_MAIN_DIR/file.txt")" = one ]'
 check "view is detached" '[ -z "$(git -C "$READ_MAIN_DIR" branch --show-current)" ]'
 check "current primary shows no behind line" '! grep -q behind <<<"$OUT"'
@@ -88,10 +90,10 @@ rm -rf "$READ_MAIN_DIR"
 # 8. Concurrent runs after a new commit all succeed and land on the same sha.
 advance three
 TIP=$(git -C "$WORK/origin.git" rev-parse main)
-for i in 1 2 3 4; do (cd "$WORK/primary" && bash "$SCRIPT" >"$WORK/par$i.out" 2>"$WORK/par$i.err"; echo $? >"$WORK/par$i.code") & done
+for i in 1 2 3 4; do d=$WORK/primary; [ $((i % 2)) -eq 0 ] && d=$WORK/feature; (cd "$d" && bash "$SCRIPT" >"$WORK/par$i.out" 2>"$WORK/par$i.err"; echo $? >"$WORK/par$i.code") & done
 wait
 all=1
-for i in 1 2 3 4; do [ "$(cat "$WORK/par$i.code")" = 0 ] && grep -Fq "origin/main  ${TIP:0:7}" "$WORK/par$i.out" || all=0; done
+for i in 1 2 3 4; do [ "$(cat "$WORK/par$i.code")" = 0 ] && grep -Fq "origin/main  $TIP" "$WORK/par$i.out" || all=0; done
 check "four concurrent runs all succeed at the tip" '[ "$all" = 1 ] && [ "$(git -C "$READ_MAIN_DIR" rev-parse HEAD)" = "$TIP" ]'
 
 # 9. A failed fetch exits non-zero, says so, prints no view, and leaves the view alone.
@@ -108,6 +110,52 @@ check "fetch failure leaves the view as it was" '[ "$(git -C "$READ_MAIN_DIR" re
 # 10. Outside a repository is a clear error.
 run "$WORK"
 check "outside a repo exits non-zero with a message" '[ "$CODE" -ne 0 ] && grep -Fq "inside a checkout" <<<"$ERR"'
+
+# 11. Only a view is ever reset: a worktree with a branch, or the primary checkout, is refused untouched.
+echo precious >"$WORK/feature/wip.txt"
+FEATURE_BEFORE=$(snapshot "$WORK/feature")
+OUT=$(cd "$WORK/primary" && READ_MAIN_DIR=$WORK/feature bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
+check "a branch worktree is refused" '[ "$CODE" -ne 0 ] && grep -Fq "branch checked out" <<<"$ERR"'
+check "the refused worktree keeps its branch and untracked work" '[ "$(snapshot "$WORK/feature")" = "$FEATURE_BEFORE" ] && [ -f "$WORK/feature/wip.txt" ]'
+PRIMARY_BEFORE=$(snapshot "$WORK/primary")
+OUT=$(cd "$WORK/feature" && READ_MAIN_DIR=$WORK/primary bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
+check "the primary checkout is refused" '[ "$CODE" -ne 0 ] && grep -Fq "primary checkout" <<<"$ERR"'
+check "the refused primary keeps its branch, HEAD and files" '[ "$(snapshot "$WORK/primary")" = "$PRIMARY_BEFORE" ]'
+
+# 12. A fetch refspec that does not track main still yields the real tip.
+git clone -q "$WORK/origin.git" "$WORK/odd"
+git -C "$WORK/odd" config remote.origin.fetch '+refs/heads/main:refs/heads/elsewhere'
+advance five
+TIP=$(git -C "$WORK/origin.git" rev-parse main)
+OUT=$(cd "$WORK/odd" && READ_MAIN_DIR=$WORK/odd-view bash "$SCRIPT" 2>"$WORK/err")
+check "odd refspec still shows the remote tip" 'grep -Fq "origin/main  $TIP" <<<"$OUT"'
+# 12b. A second clone cannot adopt the first clone's view; it is told so and nothing is touched.
+OUT=$(cd "$WORK/odd" && bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
+check "a second clone is refused the first clone's view" '[ "$CODE" -ne 0 ] && grep -Fq "not a worktree of this repo" <<<"$ERR"'
+
+# 13. A leaked GIT_DIR does not point the script at another repository.
+git init -q -b main "$WORK/other" && git -C "$WORK/other" commit -q --allow-empty -m "other repo"
+OUT=$(cd "$WORK/primary" && GIT_DIR=$WORK/other/.git bash "$SCRIPT" 2>"$WORK/err"); CODE=$?
+check "leaked GIT_DIR is ignored" '[ "$CODE" -eq 0 ] && grep -Fq "origin/main  $TIP" <<<"$OUT" && ! grep -Fq "other repo" <<<"$OUT"'
+
+# 14. A symlinked view path is recognised as the same worktree on the second run.
+ln -s "$WORK" "$WORK/link"
+for n in 1 2; do OUT=$(cd "$WORK/primary" && READ_MAIN_DIR=$WORK/link/view-sym bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; done
+check "symlinked view path works twice" '[ "$CODE" -eq 0 ] && [ -f "$WORK/view-sym/file.txt" ]'
+git -C "$WORK/primary" worktree remove --force "$WORK/view-sym"
+
+# 15. Recreating the view does not unregister another worktree whose directory is briefly missing.
+git -C "$WORK/primary" worktree add -q -b away "$WORK/away" >/dev/null 2>&1
+mv "$WORK/away" "$WORK/away-moved"
+rm -rf "$READ_MAIN_DIR"
+run "$WORK/primary"
+mv "$WORK/away-moved" "$WORK/away"
+check "an unrelated worktree survives the view being recreated" '[ "$CODE" -eq 0 ] && git -C "$WORK/away" status >/dev/null 2>&1'
+
+# 16. Without READ_MAIN_DIR the view lives under $HOME/.t3/worktrees/card-game/main-view.
+mkdir "$WORK/home"
+OUT=$(cd "$WORK/primary" && env -u READ_MAIN_DIR HOME="$WORK/home" bash "$SCRIPT" 2>"$WORK/err"); CODE=$?
+check "default path is under HOME/.t3/worktrees/card-game" '[ "$CODE" -eq 0 ] && grep -Fq "main-view   $WORK/home/.t3/worktrees/card-game/main-view" <<<"$OUT"'
 
 echo "read-main: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
