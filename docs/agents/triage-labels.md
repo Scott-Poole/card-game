@@ -48,7 +48,7 @@ Every time an agent or planner hands a ticket to Scott it posts one comment (a c
 **To answer:** comment your choice, then remove `ready-for-human` and add `ready-for-agent`.
 ```
 
-`queue.sh escalate` refuses a comment that does not start with `## Needs you`. Add the evidence (a draft PR, a failing check) under the recommendation when the stop was a blocker.
+`queue.sh escalate` refuses a comment that does not start with `## Needs you`, and the needs-you view finds handoffs the same way, so the heading comes first even in comments the triage skill writes (its AI disclaimer goes on the next line). Add the evidence (a draft PR, a failing check) under the recommendation when the stop was a blocker.
 
 ### Handing back
 
