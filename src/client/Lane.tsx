@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { CardMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { LANE_CAPACITY } from "../rules/index.ts";
@@ -8,6 +9,7 @@ import Card from "./Card.tsx";
 
 export default function Lane({
   number,
+  revealingCard,
   own,
   opponent,
   staged,
@@ -24,12 +26,19 @@ export default function Lane({
   inspectCard?: (card: CardData) => void;
   playTarget?: (children: ReactNode) => ReactNode;
   number: number;
+  revealingCard?: string | undefined;
   own: readonly CardData[];
   opponent: readonly CardData[];
   staged: readonly CardData[];
   ownTotal: number;
   opponentTotal: number;
 }) {
+  const lead =
+    ownTotal > opponentTotal
+      ? "own"
+      : ownTotal < opponentTotal
+        ? "opponent"
+        : "tied";
   return (
     <section
       className={cx(
@@ -55,16 +64,42 @@ export default function Lane({
           )}
         </h3>
         <div
-          aria-label="Location"
+          aria-label="Lane leadership"
           className={css({ minH: "[token(spacing.xs)]", color: "muted" })}
         >
-          No location effect.
+          <motion.span
+            key={lead}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={css({
+              m: "none",
+              fontSize: "small",
+              color:
+                lead === "own"
+                  ? "positive"
+                  : lead === "opponent"
+                    ? "negative"
+                    : "muted",
+            })}
+          >
+            {lead === "tied"
+              ? "Lane tied"
+              : lead === "own"
+                ? "You lead"
+                : "Opponent leads"}
+          </motion.span>
         </div>
-        <p className={css({ m: "none", fontSize: "small", color: "muted" })}>
+        <motion.p
+          key={`${String(ownTotal)}:${String(opponentTotal)}`}
+          initial={{ opacity: 0.5 }}
+          animate={{ opacity: 1 }}
+          className={css({ m: "none", fontSize: "small", color: "muted" })}
+        >
           Opponent total: {opponentTotal} · Your total: {ownTotal}
-        </p>
+        </motion.p>
       </header>
       <Slots
+        revealingCard={revealingCard}
         inspectCard={inspectCard}
         label="Opponent cards"
         cards={opponent}
@@ -73,6 +108,7 @@ export default function Lane({
       {playTarget ? (
         playTarget(
           <Slots
+            revealingCard={revealingCard}
             inspectCard={inspectCard}
             registerSlot={registerSlot}
             label="Your cards"
@@ -82,6 +118,7 @@ export default function Lane({
         )
       ) : (
         <Slots
+          revealingCard={revealingCard}
           inspectCard={inspectCard}
           registerSlot={registerSlot}
           label="Your cards"
@@ -94,6 +131,7 @@ export default function Lane({
 }
 
 function Slots({
+  revealingCard,
   registerSlot,
   label,
   inspectCard,
@@ -102,6 +140,7 @@ function Slots({
 }: {
   registerSlot?:
     ((slot: number, element: HTMLDivElement | null) => void) | undefined;
+  revealingCard?: string | undefined;
   label: string;
   inspectCard?: ((card: CardData) => void) | undefined;
   cards: readonly CardData[];
@@ -137,7 +176,7 @@ function Slots({
             })}
           >
             {data ? (
-              <CardMotion id={data.id}>
+              <CardMotion id={data.id} flip={data.id === revealingCard}>
                 <Card
                   data={data}
                   size="lane"

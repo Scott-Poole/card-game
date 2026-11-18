@@ -1,3 +1,4 @@
+import { useReveal } from "./useReveal.ts";
 import { flushSync } from "react-dom";
 import { animate, motion } from "motion/react";
 import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
@@ -43,11 +44,15 @@ function Game() {
   const slots = useRef(new Map<string, HTMLDivElement>());
   const [settling, setSettling] = useState(false);
   const hand = useRef<HTMLElement>(null);
+  const wasRevealing = useRef(false);
   const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
-  const { view, pending } = useAppSelector(selectMatch);
-  const staged = useAppSelector(selectStaging);
+  const { view: latest, pending } = useAppSelector(selectMatch);
+  const { view, active: revealing, skip, step } = useReveal(latest);
+  const stagedPlays = useAppSelector(selectStaging);
+  const staged = revealing ? [] : stagedPlays;
   const actionLocked =
+    revealing ||
     pending !== null ||
     status !== "connected" ||
     (view?.own.committed ?? false) ||
@@ -64,7 +69,7 @@ function Game() {
   const outcome = (winner: number | null) =>
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   const totals = view ? selectLaneTotals(view) : null;
-  const playing = view?.phase === "planning";
+  const playing = view?.phase === "planning" || revealing;
   function canStage(
     cardId: string | null,
     lane: number,
@@ -86,6 +91,8 @@ function Game() {
   const finishStage = useRef(stage);
   useLayoutEffect(() => {
     finishStage.current = stage;
+    if (wasRevealing.current && !revealing) hand.current?.focus();
+    wasRevealing.current = revealing;
   });
   return (
     <CardMotionScope dragging={dragging}>
@@ -205,6 +212,11 @@ function Game() {
                   {view.own.lanes.map((cards, lane) => (
                     <Lane
                       key={lane}
+                      revealingCard={
+                        step?.event.type === "card-revealed"
+                          ? step.event.card.id
+                          : undefined
+                      }
                       registerSlot={(slot, element) => {
                         const key = `${String(lane)}:${String(slot)}`;
                         if (element) slots.current.set(key, element);
@@ -367,8 +379,25 @@ function Game() {
                   aria-label="Previous reveal"
                 >
                   <h2>Previous reveal</h2>
+                  {revealing && (
+                    <button autoFocus className={button()} onClick={skip}>
+                      Skip reveal
+                    </button>
+                  )}
+                  {revealing && <p>Escape skips reveal</p>}
+                  {revealing && (
+                    <p role="status">
+                      {step?.event.type === "card-revealed"
+                        ? `Revealed ${step.event.card.name}`
+                        : step?.event.type === "turn-ended"
+                          ? "Turn ended"
+                          : step?.event.type === "match-ended"
+                            ? "Match ended"
+                            : "Revealing turn…"}
+                    </p>
+                  )}
                   <ol>
-                    {view.events.map((event, index) => (
+                    {(revealing ? [] : view.events).map((event, index) => (
                       <li key={index}>
                         {event.type === "card-revealed"
                           ? `Player ${String(event.player + 1)}: ${event.card.name} in lane ${String(event.lane + 1)}`
@@ -379,7 +408,7 @@ function Game() {
                     ))}
                   </ol>
                 </section>
-                {view.phase === "ended" && (
+                {!revealing && view.phase === "ended" && (
                   <section
                     className={cx(
                       panel(),
