@@ -410,6 +410,16 @@ FAKE_GH_NOW=2100-01-01T00:00:00Z FAKE_GH_RACE_HANDOFF=1 FAKE_GH_FAIL="POST issue
 check "the raced release rolls back" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
 FAKE_GH_NOW=2100-01-02T00:00:00Z run release 1 "thread gone"
 check "a retry after the rollback still sees the handoff" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
+# escalate posts its comment, then swaps labels. If the swap fails, the stale claim already
+# carries a handoff: next finishes the escalation instead of offering a CHECK nothing resolves.
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_FAIL="POST issues/1/labels" FAKE_GH_FAIL_ONCE=1 run escalate 1 $'## Needs you\n\nDecision: ...'
+check "a failed label swap leaves the claim and the handoff comment" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress:1"
+run next
+check "next finishes a pending escalation instead of checking it" is "$(labels 1):$OUT" "ready-for-human:PLAN feature"
+run next
+check "the finished escalation does not recur" is "$OUT" "PLAN feature"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
