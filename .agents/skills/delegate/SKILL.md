@@ -42,7 +42,7 @@ The launcher depends on **both** who you are and who the target is:
 - Call `orchestrator_capabilities` once per thread before the first `delegate_task`. Copy model ids from it; the ids above are as of 2026-11-13.
 - `target.providerInstanceId`: `codex`, `claudeAgent`, or `opencode` (DeepSeek: model `deepseek/deepseek-flash`, option `variant`: `low` for grunt work).
 - Options: Codex `{reasoningEffort: "medium"}`, Claude `{effort: "high"}`, OpenCode `{variant: "low"}` for grunt work, `{variant: "high"}` for review (record the variant in the Runs row).
-- `isolation: "worktree"` for every child that edits files, whatever else is running: Scott's primary checkout is never an agent's workspace (see `AGENTS.md`), and `"shared"` means the parent's checkout. Only read-only children use `"shared"`.
+- `isolation: "worktree"` for every child that edits files, whatever else is running: Scott's primary checkout is never an agent's workspace (see `AGENTS.md`), and `"shared"` means the parent's checkout. Only read-only children use `"shared"`, and a read-only child that must see current `main` gets the path from the [`read-main`](../read-main/SKILL.md) script, not the primary checkout.
 - Set `role` (`implementation`, `research`, `review`, `test`).
 
 ## 3. Write the brief
