@@ -199,6 +199,7 @@ function Game() {
                         else slots.current.delete(key);
                       }}
                       number={lane + 1}
+                      location={view.locations[lane]}
                       inspectCard={(card) => {
                         setInspection({ kind: "card", card });
                       }}
@@ -519,7 +520,8 @@ function Game() {
             name={
               inspection.kind === "card"
                 ? inspection.card.name
-                : `Lane ${String(inspection.number)}`
+                : (view?.locations[inspection.number - 1]?.name ??
+                  `Lane ${String(inspection.number)}`)
             }
             onClose={(cancelSelection) => {
               if (cancelSelection) setSelected(null);
@@ -539,7 +541,13 @@ function Game() {
                   ) && <p>Choose a lane to play this card.</p>}
               </>
             ) : (
-              <p>No location effect.</p>
+              <>
+                <p>Lane {inspection.number}</p>
+                <p>
+                  {view?.locations[inspection.number - 1]?.text ??
+                    "No location effect."}
+                </p>
+              </>
             )}
           </Inspect>
         )}

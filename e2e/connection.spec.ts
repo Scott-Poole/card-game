@@ -2,6 +2,12 @@ import type { Page } from "@playwright/test";
 import { test as base, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+const locations = ["Place A", "Place B", "Place C"].map((name, index) => ({
+  id: `place-${String(index)}`,
+  name,
+  text: "No effect for now.",
+  effect: { kind: "none" },
+}));
 const commitButton = (page: Page) =>
   page.getByRole("button", { name: /^End turn \d+\/6$/ });
 // Welcome received: the action that needs a connection is enabled, no trouble indicator shown.
@@ -261,6 +267,29 @@ async function reachPlayableTurn(a: Page, b: Page) {
   throw new Error("No playable card in six turns");
 }
 
+test("both players see the same three locations, one per lane in lane order", async ({
+  pair,
+}) => {
+  const { locations: pool } = await import("../src/server/locations.ts");
+  const seen = [];
+  for (const page of pair) {
+    const names = [];
+    for (const number of [1, 2, 3]) {
+      const lane = page.getByRole("region", {
+        name: `Lane ${String(number)}`,
+        exact: true,
+      });
+      await expect(lane).toContainText("No effect for now");
+      const text = (await lane.textContent()) ?? "";
+      const matches = pool.filter(({ name }) => text.includes(name));
+      expect(matches).toHaveLength(1);
+      names.push(matches[0]?.name);
+    }
+    expect(new Set(names).size).toBe(3);
+    seen.push(names);
+  }
+  expect(seen[0]).toEqual(seen[1]);
+});
 test("staging prevents overspend, returns unstaged cards, and locks after commit", async ({
   pair: [a, b],
 }) => {
@@ -365,6 +394,7 @@ test("opponent updates do not unlock an unacknowledged stage", async ({
     player: 0,
     turn: 1,
     energy: 1,
+    locations,
     phase: "planning",
     result: null,
     own: {
@@ -1135,6 +1165,7 @@ for (const width of [390, 1440]) {
             result: null,
             turn: 1,
             energy: 1,
+            locations,
             own: {
               hand: [
                 { id: "cheap", name: "Test herald", cost: 1, power: 2 },
@@ -1304,6 +1335,7 @@ for (const changeDuringMatch of [false, true]) {
       result: null,
       turn: 1,
       energy: 1,
+      locations,
       own: {
         hand: [card],
         staged: [],
@@ -1697,7 +1729,7 @@ test("lane standings describe current leads and location inspection", async ({
     }
   }
   await lane.getByRole("button", { name: "Lane 1", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("No location effect.");
+  await expect(page.getByRole("dialog")).toContainText("No effect for now.");
 });
 
 test("unaffordable hand card stays inspectable and cannot be staged", async ({

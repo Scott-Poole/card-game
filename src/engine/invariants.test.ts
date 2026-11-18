@@ -1,3 +1,4 @@
+import { testLocations } from "./locations.test-support.ts";
 import { assert, expect, test } from "vitest";
 
 import {
@@ -41,7 +42,7 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
         power: pick(13),
       }));
     const decks: [CardDefinition[], CardDefinition[]] = [deck(0), deck(1)];
-    let state = createMatch(seed, decks);
+    let state = createMatch(seed, decks, testLocations);
     const check = () => {
       assert.equal(state.energy, state.turn);
       for (const id of players) {

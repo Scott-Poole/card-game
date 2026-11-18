@@ -49,7 +49,7 @@ The sum of the power of one player's revealed cards in a lane.
 _Avoid_: Total power (when referring to a single lane)
 
 **Location**:
-An empty slot displayed in each lane, with no implemented effect.
+A named place with rule text, attached to one lane for the whole match. Each match draws three distinct locations from the authored pool by seed, and both players see them. Every location currently has the `none` effect kind: no implemented effect.
 
 ## Cards
 
