@@ -93,7 +93,8 @@ heartbeat_at() {
 }
 
 # claim_started <n>: epoch the current claim began, 0 when unknown. Only `claim` posts a
-# trusted `tick: claimed` comment, so that comment is the anchor: a rollback that puts the
+# trusted `tick: claimed <date>` comment (not the retired sweep's `tick: claimed over 8h ago`),
+# so that comment is the anchor: a rollback that puts the
 # in-progress label back leaves a newer label event, which must not move the claim start past
 # a handoff posted in between. Tickets without that comment fall back to the newest
 # in-progress label event. Both lookups are paginated: a ticket resumed many times outgrows
@@ -101,7 +102,7 @@ heartbeat_at() {
 claim_started() {
 	local comment_times event_times at
 	comment_times=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
-		".[] | $TRUSTED | select(.body | startswith(\"tick: claimed\")) | .created_at | fromdateiso8601") || return 1
+		".[] | $TRUSTED | select(.body | test(\"^tick: claimed [0-9]\")) | .created_at | fromdateiso8601") || return 1
 	at=$(printf '%s\n' "$comment_times" | sort -n | tail -1 | awk '{print $1 + 0}')
 	if ((at > 0)); then
 		echo "$at"
@@ -245,7 +246,10 @@ cmd_next() {
 		else
 			labels=" $(labels_of "$n") "
 			# Handed to Scott meanwhile (an escalation this run finished): no slot, nothing to check.
-			[[ $labels == *" $HUMAN "* && $labels != *" $CLAIMED "* ]] && continue
+			if [[ $labels == *" $HUMAN "* && $labels != *" $CLAIMED "* ]]; then
+				reconciled="$reconciled $n" # waiting on Scott; the human listing may lag it
+				continue
+			fi
 			wip=$((wip + 1))
 			# A claim the listing lags and a direct read doesn't show either holds a slot only.
 			[[ $labels == *" $CLAIMED "* ]] || continue
@@ -291,18 +295,18 @@ cmd_next() {
 	# Tickets automation handed to Scott: ready-for-human with a claim in their history.
 	# Tickets planned for humans never carried a claim, so they don't count; a ticket still
 	# carrying in-progress is held by a thread, not waiting on Scott.
-	local human was_claimed escalated=0
+	local human was_claimed escalated counted=""
 	human=$(gh api "$API/issues?state=open&labels=$HUMAN&per_page=100" \
 		--jq ".[] | select(.pull_request == null) | select(any(.labels[]; .name == \"$CLAIMED\") | not) | .number")
 	for n in $human; do
 		was_claimed=$(ever_claimed "$n")
 		if [[ $was_claimed == true ]]; then
-			escalated=$((escalated + 1))
+			counted="$counted $n"
 		fi
 	done
-	for n in $reconciled; do # finished above; the listing may not show them yet
-		grep -qx "$n" <<<"$human" || escalated=$((escalated + 1))
-	done
+	# Tickets this run handed to Scott count even before the listing or the event history
+	# shows them; a ticket in both sets counts once.
+	escalated=$(printf '%s\n' $counted $reconciled | sort -u | grep -c . || true)
 	if ((escalated >= max_escalated)); then
 		echo "NOOP $escalated ticket(s) waiting on Scott (cap $max_escalated)"
 		return
@@ -438,18 +442,19 @@ cmd_claim() {
 		log "refusing to claim #$n: labels are [$labels]"
 		exit 1
 	fi
-	# The claim comment anchors the claim's start (see claim_started), so a claim without it
-	# is no claim: a failed write puts the ticket back in the queue.
+	# The claim comment anchors the claim's start (see claim_started) and goes first: a failed
+	# write then changes nothing, and the half-claimed state (labels not swapped yet) never
+	# looks like a dead claim to a concurrent `next`. An escalation landing after the anchor
+	# stays newer than it, so it is still seen as a handoff.
+	comment "$n" "tick: claimed $(date -u +%Y-%m-%dT%H:%MZ); launching a work-ticket thread."
 	arm "$n" "$QUEUE" "$CLAIMED"
 	transition "$n" "$CLAIMED" "$QUEUE"
-	# A thread may have escalated this ticket after `next` picked it: its ready-for-human
-	# must not sit under a fresh claim anchor, which would make its handoff look historical.
+	# A thread may have escalated this ticket after `next` picked it: leave the handoff alone.
 	labels=" $(labels_of "$n") "
 	if [[ $labels == *" $HUMAN "* ]]; then
 		log "refusing to claim #$n: it was escalated meanwhile"
 		exit 1
 	fi
-	comment "$n" "tick: claimed $(date -u +%Y-%m-%dT%H:%MZ); launching a work-ticket thread."
 	disarm
 	log "claimed #$n"
 }
@@ -480,17 +485,38 @@ All sub-issues are closed. Close this spec when the outcome matches. This spec s
 	fi
 }
 
-# handoff_since_claim <n>: 0 when a trusted `## Needs you` comment is newer than the claim's
-# start, i.e. a thread escalated this ticket; 1 when there is none; 2 when a query failed.
-# `escalate` posts that comment before it touches labels, so it marks a real handoff even
-# while the labels are mid-swap. Callers test the code, so errexit is off in here: every
-# failure is returned explicitly rather than left to `set -e`.
-handoff_since_claim() {
+# comment_since_claim <n> <jq test on .body>: 0 when a trusted comment passing the test is newer
+# than the claim's start; 1 when there is none; 2 when a query failed. Callers test the code,
+# so errexit is off in here: every failure is returned explicitly rather than left to `set -e`.
+comment_since_claim() {
 	local since hits
 	since=$(claim_started "$1") || return 2
 	hits=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
-		".[] | $TRUSTED | select(.body | startswith(\"## Needs you\")) | select((.created_at | fromdateiso8601) >= $since) | 1") || return 2
+		".[] | $TRUSTED | select(.body | $2) | select((.created_at | fromdateiso8601) >= $since) | 1") || return 2
 	[[ -n $hits ]]
+}
+
+# handoff_since_claim <n>: a thread escalated this ticket. `escalate` posts the `## Needs you`
+# comment after its holding label and before it gives up the claim, so the comment marks a
+# real handoff even while the labels are mid-swap.
+handoff_since_claim() { comment_since_claim "$1" 'startswith("## Needs you")'; }
+
+# The comment the retired stale sweep posted when it flagged a live claim ready-for-human. It
+# is the only evidence that a ready-for-human on a claimed ticket is that sweep's leftover
+# flag, ours to clear; without it the label belongs to an escalation that may still be in
+# flight. Nothing posts this comment any more, so the migration path ends with the old flags.
+legacy_flag_since_claim() { comment_since_claim "$1" 'contains("the claim keeps its slot until you remove")'; }
+
+# has_legacy_flag <n>: succeeds when the ticket carries the retired sweep's flag; a failed
+# query exits the script (fail closed).
+has_legacy_flag() {
+	local rc=0
+	legacy_flag_since_claim "$1" || rc=$?
+	case $rc in
+	0) return 0 ;;
+	1) return 1 ;;
+	*) log "legacy-flag lookup for #$1 failed"; exit 1 ;;
+	esac
 }
 
 # no_handoff <n>: succeeds when no thread has escalated this claim, fails (returns 1) when one
@@ -513,6 +539,7 @@ no_handoff() {
 drop_stale_human() {
 	local rc=0
 	no_handoff "$1" || return 1
+	has_legacy_flag "$1" || return 1
 	arm "$1" "$HUMAN"
 	transition "$1" "" "$HUMAN" || exit 1
 	handoff_since_claim "$1" || rc=$?
@@ -524,7 +551,7 @@ drop_stale_human() {
 }
 
 cmd_release() {
-	local labels rc=0
+	local labels rc=0 legacy=0
 	labels=" $(labels_of "$1") "
 	# Only a live claim can be released, and only if no thread has escalated it: a handoff
 	# must not be swept back into the queue, with or without its ready-for-human label yet.
@@ -536,13 +563,20 @@ cmd_release() {
 		log "refusing to release #$1: a thread escalated it"
 		exit 1
 	fi
+	# A ready-for-human on the claim is either the retired sweep's flag (ours to clear) or an
+	# escalation whose comment has not landed yet (not ours): refuse the second.
+	if [[ $labels == *" $HUMAN "* ]]; then
+		if ! has_legacy_flag "$1"; then
+			log "refusing to release #$1: it carries $HUMAN without a stale-sweep comment; an escalation may be in flight"
+			exit 1
+		fi
+		legacy=1
+	fi
 	# From here every failure puts the claim (and any flag removed) back: nothing that might
 	# be a handoff may end up launchable.
 	arm "$1" "$CLAIMED" "$QUEUE"
 	transition "$1" "$QUEUE" "$CLAIMED"
-	# A pre-heartbeat stale flag may still be on it; the ticket is the agents' turn again.
-	labels=" $(labels_of "$1") "
-	if [[ $labels == *" $HUMAN "* ]]; then
+	if ((legacy)); then
 		ROLLBACK_ADD+=("$HUMAN")
 		transition "$1" "" "$HUMAN"
 	fi

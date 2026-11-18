@@ -48,6 +48,11 @@ setup() {
 	jq -n --argjson issues "$1" --argjson events "${2:-{\}}" --argjson pages "${3:-[[]]}" \
 		'{issues: ($issues | map({key: (.number | tostring), value: .}) | from_entries),
 		  events: $events, repo_event_pages: $pages, comments: []}' >"$WORK/state.json"
+	# A claimed ticket flagged ready-for-human is the retired stale sweep's leftover unless a
+	# test removes this comment: give it the sweep's comment, as production tickets have.
+	jq '.comments += [.issues[] | select(([.labels[].name] | index("in-progress")) and ([.labels[].name] | index("ready-for-human")))
+		| {issue: .number, body: "tick: claimed over 8h ago and not merged. Added `ready-for-human`; the claim keeps its slot until you remove `in-progress` or close the ticket.", author_association: "OWNER", created_at: "2099-01-01T00:00:00Z"}]' \
+		"$WORK/state.json" >"$WORK/new.json" && mv "$WORK/new.json" "$WORK/state.json"
 	: >"$WORK/calls.log"
 }
 
@@ -58,7 +63,8 @@ run() { # run <args...>: runs queue.sh with the fake; sets OUT, ERR, CODE
 	ERR=$(cat "$WORK/err")
 }
 labels() { jq -r --arg n "$1" '.issues[$n].labels | map(.name) | sort | join(",")' "$WORK/state.json"; }
-comments() { jq -r --arg n "$1" '[.comments[] | select(.issue == ($n | tonumber))] | length' "$WORK/state.json"; }
+# Counts the comments the code under test posted, not the stale-sweep fixture.
+comments() { jq -r --arg n "$1" '[.comments[] | select(.issue == ($n | tonumber)) | select(.body | contains("the claim keeps its slot") | not)] | length' "$WORK/state.json"; }
 
 check() { # check <name> <condition...>
 	local name=$1
@@ -330,7 +336,7 @@ check "a stale check comes before the escalation cap" is "$OUT" "CHECK 1 0 Ticke
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 FAKE_GH_NOW=$TODAY run alive 1 nudged
 check "alive posts one heartbeat and clears the stale flag" is "$CODE:$(labels 1):$(comments 1)" "0:in-progress:1"
-check "alive marks a nudge" is "$(jq -r '.comments[0].body' "$WORK/state.json" | grep -c "$NUDGE")" "1"
+check "alive marks a nudge" is "$(jq -r '.comments[] | select(.body | contains("queue:alive")) | .body' "$WORK/state.json" | grep -c "$NUDGE")" "1"
 run next
 check "after alive the claim is no longer stale" is "$OUT" "PLAN feature"
 setup "[$(issue 6 ready-for-agent)]"
@@ -447,6 +453,45 @@ check "claims on a later events page count toward the escalation cap" is "$OUT" 
 jq --argjson e "[$(claimed_event "$OLD")]" '.event_pages = {"1": [[{"event":"closed"}], $e]}' "$WORK/state.json" >"$WORK/new.json" && mv "$WORK/new.json" "$WORK/state.json"
 run resume-info 1
 check "resume-info counts claims on a later events page" is "$OUT" "THREAD none CLAIMS 1"
+# A FRESH claim with a pending handoff counts against the cap at once, not after staleHours.
+setup "[$(issue 1 ready-for-human), $(issue 2 in-progress), $(issue 3 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$TODAY")]}"
+add_comments "$(comment_at 2 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 2 2099-01-01T00:00:00Z $'## Needs you\n\nDecision: ...')"
+run next
+check "a fresh pending escalation is finished and counted" is "$(labels 2):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
+# A ready-for-human ticket is never claimed, and an escalation landing during the claim undoes it.
+setup "[$(issue 6 ready-for-agent,ready-for-human)]"
+run claim 6
+check "claim refuses a ticket that carries ready-for-human" is "$CODE:$(labels 6):$(comments 6)" "1:ready-for-agent,ready-for-human:0"
+setup "[$(issue 6 ready-for-agent)]"
+FAKE_GH_RACE_HUMAN=1 run claim 6
+check "a claim that raced an escalation is undone" is "$CODE:$(labels 6):$(comments 6)" "1:ready-for-agent,ready-for-human:1"
+# This run's own claim is reconciled too: a half-done escalation counts at once.
+setup "[$(issue 1 ready-for-human), $(issue 2 in-progress), $(issue 3 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$TODAY")]}"
+add_comments "$(comment_at 2 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 2 2099-01-01T00:00:00Z $'## Needs you\n\nDecision: ...')"
+run next 2
+check "a run-claimed ticket with a pending handoff is finished and counted" is "$(labels 2):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
+# A ticket this run already handed to Scott holds no WIP slot on the next iteration.
+setup "[$(issue 6 ready-for-human), $(issue 7 in-progress), $(issue 8 in-progress), $(issue 9 in-progress), $(issue 10 ready-for-agent)]" \
+	"{\"6\": [$(claimed_event "$OLD")], \"7\": [$(claimed_event "$TODAY")], \"8\": [$(claimed_event "$TODAY")], \"9\": [$(claimed_event "$TODAY")]}"
+run next 6 7 8 9
+check "a run ticket handed to Scott is not counted as in progress" is "$OUT" "LAUNCH 10 Ticket 10"
+# Without the retired sweep's comment, ready-for-human on a claim belongs to an escalation that
+# may still be in flight (label first, comment next): release refuses, alive leaves it alone.
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+jq '.comments = []' "$WORK/state.json" >"$WORK/new.json" && mv "$WORK/new.json" "$WORK/state.json"
+run release 1 "thread gone"
+check "release refuses an unexplained ready-for-human" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress,ready-for-human:0"
+run alive 1
+check "alive leaves an unexplained ready-for-human" is "$CODE:$(labels 1):$(comments 1)" "0:in-progress,ready-for-human:1"
+# Cap accounting: a ticket this run handed to Scott counts even when the human listing lags it...
+setup "[$(issue 1 ready-for-human), $(issue 6 ready-for-human), $(issue 10 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"6\": [$(claimed_event "$TODAY")]}"
+FAKE_GH_LAG_LISTING="6" run next 6
+check "a lagging human listing does not hide a finished escalation" is "$OUT" "NOOP 2 ticket(s) waiting on Scott (cap 2)"
+# ...and when its claim event history lags it, so ever_claimed cannot see it.
+setup "[$(issue 1 ready-for-human), $(issue 6 in-progress), $(issue 10 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")]}"
+add_comments "$(comment_at 6 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 6 2099-01-01T00:00:00Z "$HANDOFF")"
+run next 6
+check "a finished escalation with no claim event yet still counts" is "$(labels 6):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
