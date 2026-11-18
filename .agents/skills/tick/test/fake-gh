@@ -134,6 +134,9 @@ def route(state, method, path, fields):
         return [state.get("events", {}).get(n, [])]
     if method == "POST" and rest == "/labels":
         label = fields["labels[]"]
+        # $FAKE_GH_RACE_HUMAN=1: an escalation adds ready-for-human just as in-progress lands.
+        if os.environ.get("FAKE_GH_RACE_HUMAN") and label == "in-progress" and "ready-for-human" not in names:
+            iss["labels"].append({"name": "ready-for-human"})
         # $FAKE_GH_RACE_HANDOFF=1: a thread posts its `## Needs you` right after the first label write.
         if os.environ.get("FAKE_GH_RACE_HANDOFF") and not any(c["body"].startswith("## Needs you") for c in state.get("comments", [])):
             state.setdefault("comments", []).append({"issue": int(n), "body": "## Needs you\n\nDecision: ...", "author_association": "OWNER",

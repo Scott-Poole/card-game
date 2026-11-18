@@ -51,7 +51,8 @@ git show origin/main:.agents/skills/tick/queue.sh | bash -s -- resume-info <n>  
 
 - **Active** (`running`, `queued`, `starting`, `preparing`, `waiting`): `... -- alive <n>`. The thread is working, so the claim stays and its clock restarts.
 - **Idle or ended** (`completed`, `idle`, `failed`, `interrupted`, `cancelled`) and `<nudges>` is under 3: wake it with `t3_thread_send`, "Resume: you still hold #<n>. Read the issue and its PR, finish the ticket per `work-ticket`, and merge or escalate.", then `... -- alive <n> nudged`. Threads that hit a usage limit or ended a turn waiting for a reply resume this way, keeping their branch, worktree and PR.
-- **Missing** (no link, the thread is gone, or the send fails): `... -- release <n> "thread gone"`. The ticket returns to `ready-for-agent` and a later launch resumes it (step 3).
+- **No link recorded** (`THREAD none`: the note after launch may have failed): look for the thread before giving up: `t3_thread_list` with `titleContains` `#<n> ` (the launch title) and the branch `ticket/<n>-*`; if found, treat it as the link above and `note <n> "work-ticket thread: <link>"` to repair the record.
+- **Missing** (no thread exists by link or by title, it is gone, or the send fails): `... -- release <n> "thread gone"`. The ticket returns to `ready-for-agent` and a later launch resumes it (step 3).
 - **Woken three times already** and still idle: escalate for real, `... -- escalate <n> "<## Needs you comment>"`, saying the thread keeps stopping without finishing, with the last status and any PR link.
 
 If the read itself errors, stop the run: claim nothing more, mention the error in the reply, and go to **Audit**. (`next` would offer the same ticket again, so retrying here never ends.) `alive` and `release` change what `next` offers, so every other outcome terminates. `release` refuses a ticket whose thread escalated in the meantime; leave that one for Scott (a later `next` finishes an escalation whose label write failed, so it never recurs as a CHECK). `<nudges>` counts only wakes since the current claim began, so a hand-back starts a fresh budget. `alive` also clears a `ready-for-human` the old stale sweep left on a claimed ticket.
@@ -89,7 +90,7 @@ If the launch fails, release the claim (`... | bash -s -- release <n> "<error>"`
 git show origin/main:.agents/skills/tick/queue.sh | bash -s -- note <n> "work-ticket thread: <link>"
 ```
 
-This ticket is done when it carries `in-progress`, a claim comment, and the thread link. Read the launched thread once with `t3_thread_read`: if it does not exist, release the claim (`... -- release <n> "launch failed"`); a thread whose first run failed on a usage limit resumes itself, so keep that claim and let **Check** nudge it later. Go back to step 1.
+Retry a failed `note` once; if it still fails, say so in the reply (**Check** recovers the thread by its title later). This ticket is done when it carries `in-progress`, a claim comment, and the thread link. Read the launched thread once with `t3_thread_read`: if it does not exist, release the claim (`... -- release <n> "launch failed"`); a thread whose first run failed on a usage limit resumes itself, so keep that claim and let **Check** nudge it later. Go back to step 1.
 
 ## Plan
 

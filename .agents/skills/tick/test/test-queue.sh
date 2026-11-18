@@ -425,6 +425,18 @@ setup "[$(issue 1 ready-for-human), $(issue 2 in-progress), $(issue 3 ready-for-
 add_comments "$(comment_at 2 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 2 2099-01-01T00:00:00Z $'## Needs you\n\nDecision: ...')"
 run next
 check "a fresh pending escalation is finished and counted" is "$(labels 2):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
+# A ready-for-human ticket is never claimed, and an escalation landing during the claim undoes it.
+setup "[$(issue 6 ready-for-agent,ready-for-human)]"
+run claim 6
+check "claim refuses a ticket that carries ready-for-human" is "$CODE:$(labels 6):$(comments 6)" "1:ready-for-agent,ready-for-human:0"
+setup "[$(issue 6 ready-for-agent)]"
+FAKE_GH_RACE_HUMAN=1 run claim 6
+check "a claim that raced an escalation is undone without an anchor" is "$CODE:$(labels 6):$(comments 6)" "1:ready-for-agent,ready-for-human:0"
+# This run's own claim is reconciled too: a half-done escalation counts at once.
+setup "[$(issue 1 ready-for-human), $(issue 2 in-progress), $(issue 3 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$TODAY")]}"
+add_comments "$(comment_at 2 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 2 2099-01-01T00:00:00Z $'## Needs you\n\nDecision: ...')"
+run next 2
+check "a run-claimed ticket with a pending handoff is finished and counted" is "$(labels 2):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"

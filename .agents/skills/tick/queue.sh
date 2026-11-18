@@ -238,7 +238,6 @@ cmd_next() {
 	done
 	for n in $claimed; do
 		wip=$((wip + 1))
-		printf '%s\n' "${run[@]}" | grep -qx "$n" && continue # claimed seconds ago
 		claimed_at=$(claim_started "$n") || return 1
 		rc=0
 		handoff_since_claim "$n" || rc=$?
@@ -252,6 +251,7 @@ cmd_next() {
 		1) ;;
 		*) log "handoff lookup for #$n failed"; return 1 ;;
 		esac
+		printf '%s\n' "${run[@]}" | grep -qx "$n" && continue # claimed seconds ago: not stale
 		beat=$(heartbeat_at "$n")
 		last=$((claimed_at > beat ? claimed_at : beat))
 		if ((now - last > stale_hours * 3600)) && { [[ -z $check ]] || ((n < check)); }; then
@@ -409,7 +409,7 @@ cmd_plan_close() {
 cmd_claim() {
 	local n=$1 labels
 	labels=" $(labels_of "$n") "
-	if [[ $labels == *" $CLAIMED "* || $labels != *" $QUEUE "* ]]; then
+	if [[ $labels == *" $CLAIMED "* || $labels == *" $HUMAN "* || $labels != *" $QUEUE "* ]]; then
 		log "refusing to claim #$n: labels are [$labels]"
 		exit 1
 	fi
@@ -417,6 +417,13 @@ cmd_claim() {
 	# is no claim: a failed write puts the ticket back in the queue.
 	arm "$n" "$QUEUE" "$CLAIMED"
 	transition "$n" "$CLAIMED" "$QUEUE"
+	# A thread may have escalated this ticket after `next` picked it: its ready-for-human
+	# must not sit under a fresh claim anchor, which would make its handoff look historical.
+	labels=" $(labels_of "$n") "
+	if [[ $labels == *" $HUMAN "* ]]; then
+		log "refusing to claim #$n: it was escalated meanwhile"
+		exit 1
+	fi
 	comment "$n" "tick: claimed $(date -u +%Y-%m-%dT%H:%MZ); launching a work-ticket thread."
 	disarm
 	log "claimed #$n"
