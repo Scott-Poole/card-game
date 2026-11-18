@@ -19,6 +19,7 @@ const gates = [
   "test",
   "test:guardrail",
   "test:queue",
+  "test:read-main",
   "test:boundaries",
   "test:skill-links",
   "test:working-markdown",
