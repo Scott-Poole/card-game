@@ -180,7 +180,7 @@ test("two players finish six turns with consistent results", async ({
           .getByRole("button", { name: /Stage .* in lane/ })
           .and(page.locator(":enabled"));
         if (await playable.count()) {
-          await playable.first().click();
+          await playable.first().press("Enter");
           stagedPlayers.add(page);
           await expect(
             page.getByRole("button", { name: /Unstage/ }),
@@ -277,14 +277,14 @@ test("staging prevents overspend, returns unstaged cards, and locks after commit
   const stage = await reachPlayableTurn(a, b);
   const label = await stage.getAttribute("aria-label");
   if (!label) throw new Error("Missing stage action name");
-  await stage.click();
+  await stage.press("Enter");
   const unstage = a.getByRole("button", { name: /Unstage/ });
   await expect(unstage).toBeEnabled();
   await unstage.click();
   await expect(
     hand.getByRole("button", { name: label, exact: true }),
   ).toBeEnabled();
-  await hand.getByRole("button", { name: label, exact: true }).click();
+  await hand.getByRole("button", { name: label, exact: true }).press("Enter");
   await expect(unstage).toBeEnabled();
   await commitButton(a).click();
   await expect(unstage).toBeDisabled();
@@ -312,7 +312,7 @@ test("opponent staged cards stay hidden until resolution", async ({
   // Both decks share names, so compare the whole rendered page to its baseline:
   // the opponent's own hand may already contain the same card definition.
   const before = await b.locator("body").innerText();
-  await stage.click();
+  await stage.press("Enter");
   await expect(
     a.getByRole("button", { name: `Unstage ${name}`, exact: true }),
   ).toBeEnabled();
@@ -417,7 +417,7 @@ test("opponent updates do not unlock an unacknowledged stage", async ({
   await page.getByRole("button", { name: "Find match", exact: true }).click();
   await page
     .getByRole("button", { name: "Stage Asteron in lane 1", exact: true })
-    .click();
+    .press("Enter");
   await expect(
     page.getByText("Opponent has committed", { exact: true }),
   ).toBeVisible();
@@ -668,7 +668,7 @@ test("multiple staged cards can be returned from the portrait board", async ({
       .getByRole("button", { name: /in lane 1$/ })
       .and(a.locator(":enabled"))
       .first();
-    await play.click();
+    await play.press("Enter");
     await expect(a.getByRole("button", { name: /Unstage/ })).toHaveCount(
       count + 1,
     );
@@ -732,7 +732,7 @@ test("revealed lane cards and totals follow both players through every turn", as
         const totalBefore = await laneRegion
           .getByText(/^Opponent total:/)
           .innerText();
-        await play.click();
+        await play.press("Enter");
         await expect(
           page
             .getByRole("region", { name: `Lane ${match[2]}`, exact: true })
@@ -987,7 +987,7 @@ test.describe("controlled drag animation", () => {
       expect(Math.max(...widths)).toBeLessThanOrEqual(original.width + 2);
       await returned
         .getByRole("button", { name: /Stage .* in lane 1$/ })
-        .click();
+        .press("Enter");
       await expect(
         a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
       ).toBeVisible();
@@ -1274,7 +1274,7 @@ test("direct staging clears card selection and inspection", async ({
   if (!name) throw new Error("Missing playable card");
   await a.getByRole("button", { name: `Inspect ${name}`, exact: true }).click();
   await a.getByRole("dialog").getByRole("button", { name: "Close" }).click();
-  await direct.click();
+  await direct.press("Enter");
   await expect(a.getByRole("dialog")).toHaveCount(0);
   await expect(
     a.getByRole("button", { name: /Play selected card in lane/ }),
@@ -1479,7 +1479,7 @@ test("two players reveal both sides and agree on lane totals", async ({
       .getByRole("button", { name: /Stage .* in lane 1$/ })
       .and(page.locator(":enabled"))
       .first()
-      .click();
+      .press("Enter");
     await commitButton(page).click();
   }
   const totals: string[] = [];
@@ -1570,7 +1570,7 @@ test("action bar: staging a card drops the energy orb, then commit waits", async
     )?.[1],
   );
   const before = Number(await energy(a).getAttribute("aria-valuenow"));
-  await stage.click();
+  await stage.press("Enter");
   await expect(energy(a)).toHaveAttribute(
     "aria-valuenow",
     String(before - cost),
@@ -1698,4 +1698,29 @@ test("lane standings describe current leads and location inspection", async ({
   }
   await lane.getByRole("button", { name: "Lane 1", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("No location effect.");
+});
+
+test("unaffordable hand card stays inspectable and cannot be staged", async ({
+  pair: [a],
+}) => {
+  const card = a
+    .getByRole("region", { name: "Hand" })
+    .getByRole("article")
+    .filter({ hasText: /Cost [2-6]/ })
+    .first();
+  await expect(card).toHaveCSS("opacity", "0.55");
+  await card.getByRole("button", { name: /^Inspect / }).click();
+  await expect(a.getByRole("dialog")).toContainText(
+    "No ability description available.",
+  );
+  for (let lane = 1; lane <= 3; lane++) {
+    await expect(
+      a.getByRole("button", {
+        name: `Play selected card in lane ${String(lane)}`,
+      }),
+    ).toBeDisabled();
+  }
+  await expect(
+    a.getByRole("region", { name: "Staged cards" }).getByRole("listitem"),
+  ).toHaveCount(0);
 });
