@@ -136,6 +136,20 @@ it.each([
     type: "state",
     view: { ...view, phase: "ended", result: score, revealFirst: null },
   },
+  ...[1, 2].map((amount) => ({
+    type: "state",
+    view: {
+      ...view,
+      locations: [
+        {
+          ...locations[0],
+          text: `Each card adds ${String(amount)} power.`,
+          effect: { kind: "power-per-card", amount },
+        },
+        ...locations.slice(1),
+      ],
+    },
+  })),
 ])("decodes $type", (message) => {
   expect(decodeServerMessage(JSON.stringify(message))).toEqual({
     ok: true,
@@ -247,6 +261,17 @@ it.each([
       ...locations.slice(1),
     ],
   },
+  ...[
+    ["zero", { kind: "power-per-card", amount: 0 }],
+    ["three", { kind: "power-per-card", amount: 3 }],
+    ["non-integer", { kind: "power-per-card", amount: 1.5 }],
+    ["string", { kind: "power-per-card", amount: "1" }],
+    ["missing", { kind: "power-per-card" }],
+    ["extra key", { kind: "power-per-card", amount: 1, extra: true }],
+  ].map(([, effect]) => ({
+    ...view,
+    locations: [{ ...locations[0], effect }, ...locations.slice(1)],
+  })),
   { ...view, locations: [{ ...locations[0], text: 7 }, ...locations.slice(1)] },
   { ...view, locations: [locations[0], locations[0], locations[2]] },
   {

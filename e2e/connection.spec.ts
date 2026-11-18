@@ -25,8 +25,12 @@ const test = base.extend<{
   address: string;
   pair: readonly [Page, Page];
   controlledClock: boolean;
+  // "plain" (default, so totals equal printed power) and "boosted" pin the
+  // pool through e2e/server.ts; "shipped" is the real random pool.
+  locationPool: "shipped" | "plain" | "boosted";
 }>({
   controlledClock: [false, { option: true }],
+  locationPool: ["plain", { option: true }],
   pair: async ({ browser, address, controlledClock }, use) => {
     const first = await browser.newContext();
     const second = await browser.newContext();
@@ -53,13 +57,22 @@ const test = base.extend<{
       await second.close();
     }
   },
-  address: async ({ browserName }, use) => {
+  address: async ({ browserName, locationPool }, use) => {
     // Keep the browser fixture dependent on a built-in Playwright fixture.
     expect(browserName).toBe("chromium");
-    const server = spawn(process.execPath, ["src/server/main.ts"], {
-      env: { ...process.env, PORT: "0", CLIENT_DIRECTORY: "dist" },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const server = spawn(
+      process.execPath,
+      [locationPool === "shipped" ? "src/server/main.ts" : "e2e/server.ts"],
+      {
+        env: {
+          ...process.env,
+          PORT: "0",
+          CLIENT_DIRECTORY: "dist",
+          E2E_LOCATIONS: locationPool,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
     const stopped = new Promise<void>((resolve) => {
       server.once("exit", () => {
         resolve();
@@ -306,28 +319,31 @@ async function reachPlayableTurn(a: Page, b: Page) {
   throw new Error("No playable card in six turns");
 }
 
-test("both players see the same three locations, one per lane in lane order", async ({
-  pair,
-}) => {
-  const { locations: pool } = await import("../src/server/locations.ts");
-  const seen = [];
-  for (const page of pair) {
-    const names = [];
-    for (const number of [1, 2, 3]) {
-      const lane = page.getByRole("region", {
-        name: `Lane ${String(number)}`,
-        exact: true,
-      });
-      const text = (await lane.textContent()) ?? "";
-      const matches = pool.filter(({ name }) => text.includes(name));
-      expect(matches).toHaveLength(1);
-      await expect(lane).toContainText(matches[0]?.text ?? "");
-      names.push(matches[0]?.name);
+test.describe("shipped location pool", () => {
+  test.use({ locationPool: "shipped" });
+  test("both players see the same three locations, one per lane in lane order", async ({
+    pair,
+  }) => {
+    const { locations: pool } = await import("../src/server/locations.ts");
+    const seen = [];
+    for (const page of pair) {
+      const names = [];
+      for (const number of [1, 2, 3]) {
+        const lane = page.getByRole("region", {
+          name: `Lane ${String(number)}`,
+          exact: true,
+        });
+        const text = (await lane.textContent()) ?? "";
+        const matches = pool.filter(({ name }) => text.includes(name));
+        expect(matches).toHaveLength(1);
+        await expect(lane).toContainText(matches[0]?.text ?? "");
+        names.push(matches[0]?.name);
+      }
+      expect(new Set(names).size).toBe(3);
+      seen.push(names);
     }
-    expect(new Set(names).size).toBe(3);
-    seen.push(names);
-  }
-  expect(seen[0]).toEqual(seen[1]);
+    expect(seen[0]).toEqual(seen[1]);
+  });
 });
 test("staging prevents overspend, returns unstaged cards, and locks after commit", async ({
   pair: [a, b],
@@ -1799,4 +1815,112 @@ test("unaffordable hand card stays inspectable and cannot be staged", async ({
   await expect(
     a.getByRole("region", { name: "Staged cards" }).getByRole("listitem"),
   ).toHaveCount(0);
+});
+
+test.describe("power-per-card location", () => {
+  test.use({ locationPool: "boosted" });
+  test("both players see the same boosted total and the same final totals", async ({
+    pair: [a, b],
+  }) => {
+    test.setTimeout(30_000);
+    const boosted = a
+      .getByRole("region", { name: /^Lane \d$/ })
+      .filter({ hasText: "Forge Beneath Etna" });
+    // The shipped rule text must be readable, not clipped by the lane header.
+    for (const [page, size] of [
+      [a, { width: 390, height: 844 }],
+      [b, { width: 1440, height: 900 }],
+    ] as const) {
+      await page.setViewportSize(size);
+      const rule = page
+        .getByRole("region", { name: /^Lane \d$/ })
+        .getByText("Each card you play here adds 2 power.", { exact: true });
+      await expect(rule).toBeVisible();
+      expect(
+        await rule.evaluate((el) => el.scrollHeight <= el.clientHeight),
+      ).toBe(true);
+    }
+    const laneName = (await boosted.getAttribute("aria-label")) ?? "";
+    const lane = /^Lane (\d)$/.exec(laneName)?.[1];
+    if (!lane) throw new Error("Missing boosted lane");
+    await expect(
+      b
+        .getByRole("region", { name: `Lane ${lane}`, exact: true })
+        .getByText("Forge Beneath Etna", { exact: true }),
+    ).toBeVisible();
+    const powers = new Map<Page, number[]>([
+      [a, []],
+      [b, []],
+    ]);
+    const total = (cards: readonly number[]) =>
+      cards.reduce((sum, power) => sum + power + 2, 0);
+    for (let turn = 1; turn <= 6; turn++) {
+      for (const page of [a, b]) {
+        await expect(
+          page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
+        ).toBeVisible();
+        const play = page
+          .getByRole("button", {
+            name: new RegExp(`^Stage .* in lane ${lane}$`),
+          })
+          .and(page.locator(":enabled"))
+          .first();
+        if (await play.count()) {
+          const label = await play.getAttribute("aria-label");
+          const name = /^Stage (.*) in lane \d$/.exec(label ?? "")?.[1];
+          if (!name) throw new Error("Missing play label");
+          const power = Number(
+            (
+              await page
+                .getByRole("region", { name: "Hand", exact: true })
+                .getByRole("article", { name, exact: true })
+                .getByText(/^Power /)
+                .innerText()
+            ).replace("Power ", ""),
+          );
+          await play.press("Enter");
+          powers.get(page)?.push(power);
+        }
+        await commitButton(page).click();
+      }
+      for (const page of [a, b])
+        await expect(
+          page.getByRole("button", {
+            name: turn === 6 ? "View result" : `End turn ${String(turn + 1)}/6`,
+            exact: true,
+          }),
+        ).toBeVisible();
+      for (const [page, other] of [
+        [a, b],
+        [b, a],
+      ] as const)
+        await expect(
+          page
+            .getByRole("region", { name: `Lane ${lane}`, exact: true })
+            .getByText(
+              `Opponent total: ${String(total(powers.get(other) ?? []))} · Your total: ${String(total(powers.get(page) ?? []))}`,
+              { exact: true },
+            ),
+        ).toBeVisible();
+    }
+    expect(
+      (powers.get(a)?.length ?? 0) + (powers.get(b)?.length ?? 0),
+    ).toBeGreaterThan(0);
+    const finals = await Promise.all(
+      [a, b].map((page) =>
+        page
+          .getByRole("region", { name: "Match result" })
+          .getByText(/^Total power:/)
+          .innerText(),
+      ),
+    );
+    expect(finals[0]).toBe(finals[1]);
+    expect(
+      (finals[0] ?? "")
+        .replace("Total power: ", "")
+        .split(" / ")
+        .map(Number)
+        .sort(),
+    ).toEqual([total(powers.get(a) ?? []), total(powers.get(b) ?? [])].sort());
+  });
 });

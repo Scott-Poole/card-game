@@ -1,6 +1,7 @@
 import { matchHost } from "./match.ts";
 import { staticResponse } from "./static.ts";
 import { decodeClientMessage } from "../protocol/messages.ts";
+import { LANE_COUNT, type LocationDefinition } from "../rules/index.ts";
 import type { ServerMessage } from "../protocol/messages.ts";
 import { createRequire } from "node:module";
 import type * as UWebSockets from "uWebSockets.js";
@@ -16,6 +17,8 @@ export interface ServerOptions {
   port: number;
   /** Directory containing the production client. */
   clientDirectory: string;
+  /** Location pool matches draw from; defaults to the shipped pool. */
+  locations?: readonly LocationDefinition[];
 }
 export interface ServerHandle {
   port: number;
@@ -33,7 +36,17 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
       new Error("port must be an integer between 0 and 65535"),
     );
   }
-  const matches = matchHost();
+  const pool = options.locations;
+  if (
+    pool &&
+    (pool.length < LANE_COUNT ||
+      new Set(pool.map((location) => location.id)).size !== pool.length)
+  ) {
+    return Promise.reject(
+      new Error("locations need a unique id per entry, at least one per lane"),
+    );
+  }
+  const matches = matchHost(undefined, pool);
   const app = App().ws("/ws", {
     // Transport limits: oversize frames disconnect rather than enter the decoder.
     maxPayloadLength: 16 * 1024,

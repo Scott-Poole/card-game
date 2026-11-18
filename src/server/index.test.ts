@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "vitest";
 import { decodeServerMessage } from "../protocol/messages.ts";
+import type { LocationDefinition } from "../rules/index.ts";
 import { startServer, type ServerHandle } from "./index.ts";
 
 let server: ServerHandle | undefined;
@@ -113,3 +114,21 @@ test("disconnects oversized frames at the transport limit", async () => {
   await closed;
   expect(socket.readyState).toBe(WebSocket.CLOSED);
 });
+
+const place = (id: string): LocationDefinition => ({
+  id,
+  name: id,
+  text: "No effect.",
+  effect: { kind: "none" },
+});
+test.each([
+  ["too few", [place("a")]],
+  ["duplicate ids", [place("a"), place("a"), place("a")]],
+])(
+  "rejects a location pool with %s before listening",
+  async (_name, locations) => {
+    await expect(
+      startServer({ port: 0, clientDirectory: "dist", locations }),
+    ).rejects.toThrow("locations need");
+  },
+);

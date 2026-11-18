@@ -4,6 +4,7 @@ import {
   TURN_LIMIT,
   DECK_SIZE,
   isLocationEffectKind,
+  isPowerPerCardAmount,
   MAX_LOCATION_NAME,
   MAX_LOCATION_TEXT,
   type LocationDefinition,
@@ -272,10 +273,21 @@ function isLocation(v: unknown): v is MatchLocation {
     typeof v.text === "string" &&
     v.text.trim() !== "" &&
     v.text.length <= MAX_LOCATION_TEXT &&
-    isRecord(v.effect) &&
-    exact(v.effect, ["kind"]) &&
-    isLocationEffectKind(v.effect.kind)
+    isLocationEffect(v.effect)
   );
+}
+function isLocationEffect(v: unknown): v is MatchLocation["effect"] {
+  if (!isRecord(v) || !isLocationEffectKind(v.kind)) return false;
+  switch (v.kind) {
+    case "none":
+      return exact(v, ["kind"]);
+    case "power-per-card":
+      return exact(v, ["kind", "amount"]) && isPowerPerCardAmount(v.amount);
+    default: {
+      const exhaustive: never = v.kind;
+      return exhaustive;
+    }
+  }
 }
 function isLocations(v: unknown): v is MatchLocation[] {
   return (

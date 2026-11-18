@@ -35,12 +35,85 @@ test.each([
   ["text", { text: "   " }, [{ code: "text", index: 0 }]],
   ["text", { text: "x".repeat(161) }, [{ code: "text", index: 0 }]],
   ["effect", { effect: { kind: "teleport" } }, [{ code: "effect", index: 0 }]],
+  [
+    "effect amount zero",
+    { text: "Adds 0.", effect: { kind: "power-per-card", amount: 0 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "effect amount three",
+    { text: "Adds 3.", effect: { kind: "power-per-card", amount: 3 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "effect amount non-integer",
+    { text: "Adds 1.5.", effect: { kind: "power-per-card", amount: 1.5 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "effect amount missing",
+    { text: "Adds 1.", effect: { kind: "power-per-card" } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "effect-text stating 10 for amount 1",
+    {
+      text: "Each card here adds 10 power.",
+      effect: { kind: "power-per-card", amount: 1 },
+    },
+    [{ code: "effect-text", index: 0 }],
+  ],
+  [
+    "effect-text stating 12 for amount 2",
+    {
+      text: "Each card here adds 12 power.",
+      effect: { kind: "power-per-card", amount: 2 },
+    },
+    [{ code: "effect-text", index: 0 }],
+  ],
+  [
+    "effect-text stating the decimal 1.5 for amount 1",
+    {
+      text: "Each card here adds 1.5 power.",
+      effect: { kind: "power-per-card", amount: 1 },
+    },
+    [{ code: "effect-text", index: 0 }],
+  ],
+  [
+    "a none effect carrying an amount",
+    { effect: { kind: "none", amount: 1 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "effect-text without the amount",
+    {
+      text: "Each card here adds power.",
+      effect: { kind: "power-per-card", amount: 2 },
+    },
+    [{ code: "effect-text", index: 0 }],
+  ],
 ])("rejects %s and accepts the valid counterpart", (_code, patch, expected) => {
   expect(validateLocations(valid)).toEqual([]);
   expect(
     validateLocations([{ ...first, ...patch }, ...valid.slice(1)]),
   ).toEqual(expected);
 });
+
+test.each([1, 2])(
+  "accepts power-per-card amount %i stated in the text",
+  (amount) => {
+    expect(
+      validateLocations([
+        {
+          ...first,
+          text: `Each card you reveal here adds ${String(amount)} power.`,
+          effect: { kind: "power-per-card", amount },
+        },
+        ...valid.slice(1),
+      ]),
+    ).toEqual([]);
+  },
+);
 
 test("accepts inclusive bounds and a larger pool", () => {
   expect(

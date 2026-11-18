@@ -8,6 +8,14 @@ import {
   type ServerMessage,
 } from "../protocol/messages.ts";
 import { startServer, type ServerHandle } from "./index.ts";
+import type { LocationDefinition } from "../rules/index.ts";
+// No effects, so lane totals equal printed power whichever lanes a seed draws.
+const plainPool: readonly LocationDefinition[] = ["a", "b", "c"].map((id) => ({
+  id: `plain-${id}`,
+  name: `Plain ${id}`,
+  text: "No effect for now.",
+  effect: { kind: "none" },
+}));
 const entropy = vi.hoisted(() => ({
   integer: vi.fn((max: number) => max - 1),
 }));
@@ -68,8 +76,12 @@ test("pairs waiting clients and gives each their own player view", async () => {
   b.socket.close();
 });
 
-async function pair() {
-  server = await startServer({ port: 0, clientDirectory: "dist" });
+async function pair(locations?: readonly LocationDefinition[]) {
+  server = await startServer({
+    port: 0,
+    clientDirectory: "dist",
+    ...(locations && { locations }),
+  });
   const a = await client(server.port),
     b = await client(server.port);
   a.send({ type: "join" });
@@ -185,7 +197,7 @@ test("requests before joining fail; a departed waiter is removed; disconnect for
 });
 
 test("a fifth card in a lane fails privately and a revised legal play succeeds", async () => {
-  const { a, b, views: initial } = await pair();
+  const { a, b, views: initial } = await pair(plainPool);
   let views = initial;
   for (let turn = 1; turn <= 4; turn++) {
     const card = views[0].own.hand.find((c) => c.cost <= turn);

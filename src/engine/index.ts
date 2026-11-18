@@ -1,4 +1,9 @@
-import { checkStaging, LANE_COUNT, TURN_LIMIT } from "../rules/index.ts";
+import {
+  checkStaging,
+  LANE_COUNT,
+  laneTotals,
+  TURN_LIMIT,
+} from "../rules/index.ts";
 import type { LocationDefinition, StagingError } from "../rules/index.ts";
 const LANE_IDS = Array.from({ length: LANE_COUNT }, (_, i) => i);
 const OPENING_HAND = 3;
@@ -202,9 +207,7 @@ function winner(a: number, b: number): PlayerId | null {
   return a === b ? null : a > b ? 0 : 1;
 }
 function score(state: MatchState): Score {
-  const powers = state.players.map((p) =>
-    p.lanes.map((l) => l.reduce((sum, c) => sum + c.power, 0)),
-  );
+  const powers = state.players.map((p) => laneTotals(p.lanes, state.locations));
   const a = powers[0] ?? [];
   const b = powers[1] ?? [];
   const lanes = LANE_IDS.map((i) => winner(a[i] ?? 0, b[i] ?? 0));

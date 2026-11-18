@@ -25,8 +25,8 @@ export const locations: readonly LocationDefinition[] = [
   {
     id: "hesperides-grove",
     name: "Grove of the Hesperides",
-    text: NO_EFFECT,
-    effect: { kind: "none" },
+    text: "Each card you play here adds 1 power.",
+    effect: { kind: "power-per-card", amount: 1 },
   },
   {
     id: "temple-of-vesta",
@@ -43,8 +43,8 @@ export const locations: readonly LocationDefinition[] = [
   {
     id: "forge-beneath-etna",
     name: "Forge Beneath Etna",
-    text: NO_EFFECT,
-    effect: { kind: "none" },
+    text: "Each card you play here adds 2 power.",
+    effect: { kind: "power-per-card", amount: 2 },
   },
   {
     id: "tiber-ford",
