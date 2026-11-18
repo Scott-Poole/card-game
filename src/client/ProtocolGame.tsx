@@ -156,7 +156,17 @@ function Game() {
               <>
                 <header className="board-tags">
                   <span>Opponent · Player {view.player === 0 ? 2 : 1}</span>
-                  <Reserved label="Stakes" />
+                  <div
+                    className={css({ textAlign: "center", fontSize: "small" })}
+                  >
+                    <span role="status">
+                      {ended ? "Final board" : "Current standing"}: leading in{" "}
+                      {totals?.own.filter(
+                        (total, lane) => total > (totals.opponent[lane] ?? 0),
+                      ).length ?? 0}{" "}
+                      of {view.own.lanes.length} lanes
+                    </span>
+                  </div>
                   <span>You · Player {view.player + 1}</span>
                 </header>
                 <div className="board-notices">

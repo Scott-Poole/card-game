@@ -15,8 +15,13 @@ async function expectConnected(page: Page, action: string) {
 }
 const energy = (page: Page) =>
   page.getByRole("meter", { name: "Energy remaining" });
-const test = base.extend<{ address: string; pair: readonly [Page, Page] }>({
-  pair: async ({ browser, address }, use) => {
+const test = base.extend<{
+  address: string;
+  pair: readonly [Page, Page];
+  controlledClock: boolean;
+}>({
+  controlledClock: [false, { option: true }],
+  pair: async ({ browser, address, controlledClock }, use) => {
     const first = await browser.newContext();
     const second = await browser.newContext();
     try {
@@ -25,6 +30,8 @@ const test = base.extend<{ address: string; pair: readonly [Page, Page] }>({
         Page,
       ];
       for (const page of pages) {
+        if (controlledClock)
+          await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
         await page.goto(address);
         await page
           .getByRole("button", { name: "Find match", exact: true })
@@ -865,116 +872,136 @@ test("inspect and select a card, then play it with the keyboard", async ({
   ).toBeVisible();
 });
 
-for (const width of [390, 1440]) {
-  test(`pointer drag plays inside the scaled board at ${String(width)}`, async ({
-    pair: [a, b],
-  }) => {
-    await a.setViewportSize({ width, height: 900 });
-    await reachPlayableTurn(a, b);
-    const card = a
-      .getByRole("region", { name: "Hand", exact: true })
-      .getByRole("article")
-      .filter({
-        has: a
-          .getByRole("button", { name: /Stage .* in lane 1$/ })
-          .and(a.locator(":enabled")),
-      })
-      .first();
-    const name = await card.getAttribute("aria-label");
-    const original = await card.boundingBox();
-    const cost = await card.getByRole("img", { name: /^Cost / }).boundingBox();
-    const source = await card
-      .getByRole("img", { name: "Art placeholder" })
-      .boundingBox();
-    const target = await a
-      .getByRole("region", { name: "Lane 1", exact: true })
-      .getByRole("group", { name: "Your cards" })
-      .boundingBox();
-    if (!source || !target) throw new Error("Missing drag endpoints");
-    await a.mouse.move(
-      source.x + source.width / 2,
-      source.y + source.height / 2,
-    );
-    await a.mouse.down();
-    await a.mouse.move(
-      source.x + source.width / 2 + 15,
-      source.y + source.height / 2,
-      { steps: 5 },
-    );
-    await a.mouse.move(
-      target.x + target.width / 2,
-      target.y + target.height / 2,
-      { steps: 20 },
-    );
-    const preview = a
-      .getByRole("article", { name: name ?? "", exact: true })
-      .last();
-    const previewBox = await preview.boundingBox();
-    const previewCost = await preview
-      .getByRole("img", { name: /^Cost / })
-      .boundingBox();
-    if (!original || !previewBox || !cost || !previewCost)
-      throw new Error("Missing drag preview");
-    expect(previewBox.width).toBeCloseTo(original.width, 0);
-    expect(previewBox.height).toBeCloseTo(original.height, 0);
-    expect(previewCost.height).toBeCloseTo(cost.height, 0);
-    await a.mouse.up();
-    // A commit during settle must wait for the dropped play to enter staging.
-    await expect(commitButton(a)).toBeDisabled();
-    // Observe the public card geometry during settle: a frozen overlay fails this.
-    await expect
-      .poll(
-        async () => (await preview.boundingBox())?.width ?? original.width,
-        { timeout: 200, intervals: [16] },
-      )
-      .toBeLessThan(original.width - 3);
-    await expect(
-      a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
-    ).toBeVisible();
-    const landed = a
-      .getByRole("region", { name: "Lane 1", exact: true })
-      .getByRole("article", { name: name ?? "", exact: true });
-    const opacity = await landed.evaluate((element) => {
-      let opacity = 1;
-      for (let node: Element | null = element; node; node = node.parentElement)
-        opacity *= Number(getComputedStyle(node).opacity);
-      return opacity;
-    });
-    expect(opacity).toBeGreaterThan(0.95);
-    await a
-      .getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true })
-      .click();
-    const returned = a
-      .getByRole("region", { name: "Hand", exact: true })
-      .getByRole("article", { name: name ?? "", exact: true });
-    await expect(returned).toBeVisible();
-    const widths = await returned.evaluate(async (element) => {
-      const widths = [];
-      for (let frame = 0; frame < 16; frame++) {
-        widths.push(element.getBoundingClientRect().width);
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => {
-            resolve();
-          }),
-        );
-      }
-      return widths;
-    });
-    expect(Math.max(...widths)).toBeLessThanOrEqual(original.width + 2);
-    await returned.getByRole("button", { name: /Stage .* in lane 1$/ }).click();
-    await expect(
-      a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
-    ).toBeVisible();
-    await commitButton(a).click();
-    await commitButton(b).click();
-    await expect(
-      b
+test.describe("controlled drag animation", () => {
+  test.use({ controlledClock: true });
+  for (const width of [390, 1440]) {
+    test(`pointer drag plays inside the scaled board at ${String(width)}`, async ({
+      pair: [a, b],
+    }) => {
+      await a.setViewportSize({ width, height: 900 });
+      await reachPlayableTurn(a, b);
+      await a.clock.pauseAt(new Date("2026-01-01T00:01:00Z"));
+      await a.clock.resume();
+
+      const card = a
+        .getByRole("region", { name: "Hand", exact: true })
+        .getByRole("article")
+        .filter({
+          has: a
+            .getByRole("button", { name: /Stage .* in lane 1$/ })
+            .and(a.locator(":enabled")),
+        })
+        .first();
+      const name = await card.getAttribute("aria-label");
+      const original = await card.boundingBox();
+      const cost = await card
+        .getByRole("img", { name: /^Cost / })
+        .boundingBox();
+      const source = await card
+        .getByRole("img", { name: "Art placeholder" })
+        .boundingBox();
+      const target = await a
         .getByRole("region", { name: "Lane 1", exact: true })
-        .getByRole("group", { name: "Opponent cards" })
-        .getByRole("article", { name: name ?? "", exact: true }),
-    ).toBeVisible();
-  });
-}
+        .getByRole("group", { name: "Your cards" })
+        .boundingBox();
+      if (!source || !target) throw new Error("Missing drag endpoints");
+      await a.mouse.move(
+        source.x + source.width / 2,
+        source.y + source.height / 2,
+      );
+      await a.mouse.down();
+      await a.mouse.move(
+        source.x + source.width / 2 + 15,
+        source.y + source.height / 2,
+        { steps: 5 },
+      );
+      await a.mouse.move(
+        target.x + target.width / 2,
+        target.y + target.height / 2,
+        { steps: 20 },
+      );
+      const preview = a
+        .getByRole("article", { name: name ?? "", exact: true })
+        .last();
+      const previewBox = await preview.boundingBox();
+      const previewCost = await preview
+        .getByRole("img", { name: /^Cost / })
+        .boundingBox();
+      if (!original || !previewBox || !cost || !previewCost)
+        throw new Error("Missing drag preview");
+      expect(previewBox.width).toBeCloseTo(original.width, 0);
+      expect(previewBox.height).toBeCloseTo(original.height, 0);
+      expect(previewCost.height).toBeCloseTo(cost.height, 0);
+      // Freeze page time before release so runner latency cannot skip the settle window.
+      await a.clock.pauseAt(new Date("2026-01-01T00:02:00Z"));
+      await a.mouse.up();
+      // A commit during settle must wait for the dropped play to enter staging.
+      await expect(commitButton(a)).toBeDisabled();
+      await a.clock.runFor(60);
+      await expect(commitButton(a)).toBeDisabled();
+      // Observe the public card geometry during settle: a frozen overlay fails this.
+      await expect
+        .poll(
+          async () => (await preview.boundingBox())?.width ?? original.width,
+          { timeout: 200, intervals: [16] },
+        )
+        .toBeLessThan(original.width - 3);
+      await a.clock.runFor(300);
+      await a.clock.resume();
+      await expect(
+        a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
+      ).toBeVisible();
+      const landed = a
+        .getByRole("region", { name: "Lane 1", exact: true })
+        .getByRole("article", { name: name ?? "", exact: true });
+      const opacity = await landed.evaluate((element) => {
+        let opacity = 1;
+        for (
+          let node: Element | null = element;
+          node;
+          node = node.parentElement
+        )
+          opacity *= Number(getComputedStyle(node).opacity);
+        return opacity;
+      });
+      expect(opacity).toBeGreaterThan(0.95);
+      await a
+        .getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true })
+        .click();
+      const returned = a
+        .getByRole("region", { name: "Hand", exact: true })
+        .getByRole("article", { name: name ?? "", exact: true });
+      await expect(returned).toBeVisible();
+      const widths = await returned.evaluate(async (element) => {
+        const widths = [];
+        for (let frame = 0; frame < 16; frame++) {
+          widths.push(element.getBoundingClientRect().width);
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => {
+              resolve();
+            }),
+          );
+        }
+        return widths;
+      });
+      expect(Math.max(...widths)).toBeLessThanOrEqual(original.width + 2);
+      await returned
+        .getByRole("button", { name: /Stage .* in lane 1$/ })
+        .click();
+      await expect(
+        a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
+      ).toBeVisible();
+      await commitButton(a).click();
+      await commitButton(b).click();
+      await expect(
+        b
+          .getByRole("region", { name: "Lane 1", exact: true })
+          .getByRole("group", { name: "Opponent cards" })
+          .getByRole("article", { name: name ?? "", exact: true }),
+      ).toBeVisible();
+    });
+  }
+});
 
 test("touch drag stages a card inside the scaled phone board", async ({
   browser,
@@ -1572,4 +1599,103 @@ test("planning board shows no debug text, heading or energy line", async ({
   await expect(commitButton(a)).toBeEnabled();
   await commitButton(a).focus();
   await expect(commitButton(a)).toBeFocused();
+});
+
+test("lane standings describe current leads and location inspection", async ({
+  page,
+  address,
+}) => {
+  const { full, guardian, smith } =
+    await import("../src/client/stories/fixtures.ts");
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.send(JSON.stringify({ type: "welcome" }));
+    socket.send(
+      JSON.stringify({
+        type: "state",
+        view: {
+          ...full,
+          own: {
+            ...full.own,
+            lanes: [
+              full.own.lanes[0] ?? [],
+              [{ ...guardian, id: "second-lane-guardian" }],
+              [],
+            ],
+          },
+          opponent: {
+            ...full.opponent,
+            lanes: [
+              full.opponent.lanes[0] ?? [],
+              [],
+              [{ ...smith, id: "third-lane-smith" }],
+            ],
+          },
+        },
+      }),
+    );
+  });
+  await page.goto(address);
+  await expect(
+    page.getByText("Current standing: leading in 1 of 3 lanes", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Lane 2", exact: true }),
+  ).toHaveAccessibleDescription("You lead");
+  await expect(
+    page.getByRole("region", { name: "Lane 3", exact: true }),
+  ).toHaveAccessibleDescription("Opponent leads");
+  const lane = page.getByRole("region", { name: "Lane 1", exact: true });
+  await expect(lane).toHaveAccessibleDescription("Lane tied");
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const cards = lane.getByRole("article");
+    await expect(cards).toHaveCount(8);
+    for (const card of await cards.all()) {
+      await expect(async () => {
+        expect(
+          await card.evaluate(
+            (element) => element.scrollHeight <= element.clientHeight,
+          ),
+        ).toBe(true);
+        const box = await card.boundingBox();
+        if (!box) throw new Error("Card not visible");
+        const group = await card.evaluate((element) =>
+          (() => {
+            const rect = element
+              .closest('[role="group"]')
+              ?.getBoundingClientRect();
+            return rect
+              ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+              : null;
+          })(),
+        );
+        if (!group) throw new Error("Card group not visible");
+        expect(box.x).toBeGreaterThanOrEqual(group.x);
+        expect(box.y).toBeGreaterThanOrEqual(group.y);
+        expect(box.x + box.width).toBeLessThanOrEqual(group.x + group.width);
+        expect(box.y + box.height).toBeLessThanOrEqual(group.y + group.height);
+        for (const stat of await card
+          .getByRole("img")
+          .filter({ hasText: /^\d+$/ })
+          .all()) {
+          const statBox = await stat.boundingBox();
+          if (!statBox) throw new Error("Stat not visible");
+          expect(statBox.x).toBeGreaterThanOrEqual(box.x);
+          expect(statBox.x + statBox.width).toBeLessThanOrEqual(
+            box.x + box.width,
+          );
+          expect(statBox.y + statBox.height).toBeLessThanOrEqual(
+            box.y + box.height,
+          );
+        }
+      }).toPass();
+    }
+  }
+  await lane.getByRole("button", { name: "Lane 1", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("No location effect.");
 });

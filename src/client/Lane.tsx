@@ -1,4 +1,3 @@
-import { motion } from "motion/react";
 import { CardMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { LANE_CAPACITY } from "../rules/index.ts";
@@ -54,57 +53,106 @@ export default function Lane({
         }),
       )}
       aria-label={`Lane ${String(number)}`}
+      aria-description={
+        lead === "own"
+          ? "You lead"
+          : lead === "opponent"
+            ? "Opponent leads"
+            : "Lane tied"
+      }
     >
-      <header>
-        <h3 className={css({ fontSize: "small", m: "none" })}>
+      <div
+        className={css({
+          display: "flex",
+          flexDirection: "column",
+          flex: "1",
+          minH: "[0]",
+        })}
+      >
+        {playTarget && (
+          <div
+            aria-hidden="true"
+            className={css({
+              h: "[calc(token(sizes.stageTarget) + token(spacing.xs))]",
+              flexShrink: 0,
+            })}
+          />
+        )}
+        <Slots
+          revealingCard={revealingCard}
+          inspectCard={inspectCard}
+          label="Opponent cards"
+          cards={opponent}
+          staged={[]}
+        />
+      </div>
+      <header
+        className={css({
+          position: "relative",
+          flexShrink: 0,
+          my: "md",
+          border: "panel",
+          borderRadius: "panel",
+          px: "sm",
+          py: "md",
+          bg: lead === "own" ? "laneLeading" : "surface",
+          borderColor:
+            lead === "own"
+              ? "positive"
+              : lead === "opponent"
+                ? "negative"
+                : "border",
+          textAlign: "center",
+        })}
+      >
+        <Total
+          side="Opponent"
+          total={opponentTotal}
+          leading={lead === "opponent"}
+          tied={lead === "tied"}
+        />
+        <h3 className={css({ fontSize: "body", m: "none" })}>
           {inspect ? (
-            <button onClick={inspect}>Lane {number}</button>
+            <button
+              className={css({
+                width: "[100%]",
+                cursor: "pointer",
+                _focusVisible: { outline: "focus" },
+                _after: {
+                  content: '""',
+                  position: "absolute",
+                  inset: "none",
+                  borderRadius: "panel",
+                },
+              })}
+              onClick={inspect}
+            >
+              Lane {number}
+            </button>
           ) : (
             <>Lane {number}</>
           )}
         </h3>
-        <div
-          aria-label="Lane leadership"
-          className={css({ minH: "[token(spacing.xs)]", color: "muted" })}
+        <p
+          className={css({
+            fontSize: "laneRule",
+            lineHeight: "heading",
+            m: "none",
+            color: "muted",
+          })}
         >
-          <motion.span
-            key={lead}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={css({
-              m: "none",
-              fontSize: "small",
-              color:
-                lead === "own"
-                  ? "positive"
-                  : lead === "opponent"
-                    ? "negative"
-                    : "muted",
-            })}
-          >
-            {lead === "tied"
-              ? "Lane tied"
-              : lead === "own"
-                ? "You lead"
-                : "Opponent leads"}
-          </motion.span>
-        </div>
-        <motion.p
-          key={`${String(ownTotal)}:${String(opponentTotal)}`}
-          initial={{ opacity: 0.5 }}
-          animate={{ opacity: 1 }}
-          className={css({ m: "none", fontSize: "small", color: "muted" })}
-        >
+          No location effect.
+        </p>
+        <p className={css({ srOnly: true })}>
           Opponent total: {opponentTotal} · Your total: {ownTotal}
-        </motion.p>
+        </p>
+        <Total
+          side="Your"
+          total={ownTotal}
+          leading={lead === "own"}
+          tied={lead === "tied"}
+        />
       </header>
-      <Slots
-        revealingCard={revealingCard}
-        inspectCard={inspectCard}
-        label="Opponent cards"
-        cards={opponent}
-        staged={[]}
-      />
       {playTarget ? (
         playTarget(
           <Slots
@@ -195,5 +243,46 @@ function Slots({
         );
       })}
     </div>
+  );
+}
+
+function Total({
+  side,
+  total,
+  leading,
+  tied,
+}: {
+  side: "Your" | "Opponent";
+  total: number;
+  leading: boolean;
+  tied: boolean;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={css({
+        pointerEvents: "none",
+        position: "absolute",
+        insetInline: "none",
+        top: side === "Opponent" ? "-md" : undefined,
+        bottom: side === "Your" ? "-md" : undefined,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        h: "laneBadge",
+        lineHeight: "heading",
+        width: "fit-content",
+        mx: "auto",
+        px: "sm",
+        border: "panel",
+        borderRadius: "control",
+        fontWeight: "strong",
+        fontSize: leading ? "heading" : "small",
+        bg: leading ? "accent" : "raised",
+        color: leading ? "onAccent" : tied ? "text" : "muted",
+      })}
+    >
+      {total}
+    </span>
   );
 }
