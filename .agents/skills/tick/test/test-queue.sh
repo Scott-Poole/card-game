@@ -390,6 +390,15 @@ setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD
 rm -f "$WORK/state.json.failseen"
 FAKE_GH_RACE_HANDOFF=1 FAKE_GH_FAIL="POST issues/1/labels" FAKE_GH_FAIL_SKIP=1 FAKE_GH_FAIL_ONCE=1 run release 1 "thread gone"
 check "a raced handoff is never left launchable when restoring its label fails" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
+# A rollback re-adds in-progress, which makes a newer label event than the handoff comment.
+# The claim comment, not that event, marks the claim's start, so the handoff still counts.
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+add_comments "$(comment_at 1 "$OLD" 'tick: claimed 2020-01-01T00:00Z; launching a work-ticket thread.')"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_NOW=2100-01-01T00:00:00Z FAKE_GH_RACE_HANDOFF=1 FAKE_GH_FAIL="POST issues/1/labels" FAKE_GH_FAIL_SKIP=1 FAKE_GH_FAIL_ONCE=1 run release 1 "thread gone"
+check "the raced release rolls back" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
+FAKE_GH_NOW=2100-01-02T00:00:00Z run release 1 "thread gone"
+check "a retry after the rollback still sees the handoff" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"

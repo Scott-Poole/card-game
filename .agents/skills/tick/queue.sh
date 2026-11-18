@@ -90,13 +90,24 @@ heartbeat_at() {
 	printf '%s\n' "$times" | sort -n | tail -1 | awk '{print $1 + 0}'
 }
 
-# claim_started <n>: epoch of the newest in-progress label event, 0 when none. Paginated:
-# a ticket resumed many times has more events than one page.
+# claim_started <n>: epoch the current claim began, 0 when unknown. Only `claim` posts a
+# trusted `tick: claimed` comment, so that comment is the anchor: a rollback that puts the
+# in-progress label back leaves a newer label event, which must not move the claim start past
+# a handoff posted in between. Tickets without that comment fall back to the newest
+# in-progress label event. Both lookups are paginated: a ticket resumed many times outgrows
+# one page.
 claim_started() {
-	local times
-	times=$(gh api --paginate "$API/issues/$1/events?per_page=100" --jq \
+	local comment_times event_times at
+	comment_times=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+		".[] | $TRUSTED | select(.body | startswith(\"tick: claimed\")) | .created_at | fromdateiso8601") || return 1
+	at=$(printf '%s\n' "$comment_times" | sort -n | tail -1 | awk '{print $1 + 0}')
+	if ((at > 0)); then
+		echo "$at"
+		return 0
+	fi
+	event_times=$(gh api --paginate "$API/issues/$1/events?per_page=100" --jq \
 		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | .created_at | fromdateiso8601") || return 1
-	printf '%s\n' "$times" | sort -n | tail -1 | awk '{print $1 + 0}'
+	printf '%s\n' "$event_times" | sort -n | tail -1 | awk '{print $1 + 0}'
 }
 
 # nudges <n> <since>: how many times the tick woke this claim's thread since epoch <since>
