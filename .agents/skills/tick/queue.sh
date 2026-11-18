@@ -5,19 +5,24 @@
 #   queue.sh audit-claim <pr>   merged-unreviewed -> audit-in-progress, comment claim
 #   queue.sh audit-done <pr> <summary> remove audit claim, comment result
 #   queue.sh audit-release <pr> <why> restore merged-unreviewed after launch failure
-#   queue.sh next [n...]        sweep stale claims, apply caps, print one action line; n... are
-#                               the tickets this run already claimed
+#   queue.sh next [n...]        apply caps, print one action line; n... are the tickets this
+#                               run already claimed
 #   queue.sh parent-done <child> mark its completed parent ready-for-human, leaving it open
 #   queue.sh claim <n>          ready-for-agent -> in-progress, with a claim comment
-#   queue.sh release <n> <why>  in-progress -> ready-for-agent (launch failed)
-#   queue.sh escalate <n> <c>   in-progress -> ready-for-human, posting comment <c>
+#   queue.sh release <n> <why>  in-progress (and any stale ready-for-human) -> ready-for-agent
+#   queue.sh alive <n> [nudged] record that the claim's thread lives; resets its stale clock
+#   queue.sh resume-info <n>    print `THREAD <link|none> CLAIMS <k>` from the ticket's history
+#   queue.sh escalate <n> <c>   in-progress -> ready-for-human; <c> must start `## Needs you`
 #   queue.sh note <n> <text>    comment on the issue
 #   queue.sh plan-open <cat> [n...]  open a planning issue (n... as for next); prints its number
 #   queue.sh plan-done <n> <s>  close a planning issue as completed, posting summary <s>
 #   queue.sh plan-abort <n> <w> close a planning issue as not planned (launch failed, stuck)
 #
-# `next` prints exactly one line on stdout: `LAUNCH <n> <title>`, `PLAN <category>`, or
-# `NOOP <reason>`. An empty frontier is a call to plan, not a stop.
+# `next` prints exactly one line on stdout: `CHECK <n> <nudges> <title>` (a claim with no sign
+# of life for staleHours: the tick asks T3 whether its thread lives, then runs `alive` or
+# `release`), `LAUNCH <n> <title>`, `PLAN <category>`, or `NOOP <reason>`. An empty frontier
+# is a call to plan, not a stop. `ready-for-human` means one thing: Scott's turn, with a
+# `## Needs you` comment. Only `escalate` sets it; a stale claim never does.
 # Everything else goes to stderr. Any failure exits non-zero before reporting success:
 # every query is a standalone assignment, because set -e ignores a failing $(...) inside
 # `for ... in` or a test, which would read a failed query as "nothing found".
@@ -37,6 +42,8 @@ CLAIMED=in-progress
 QUEUE=ready-for-agent
 HUMAN=ready-for-human
 PLANNING=planning
+ALIVE_MARK='<!-- queue:alive -->'
+NUDGE_MARK='<!-- queue:nudge -->'
 
 log() { printf '%s\n' "$*" >&2; }
 
@@ -49,6 +56,25 @@ labels_of() { gh api "$API/issues/$1" --jq '[.labels[].name] | join(" ")'; }
 ever_claimed() {
 	gh api "$API/issues/$1/events?per_page=100" --jq \
 		"[.[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\")] | length > 0"
+}
+
+# Trusted comments only: the repo is public, so a stranger's comment can't hold a claim open.
+TRUSTED='select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")'
+
+# heartbeat_at <n>: epoch of the newest trusted `alive` comment, 0 when none.
+heartbeat_at() {
+	local times
+	times=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+		".[] | $TRUSTED | select(.body | contains(\"$ALIVE_MARK\")) | .created_at | fromdateiso8601")
+	printf '%s\n' "$times" | sort -n | tail -1 | awk '{print $1 + 0}'
+}
+
+# nudges <n>: how many times the tick woke this claim's thread.
+nudges() {
+	local hits
+	hits=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+		".[] | $TRUSTED | select(.body | contains(\"$NUDGE_MARK\")) | 1")
+	printf '%s\n' "$hits" | grep -c 1 || true
 }
 
 # transition <n> <add> <remove>: add first, then remove, then verify, so a failure
@@ -135,7 +161,7 @@ cmd_audit_finish() {
 }
 
 cmd_next() {
-	local cfg enabled max_wip max_daily max_escalated stale_hours n run run_json
+	local cfg enabled max_wip max_daily max_escalated stale_hours n run run_json claimed
 	run=("$@")
 	for n in "${run[@]}"; do
 		[[ $n =~ ^[0-9]+$ ]] || { log "next: claimed ticket [$n] is not an issue number"; return 1; }
@@ -153,10 +179,11 @@ cmd_next() {
 		return
 	fi
 
-	# Every in-progress ticket holds a slot, stale or not: a stale thread may still be
-	# alive, so its slot frees only when Scott clears the claim. Stale claims also get
-	# ready-for-human, once, so he hears about them.
-	local now n claimed_at labels claimed wip=0
+	# Every in-progress ticket holds a slot. A claim with no sign of life for stale_hours
+	# (neither the claim label nor a heartbeat that recent) is surfaced as CHECK: queue.sh
+	# can't see T3, so the tick reads the thread and runs `alive` or `release`. A claim is
+	# never relabelled ready-for-human here: a live thread isn't waiting on Scott.
+	local now n claimed_at beat last wip=0 check=""
 	now=$(date -u +%s)
 	claimed=$(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
 		--jq '.[] | select(.pull_request == null) | .number')
@@ -165,22 +192,29 @@ cmd_next() {
 	done
 	for n in $claimed; do
 		wip=$((wip + 1))
-		labels=" $(labels_of "$n") "
-		[[ $labels == *" $HUMAN "* ]] && continue
+		printf '%s\n' "${run[@]}" | grep -qx "$n" && continue # claimed seconds ago
 		claimed_at=$(gh api "$API/issues/$n/events?per_page=100" --jq \
 			"[.[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | .created_at | fromdateiso8601] | max // 0")
-		if ((now - claimed_at > stale_hours * 3600)); then
-			transition "$n" "$HUMAN" ""
-			comment "$n" "tick: claimed over ${stale_hours}h ago and not merged. Added \`$HUMAN\`; the claim keeps its slot until you remove \`$CLAIMED\` or close the ticket. Check the work-ticket thread linked above before you do."
-			log "stale: #$n -> $HUMAN"
+		beat=$(heartbeat_at "$n")
+		last=$((claimed_at > beat ? claimed_at : beat))
+		if ((now - last > stale_hours * 3600)) && { [[ -z $check ]] || ((n < check)); }; then
+			check=$n
 		fi
 	done
+	if [[ -n $check ]]; then
+		local title count
+		title=$(gh api "$API/issues/$check" --jq .title)
+		count=$(nudges "$check")
+		echo "CHECK $check $count $title"
+		return
+	fi
 
 	# Tickets automation handed to Scott: ready-for-human with a claim in their history.
-	# Tickets planned for humans never carried a claim, so they don't count.
+	# Tickets planned for humans never carried a claim, so they don't count; a ticket still
+	# carrying in-progress is held by a thread, not waiting on Scott.
 	local human was_claimed escalated=0
 	human=$(gh api "$API/issues?state=open&labels=$HUMAN&per_page=100" \
-		--jq '.[] | select(.pull_request == null) | .number')
+		--jq ".[] | select(.pull_request == null) | select(any(.labels[]; .name == \"$CLAIMED\") | not) | .number")
 	for n in $human; do
 		was_claimed=$(ever_claimed "$n")
 		if [[ $was_claimed == true ]]; then
@@ -355,11 +389,48 @@ All sub-issues are closed. Close this spec when the outcome matches. This spec s
 
 cmd_release() {
 	transition "$1" "$QUEUE" "$CLAIMED"
+	# A pre-heartbeat stale flag may still be on it; the ticket is the agents' turn again.
+	transition "$1" "" "$HUMAN"
 	comment "$1" "tick: released claim, back in the queue. Reason: $2"
 	log "released #$1"
 }
 
+# alive <n> [nudged]: the claim's thread lives (or was just woken). The heartbeat restarts
+# the stale clock, and a ready-for-human left on a claimed ticket by the old stale sweep
+# is cleared: a thread holds it, Scott has nothing to do.
+cmd_alive() {
+	local n=$1 nudged=${2:-} labels body
+	labels=" $(labels_of "$n") "
+	if [[ $labels != *" $CLAIMED "* ]]; then
+		log "refusing to refresh #$n: labels are [$labels]"
+		exit 1
+	fi
+	body="$ALIVE_MARK"
+	[[ $nudged == nudged ]] && body="$body$NUDGE_MARK"
+	comment "$n" "$body
+tick: thread checked $(date -u +%Y-%m-%dT%H:%MZ); the claim stays${nudged:+ (woke the thread)}."
+	if [[ $labels == *" $HUMAN "* ]]; then
+		transition "$n" "" "$HUMAN"
+	fi
+	log "alive #$n"
+}
+
+# resume-info <n>: where a ticket's earlier work lives. The thread link is the newest
+# `work-ticket thread:` note; CLAIMS counts how often the ticket was claimed.
+cmd_resume_info() {
+	local n=$1 link claims
+	link=$(gh api --paginate "$API/issues/$n/comments?per_page=100" --jq \
+		".[] | $TRUSTED | .body | capture(\"work-ticket thread: (?<l>t3-thread://[^ \\n]+)\") | .l" | tail -1)
+	claims=$(gh api "$API/issues/$n/events?per_page=100" --jq \
+		"[.[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\")] | length")
+	echo "THREAD ${link:-none} CLAIMS $claims"
+}
+
 cmd_escalate() {
+	if [[ $2 != "## Needs you"* ]]; then
+		log "refusing to escalate #$1: the comment must start with '## Needs you' (decision, options, recommendation, how to hand back)"
+		exit 1
+	fi
 	transition "$1" "$HUMAN" "$CLAIMED"
 	comment "$1" "$2"
 	log "escalated #$1"
@@ -374,13 +445,15 @@ next) shift; cmd_next "$@" ;;
 parent-done) cmd_parent_done "${2:?child issue number}" ;;
 claim) cmd_claim "${2:?issue number}" ;;
 release) cmd_release "${2:?issue number}" "${3:?reason}" ;;
+alive) cmd_alive "${2:?issue number}" "${3:-}" ;;
+resume-info) cmd_resume_info "${2:?issue number}" ;;
 escalate) cmd_escalate "${2:?issue number}" "${3:?comment}" ;;
 note) comment "${2:?issue number}" "${3:?text}" ;;
 plan-open) shift; cmd_plan_open "${1:?category}" "${@:2}" ;;
 plan-done) cmd_plan_close "${2:?issue number}" "${3:?summary}" completed ;;
 plan-abort) cmd_plan_close "${2:?issue number}" "${3:?reason}" not_planned ;;
 *)
-	log "usage: queue.sh audit-next | audit-claim <pr> | audit-done <pr> <summary> | audit-release <pr> <why> | parent-done <child> | next [n...] | claim <n> | release <n> <why> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
+	log "usage: queue.sh audit-next | audit-claim <pr> | audit-done <pr> <summary> | audit-release <pr> <why> | parent-done <child> | next [n...] | claim <n> | release <n> <why> | alive <n> [nudged] | resume-info <n> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
 	exit 2
 	;;
 esac

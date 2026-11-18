@@ -64,7 +64,9 @@ Your planning issue is your **lease**. Immediately before each ticket, confirm t
 	gh issue create --title "<title>" --label ready-for-agent --body-file <file>
 ```
 
-Done when every filed ticket shows up in `gh issue list --label ready-for-agent`.
+A candidate that needs a rule or direction decision before anyone can build it is not `ready-for-agent`, and it is never left at `needs-triage` (that label means nobody has looked yet). File it with `--label ready-for-human` and open the body's comment thread with a `## Needs you` comment: the decision, the options with their consequences, your recommendation, and how to hand back (comment the answer, then swap `ready-for-human` for `ready-for-agent`). See `docs/agents/triage-labels.md`. These tickets carry no claim history, so they don't count toward the tick's `maxEscalated`.
+
+Done when every filed ticket shows up in `gh issue list --label ready-for-agent` (or `ready-for-human`, for decisions).
 
 ## 4. Close
 
