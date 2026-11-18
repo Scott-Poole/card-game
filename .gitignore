@@ -11,3 +11,6 @@ __pycache__/
 styled-system/
 
 storybook-static/
+
+.scratch/
+.out-of-scope/

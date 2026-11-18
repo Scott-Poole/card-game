@@ -1,12 +1,14 @@
 ---
 name: research
-description: Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.
+description: Investigate a question against primary sources and publish cited findings to a GitHub research issue. Use for research requests or delegated reading legwork.
 ---
 
-Spin up a **background agent** to do the research, so you keep working while it reads. Start it with a fresh context window.
+# Research
 
-Its job:
+1. Read the supplied GitHub issue, or create one for the question in this repo. Ensure it has the `research` label (create the label if absent). Research issues are human-directed; leave `ready-for-agent` off them so the tick does not dispatch them.
+2. Load [delegate](../delegate/SKILL.md). Launch a background research agent with a fresh context, the question, issue number and checkout path. It investigates primary sources (official docs, source code, specs, first-party APIs), follows each claim to its owner, and writes cited findings to `.scratch/research/<issue>.md`. The child edits only that scratch file in its own worktree. Keep working while it reads.
+3. Verify the cited findings in the child's checkout. Post their complete content as comments on the research issue using `gh issue comment <n> --body-file <file>`. Split at paragraph boundaries into comments of at most about 60,000 characters. Check every write succeeded before cleanup.
+4. Act on the findings: file implementation issues referencing `Refs #<research issue>`, or conclude that no implementation is needed. Post a resolution that says **research complete**, states the conclusion, links the findings comments and any implementation issues, and mentions the scratch findings were transferred. Close the research issue.
+5. Remove the scratch file after transfer and record the run per delegate. If posting fails, retain the scratch file and leave the issue open for retry.
 
-1. Investigate the question against **primary sources** (official docs, source code, specs, first-party APIs), not a secondary write-up of them. Follow every claim back to the source that owns it.
-2. Write the findings to a single Markdown file, citing each claim's source.
-3. Save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
+Follow [Where records live](../../../docs/agents/issue-tracker.md#where-records-live). Done when the complete findings and conclusion are on GitHub, any implementation work has tickets, the research issue is closed, and scratch is cleaned up.
