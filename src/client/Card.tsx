@@ -8,6 +8,7 @@ type CardProps = {
   selected?: boolean;
   staged?: boolean;
   disabled?: boolean;
+  unavailable?: boolean;
   children?: ReactNode;
   onInspect?: (() => void) | undefined;
   art?: ReactNode;
@@ -19,7 +20,7 @@ export default function Card(props: CardProps) {
       className={card({
         size: props.size ?? "hand",
         selected: props.selected === true || props.staged === true,
-        disabled: props.disabled,
+        disabled: props.disabled === true || props.unavailable === true,
       })}
       onClick={(event) => {
         if (event.target instanceof Element && !event.target.closest("button"))
@@ -37,6 +38,7 @@ export default function Card(props: CardProps) {
             className={css({
               display: "flex",
               justifyContent: "space-between",
+              pr: props.size === "lane" ? "none" : "md",
               gap: "xs",
             })}
           >
@@ -55,17 +57,19 @@ export default function Card(props: CardProps) {
             <div aria-label="Art placeholder" role="img" data-part="art" />
           )}
           <strong data-part="name">
-            {props.size === "lane" && props.onInspect ? (
+            {props.onInspect ? (
               <button
                 className={css({
                   display: "block",
                   maxW: "[100%]",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  whiteSpace: props.size === "lane" ? "nowrap" : "normal",
                   p: "none",
                 })}
                 aria-label={`Inspect ${props.data.name}`}
+                aria-pressed={props.selected}
+                aria-disabled={false}
                 onClick={props.onInspect}
               >
                 {props.data.name}
@@ -75,14 +79,6 @@ export default function Card(props: CardProps) {
             )}
           </strong>
         </>
-      )}
-      {props.onInspect && props.size !== "lane" && (
-        <button
-          aria-label={`Inspect ${props.faceDown ? "card" : props.data.name}`}
-          onClick={props.onInspect}
-        >
-          Inspect
-        </button>
       )}
       {props.children}
     </article>

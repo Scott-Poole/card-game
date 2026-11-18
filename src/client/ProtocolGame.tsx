@@ -259,6 +259,7 @@ function Game() {
                         <Card
                           data={card}
                           disabled={locked}
+                          unavailable={card.cost > view.energy - spent}
                           selected={selected === card.id}
                           onInspect={() => {
                             setSelected(card.id);
