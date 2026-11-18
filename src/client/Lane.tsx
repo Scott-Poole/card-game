@@ -90,11 +90,11 @@ export default function Lane({
         className={css({
           position: "relative",
           flexShrink: 0,
-          my: "sm",
+          my: "md",
           border: "panel",
           borderRadius: "panel",
           px: "sm",
-          py: "lg",
+          py: "md",
           bg: lead === "own" ? "laneLeading" : "surface",
           borderColor:
             lead === "own"
@@ -133,7 +133,14 @@ export default function Lane({
             <>Lane {number}</>
           )}
         </h3>
-        <p className={css({ fontSize: "laneRule", m: "none", color: "muted" })}>
+        <p
+          className={css({
+            fontSize: "laneRule",
+            lineHeight: "heading",
+            m: "none",
+            color: "muted",
+          })}
+        >
           No location effect.
         </p>
         <p className={css({ srOnly: true })}>
@@ -254,14 +261,16 @@ function Total({
     <span
       aria-hidden="true"
       className={css({
+        pointerEvents: "none",
         position: "absolute",
         insetInline: "none",
-        top: side === "Opponent" ? "none" : undefined,
-        bottom: side === "Your" ? "none" : undefined,
+        top: side === "Opponent" ? "-md" : undefined,
+        bottom: side === "Your" ? "-md" : undefined,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         h: "laneBadge",
+        lineHeight: "heading",
         width: "fit-content",
         mx: "auto",
         px: "sm",

@@ -1589,11 +1589,19 @@ test("lane standings describe current leads and location inspection", async ({
           ...full,
           own: {
             ...full.own,
-            lanes: [full.own.lanes[0] ?? [], [guardian], []],
+            lanes: [
+              full.own.lanes[0] ?? [],
+              [{ ...guardian, id: "second-lane-guardian" }],
+              [],
+            ],
           },
           opponent: {
             ...full.opponent,
-            lanes: [full.opponent.lanes[0] ?? [], [], [smith]],
+            lanes: [
+              full.opponent.lanes[0] ?? [],
+              [],
+              [{ ...smith, id: "third-lane-smith" }],
+            ],
           },
         },
       }),
@@ -1629,6 +1637,21 @@ test("lane standings describe current leads and location inspection", async ({
         ).toBe(true);
         const box = await card.boundingBox();
         if (!box) throw new Error("Card not visible");
+        const group = await card.evaluate((element) =>
+          (() => {
+            const rect = element
+              .closest('[role="group"]')
+              ?.getBoundingClientRect();
+            return rect
+              ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+              : null;
+          })(),
+        );
+        if (!group) throw new Error("Card group not visible");
+        expect(box.x).toBeGreaterThanOrEqual(group.x);
+        expect(box.y).toBeGreaterThanOrEqual(group.y);
+        expect(box.x + box.width).toBeLessThanOrEqual(group.x + group.width);
+        expect(box.y + box.height).toBeLessThanOrEqual(group.y + group.height);
         for (const stat of await card
           .getByRole("img")
           .filter({ hasText: /^\d+$/ })
