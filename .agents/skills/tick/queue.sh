@@ -485,12 +485,13 @@ All sub-issues are closed. Close this spec when the outcome matches. This spec s
 	fi
 }
 
-# comment_since_claim <n> <jq test on .body>: 0 when a trusted comment passing the test is newer
-# than the claim's start; 1 when there is none; 2 when a query failed. Callers test the code,
-# so errexit is off in here: every failure is returned explicitly rather than left to `set -e`.
+# comment_since_claim <n> <jq test on .body> [since]: 0 when a trusted comment passing the test
+# is newer than the claim's start (or than epoch <since>, when given); 1 when there is none; 2
+# when a query failed. Callers test the code, so errexit is off in here: every failure is
+# returned explicitly rather than left to `set -e`.
 comment_since_claim() {
 	local since hits
-	since=$(claim_started "$1") || return 2
+	since=${3:-$(claim_started "$1")} || return 2
 	hits=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
 		".[] | $TRUSTED | select(.body | $2) | select((.created_at | fromdateiso8601) >= $since) | 1") || return 2
 	[[ -n $hits ]]
@@ -505,7 +506,10 @@ handoff_since_claim() { comment_since_claim "$1" 'startswith("## Needs you")'; }
 # is the only evidence that a ready-for-human on a claimed ticket is that sweep's leftover
 # flag, ours to clear; without it the label belongs to an escalation that may still be in
 # flight. Nothing posts this comment any more, so the migration path ends with the old flags.
-legacy_flag_since_claim() { comment_since_claim "$1" 'contains("the claim keeps its slot until you remove")'; }
+# It is looked up across the whole ticket, not since the claim: a rollback that re-adds the
+# in-progress label leaves a newer label event, and a claim with no anchor comment takes its
+# start from label events, which must not make the sweep's comment look historical.
+legacy_flag_since_claim() { comment_since_claim "$1" 'contains("the claim keeps its slot until you remove")' 0; }
 
 # has_legacy_flag <n>: succeeds when the ticket carries the retired sweep's flag; a failed
 # query exits the script (fail closed).

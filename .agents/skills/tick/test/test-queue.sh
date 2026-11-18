@@ -492,6 +492,14 @@ setup "[$(issue 1 ready-for-human), $(issue 6 in-progress), $(issue 10 ready-for
 add_comments "$(comment_at 6 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 6 2099-01-01T00:00:00Z "$HANDOFF")"
 run next 6
 check "a finished escalation with no claim event yet still counts" is "$(labels 6):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
+# A failed release rolls in-progress back, which makes a label event newer than the sweep's
+# comment; the retry must still recognise the flag and finish.
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_NOW=2100-01-01T00:00:00Z FAKE_GH_FAIL="DELETE issues/1/labels" FAKE_GH_FAIL_SKIP=1 FAKE_GH_FAIL_ONCE=1 run release 1 "thread gone"
+check "a release that failed mid-way rolls back" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
+FAKE_GH_NOW=2100-01-02T00:00:00Z run release 1 "thread gone"
+check "the retry after a rollback recognises the stale flag" is "$CODE:$(labels 1)" "0:ready-for-agent"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
