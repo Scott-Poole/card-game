@@ -47,7 +47,7 @@ gh pr create --base main --head <branch> --title "<conventional title>" --body-f
 
 Run [`land`](../land/SKILL.md) on your own PR. You are the **author**, which changes three things, all stated in land:
 
-- reviewers come from the family that is not yours;
+- reviewers come from a family that is not yours (`delegate`'s review row, including its out-of-usage fallback);
 - you fix accepted findings yourself, in this checkout;
 - every finding you reject is argued and goes to the re-checker.
 

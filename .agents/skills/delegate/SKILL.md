@@ -19,13 +19,13 @@ Spend in this order: **subscriptions first** (Claude and Codex are flat-rate, so
 | **explore** | find code, read docs, summarise; read-only | Claude Haiku 5.5 | DeepSeek Flash |
 | **implement** | a ticket with acceptance criteria and a command that proves it | Split by usage: Codex `gpt-6.1-sol` `medium` or Claude Sonnet 5.5 `high`; ticket automation uses `implement.claudeShare` in `tick/config.json`, ad-hoc delegation picks whichever subscription has more headroom | the other one |
 | **plan** | a planner run: survey one category, file tickets an agent can take unattended | Claude Sonnet 5.5, effort `high` | Codex `gpt-6.1-sol` `medium` |
-| **review** | review a diff; **never the author's family** | Claude-written → Codex `gpt-6.1-sol` `medium`; Codex-written → Claude Sonnet 5.5 | Claude-written → Codex `gpt-6.1-terra` `medium`, or DeepSeek Flash (`variant: high`) when Codex is out of usage; Codex-written → DeepSeek Flash (a third family) |
+| **review** | review a diff; **never the author's family** | Claude-written → Codex `gpt-6.1-sol` `medium`; Codex-written → Claude Sonnet 5.5 | Claude-written → Codex `gpt-6.1-terra` `medium`, or DeepSeek Flash (`variant: high`) when Codex is out of usage (skip terra: it shares Codex's limit); Codex-written → DeepSeek Flash (a third family); DeepSeek-written → Claude Sonnet 5.5 |
 | **grunt** | mechanical, fully specified: card data entry, boilerplate, fixtures, renames, lint-fix sweeps | DeepSeek Flash | Claude Haiku 5.5; Codex `gpt-6-luna` |
 | **hard** | an implement attempt failed, or the problem is a gnarly algorithm | Codex `gpt-6.1-terra`, effort `max` | Codex `gpt-6-astra` (rare: strong but token-hungry, poor value) |
 
 **Balance the two subscriptions.** Implement plus its fix rounds is the biggest spend, and the cross-family review puts the other half on the other subscription, so the implement split is the lever. In week one Codex implemented every ticket and ran far ahead of Claude (about 66% of the weekly allowance used against 18% by day three). Scott reads both weekly meters (no API exposes them) and sets `claudeShare` accordingly; a weekly `/retro` is the place to revisit it.
 
-**Claude's cheap models out of usage?** Move explore/grunt to Codex `gpt-6.1-terra` `medium` or `gpt-6-luna`, then DeepSeek. **Codex out of usage?** A review launch that fails with a usage-limit error is not worth retrying or waiting out: review on DeepSeek Flash (`opencode`, `deepseek/deepseek-flash`, option `variant: high`) and note the substitution in the verdict. For Claude-written work DeepSeek is another family, so the review still counts as a cross-review. **No other-family reviewer available?** Say so in the result; a same-family review is not a cross-review.
+**Claude's cheap models out of usage?** Move explore/grunt to Codex `gpt-6.1-terra` `medium` or `gpt-6-luna`, then DeepSeek. **Codex out of usage?** A review launch that fails with a usage-limit error is not worth retrying or waiting out: review on DeepSeek Flash (`opencode`, `deepseek/deepseek-flash`, option `variant: high`) and note the substitution in the verdict with the failing launch's error text. The substitution stands for the rest of that PR's reviews, re-checks included, even if Codex recovers meanwhile. If DeepSeek also fails to launch or return, there is no further fallback: that is `review-blocked`. For Claude-written work DeepSeek is another family, so the review still counts as a cross-review. **No other-family reviewer available?** Say so in the result; a same-family review is not a cross-review.
 
 Why these picks (Scott's LLM Arena reading, 2026-11-13): `gpt-6-luna` at max sits slightly below DeepSeek v4.1 Flash; `gpt-6.1-terra` medium and `gpt-6.1-sol` medium both beat them; `terra` max edges `sol` medium at a higher token cost; `astra` is off the value chart. Scott rates `sol` medium as the best value.
 
@@ -41,7 +41,7 @@ The launcher depends on **both** who you are and who the target is:
 `delegate_task` notes:
 - Call `orchestrator_capabilities` once per thread before the first `delegate_task`. Copy model ids from it; the ids above are as of 2026-11-13.
 - `target.providerInstanceId`: `codex`, `claudeAgent`, or `opencode` (DeepSeek: model `deepseek/deepseek-flash`, option `variant`: `low` for grunt work).
-- Options: Codex `{reasoningEffort: "medium"}`, Claude `{effort: "high"}`, OpenCode `{variant: "low"}`.
+- Options: Codex `{reasoningEffort: "medium"}`, Claude `{effort: "high"}`, OpenCode `{variant: "low"}` for grunt work, `{variant: "high"}` for review (record the variant in the Runs row).
 - `isolation: "worktree"` for every child that edits files, whatever else is running: Scott's primary checkout is never an agent's workspace (see `AGENTS.md`), and `"shared"` means the parent's checkout. Only read-only children use `"shared"`.
 - Set `role` (`implementation`, `research`, `review`, `test`).
 
