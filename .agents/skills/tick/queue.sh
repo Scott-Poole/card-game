@@ -425,18 +425,23 @@ no_handoff() {
 # drop_stale_human <n>: remove a ready-for-human the old stale sweep left on a claimed
 # ticket, unless it is a real handoff. Check, write, check again: GitHub has no transaction,
 # but the comment precedes every label write of an escalation, so a handoff that raced the
-# removal is always visible afterwards and gets its label back. Returns 1 when it kept the
-# label; any failed query or write exits the script (fail closed).
+# removal is always visible afterwards and gets its label back. If the second check cannot
+# be answered, the label goes back too (the state before this call) and the script exits.
+# Returns 1 when it kept the label; any other failed query or write exits (fail closed).
 drop_stale_human() {
+	local rc=0
 	no_handoff "$1" || return 1
 	transition "$1" "" "$HUMAN" || exit 1
-	no_handoff "$1" && return 0
-	transition "$1" "$HUMAN" "" || exit 1
-	return 1
+	handoff_since_claim "$1" || rc=$?
+	case $rc in
+	1) return 0 ;;
+	0) transition "$1" "$HUMAN" "" || exit 1; return 1 ;;
+	*) transition "$1" "$HUMAN" "" || true; log "handoff lookup for #$1 failed; ready-for-human restored"; exit 1 ;;
+	esac
 }
 
 cmd_release() {
-	local labels
+	local labels had_human=0 rc=0
 	labels=" $(labels_of "$1") "
 	# Only a live claim can be released, and only if no thread has escalated it: a handoff
 	# must not be swept back into the queue, with or without its ready-for-human label yet.
@@ -452,15 +457,28 @@ cmd_release() {
 	# A pre-heartbeat stale flag may still be on it; the ticket is the agents' turn again.
 	labels=" $(labels_of "$1") "
 	if [[ $labels == *" $HUMAN "* ]]; then
+		had_human=1
 		transition "$1" "" "$HUMAN"
 	fi
 	# An escalation may have landed between the checks above and the writes: its comment
 	# precedes its labels, so it is visible now. Put the handoff back and leave the queue.
-	if ! no_handoff "$1"; then
+	# If the lookup itself fails, undo the writes: no outcome may leave a possible handoff
+	# launchable.
+	handoff_since_claim "$1" || rc=$?
+	case $rc in
+	1) ;;
+	0)
 		transition "$1" "$HUMAN" "$QUEUE"
 		log "#$1 was escalated while being released; left with Scott"
 		exit 1
-	fi
+		;;
+	*)
+		transition "$1" "$CLAIMED" "$QUEUE" || true
+		if ((had_human)); then transition "$1" "$HUMAN" "" || true; fi
+		log "handoff lookup for #$1 failed; release undone"
+		exit 1
+		;;
+	esac
 	comment "$1" "tick: released claim, back in the queue. Reason: $2"
 	log "released #$1"
 }

@@ -364,6 +364,19 @@ check "release refuses a claim whose handoff comment is already posted" is "$COD
 setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
 FAKE_GH_FAIL="GET issues/1/events" run release 1 "thread gone"
 check "release fails closed when the claim-start lookup fails" is "$CODE:$(labels 1)" "1:in-progress"
+# A lookup that fails AFTER the writes must undo them: nothing may end up launchable.
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_FAIL="GET issues/1/events" FAKE_GH_FAIL_SKIP=1 run release 1 "thread gone"
+check "release undoes its writes when the final lookup fails" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress,ready-for-human:0"
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_FAIL="GET issues/1/events" FAKE_GH_FAIL_SKIP=1 run release 1 "thread gone"
+check "release undoes a flagless release too" is "$CODE:$(labels 1)" "1:in-progress"
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_FAIL="GET issues/1/events" FAKE_GH_FAIL_SKIP=1 run alive 1
+check "alive restores the flag when its final lookup fails" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"

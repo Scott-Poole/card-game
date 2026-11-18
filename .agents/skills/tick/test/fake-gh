@@ -4,7 +4,8 @@
 State lives in $FAKE_GH_STATE (JSON): {"issues": {"<n>": issue}, "events": {"<n>": [event]},
 "repo_event_pages": [[event]], "comments": [{"issue", "body"}]}. Issues GET sorts by number,
 which stands in for created order. POST issues stamps created_at from $FAKE_GH_NOW. Every call is appended to
-$FAKE_GH_LOG. $FAKE_GH_FAIL="<METHOD> <path-substring>" makes matching calls fail with HTTP 503.
+$FAKE_GH_LOG. $FAKE_GH_FAIL="<METHOD> <path-substring>" makes matching calls fail with HTTP 503
+(after the first $FAKE_GH_FAIL_SKIP matching calls, counted in $FAKE_GH_STATE.failseen).
 """
 import json
 import os
@@ -51,7 +52,13 @@ def main():
     if failing:
         f_method, _, f_sub = failing.partition(" ")
         if method == f_method and f_sub in path:
-            fail("gh: Service Unavailable (HTTP 503)")
+            # $FAKE_GH_FAIL_SKIP=n lets the first n matching calls through (a failure mid-sequence).
+            counter = os.environ["FAKE_GH_STATE"] + ".failseen"
+            seen = int(open(counter).read()) if os.path.exists(counter) else 0
+            with open(counter, "w") as c:
+                c.write(str(seen + 1))
+            if seen >= int(os.environ.get("FAKE_GH_FAIL_SKIP", "0")):
+                fail("gh: Service Unavailable (HTTP 503)")
 
     state_file = os.environ["FAKE_GH_STATE"]
     with open(state_file) as f:
