@@ -44,6 +44,7 @@ function Game() {
   const slots = useRef(new Map<string, HTMLDivElement>());
   const [settling, setSettling] = useState(false);
   const hand = useRef<HTMLElement>(null);
+  const result = useRef<HTMLElement>(null);
   const wasRevealing = useRef(false);
   const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
@@ -69,6 +70,16 @@ function Game() {
   const outcome = (winner: number | null) =>
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   const totals = view ? selectLaneTotals(view) : null;
+  const ended = !revealing && view?.phase === "ended";
+  const commitLabel = !view
+    ? ""
+    : ended
+      ? "View result"
+      : revealing
+        ? "Revealing…"
+        : view.own.committed
+          ? "Waiting for opponent…"
+          : `End turn ${String(view.turn)}/${String(TURN_LIMIT)}`;
   const playing = view?.phase === "planning" || revealing;
   function canStage(
     cardId: string | null,
@@ -127,22 +138,7 @@ function Game() {
             )}
           >
             {!playing && <h2>Card game</h2>}
-            <p
-              className={cx(
-                "board-connection",
-                css({
-                  color:
-                    status === "error"
-                      ? "negative"
-                      : status === "connected"
-                        ? "positive"
-                        : "muted",
-                }),
-              )}
-              role="status"
-            >
-              {status}
-            </p>
+            {!view && <ConnectionIndicator status={status} />}
             {!view && notice && <p role="alert">{notice}</p>}
             {!view && !waiting && (
               <button
@@ -163,40 +159,10 @@ function Game() {
                   <Reserved label="Stakes" />
                   <span>You · Player {view.player + 1}</span>
                 </header>
-                <h1 className="board-turn">
-                  Turn {view.turn} of {TURN_LIMIT}
-                </h1>
-                <p className="board-energy">
-                  Energy: {view.energy - spent} of {view.energy}
-                </p>
-                <p className="board-meta">
-                  You are player {view.player + 1}. Opponent hand:{" "}
-                  {view.opponent.handSize}; deck: {view.opponent.deckSize}. Your
-                  deck: {view.own.deckSize}.
-                </p>
-                <div
-                  className={cx("board-notices", css({ display: "flow-root" }))}
-                >
-                  <div
-                    role="group"
-                    aria-label={`Opponent hand: ${String(view.opponent.handSize)} face-down cards`}
-                    className={css({
-                      display: "flex",
-                      gap: "xs",
-                      height: "stageTarget",
-                      float: "right",
-                    })}
-                  >
-                    {Array.from(
-                      { length: view.opponent.handSize },
-                      (_, index) => (
-                        <Card key={index} faceDown size="lane" />
-                      ),
-                    )}
-                  </div>
+                <div className="board-notices">
+                  <ConnectionIndicator status={status} />
                   {notice && <p role="alert">{notice}</p>}
                   {view.opponent.committed && <p>Opponent has committed</p>}
-                  {view.own.committed && <p>You have committed</p>}
                 </div>
                 <div
                   className={cx(
@@ -354,18 +320,58 @@ function Game() {
                     ))}
                   </ul>
                 </section>
-                <button
-                  className={cx("board-commit", button(), css({ m: "xs" }))}
-                  disabled={locked}
-                  onClick={() => {
-                    dispatch(send({ type: "commit" }));
-                  }}
+                <div
+                  className={cx(
+                    "board-actions",
+                    css({
+                      display: "grid",
+                      gridTemplateColumns: "[repeat(3, minmax(0, 1fr))]",
+                      alignItems: "center",
+                      my: "sm",
+                    }),
+                  )}
                 >
-                  Commit
-                </button>
-                <button className={cx(button(), "board-retreat")} disabled>
-                  Retreat
-                </button>
+                  <Reserved label="Retreat" />
+                  <div
+                    role="meter"
+                    aria-label="Energy remaining"
+                    aria-valuemin={0}
+                    aria-valuemax={view.energy}
+                    aria-valuenow={view.energy - spent}
+                    aria-valuetext={`${String(view.energy - spent)} of ${String(view.energy)}`}
+                    className={css({
+                      display: "grid",
+                      placeItems: "center",
+                      width: "orb",
+                      height: "orb",
+                      justifySelf: "center",
+                      borderRadius: "[50%]",
+                      border: "focus",
+                      bg: "raised",
+                      color: "text",
+                      fontSize: "heading",
+                      fontWeight: "strong",
+                    })}
+                  >
+                    {view.energy - spent}
+                  </div>
+                  <button
+                    className={cx(
+                      "board-commit",
+                      button(),
+                      css({ m: "none", justifySelf: "end" }),
+                    )}
+                    disabled={ended ? revealing : locked}
+                    onClick={() => {
+                      if (ended) {
+                        result.current?.focus();
+                        result.current?.scrollIntoView({ block: "start" });
+                      } else dispatch(send({ type: "commit" }));
+                    }}
+                  >
+                    {commitLabel}
+                  </button>
+                </div>
                 <section
                   className={cx(
                     "board-reveal",
@@ -408,7 +414,7 @@ function Game() {
                     ))}
                   </ol>
                 </section>
-                {!revealing && view.phase === "ended" && (
+                {ended && (
                   <section
                     className={cx(
                       panel(),
@@ -419,6 +425,8 @@ function Game() {
                       }),
                     )}
                     aria-label="Match result"
+                    ref={result}
+                    tabIndex={-1}
                   >
                     <h2>Match result</h2>
                     <div role="group" aria-label="Winner">
@@ -532,5 +540,24 @@ function Game() {
 function Reserved({ label }: { label: string }) {
   return (
     <div className="reserved-slot">{import.meta.env.DEV ? label : null}</div>
+  );
+}
+
+function ConnectionIndicator({
+  status,
+}: {
+  status: "connecting" | "connected" | "error";
+}) {
+  if (status === "connected") return null;
+  return (
+    <p
+      role="status"
+      className={cx(
+        "board-connection",
+        css({ color: status === "error" ? "negative" : "muted" }),
+      )}
+    >
+      {status}
+    </p>
   );
 }
