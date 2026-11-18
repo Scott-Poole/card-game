@@ -172,6 +172,21 @@ test("a tied board's seeded flip can pick either player and is reproducible", ()
   expect([...firsts].sort()).toEqual([0, 1]);
 });
 
+// Golden vector: the flip takes exactly one sample after the shuffles, as the
+// ruleset did before reveal order was exposed in the view.
+test("a tied turn 1 draws one flip sample and pins the seeded replay", () => {
+  const initial = createMatch(42, [deck(), deck()]);
+  expect(playerView(initial, 0).revealFirst).toBe(1);
+  expect(initial.rng).toBe(775312688);
+  const resolved = turn(initial, play(initial, 0, 0), play(initial, 1, 0));
+  expect(resolved.state.rng).toBe(2362599119);
+  expect(
+    resolved.events.flatMap((e) =>
+      e.type === "card-revealed" ? [e.player] : [],
+    ),
+  ).toEqual([1, 0]);
+});
+
 test("every view names the player who reveals first, before and after staging, matching resolution", () => {
   // Mixed powers so the lead changes hands as well as tying.
   const varied = (reverse: boolean) =>
@@ -179,7 +194,7 @@ test("every view names the player who reveals first, before and after staging, m
       ...card,
       power: reverse ? 3 - (i % 3) : 1 + (i % 3),
     }));
-  let decided = 0;
+  let decidedLanes = 0;
   let tied = 0;
   for (const seed of [0, 1, 2, 3, 4, 5]) {
     let state = createMatch(seed, [varied(false), varied(true)]);
@@ -201,12 +216,12 @@ test("every view names the player who reveals first, before and after staging, m
       const lanes = total(0).map((n, lane) =>
         Math.sign(n - (total(1)[lane] ?? 0)),
       );
-      if (lanes.some((n) => n !== 0)) decided++;
+      if (lanes.some((n) => n !== 0)) decidedLanes++;
       else tied++;
       state = resolved.state;
     }
   }
-  expect(decided).toBeGreaterThan(0);
+  expect(decidedLanes).toBeGreaterThan(0);
   expect(tied).toBeGreaterThan(0);
 });
 

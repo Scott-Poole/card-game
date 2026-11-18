@@ -45,10 +45,12 @@ export const opening: PlayerView = {
   opponent: { handSize: 4, deckSize: 8, committed: false, lanes: [[], [], []] },
   events: [],
 };
+// The opponent leads these boards on power (lanes are level), so it reveals first.
 export const staging: PlayerView = {
   ...opening,
   turn: 3,
   energy: 3,
+  revealFirst: 1,
   own: {
     ...opening.own,
     hand: [guardian, voyager, smith],

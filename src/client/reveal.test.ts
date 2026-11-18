@@ -41,11 +41,11 @@ test("both players reveal in event order and all steps equal authoritative lanes
   expect(steps.at(-1)?.view.opponent.lanes).toEqual(revealed.opponent.lanes);
 });
 
-test("the opponent's reveals play first when the events put them first", () => {
+test("an opponent-first event order maps each reveal to its own side", () => {
   const [mine, theirs] = revealed.events;
   if (mine?.type !== "card-revealed" || theirs?.type !== "card-revealed")
     throw new Error("Expected two reveals");
-  const steps = sequenceReveal({ ...staging, revealFirst: 1 }, [
+  const steps = sequenceReveal(staging, [
     theirs,
     mine,
     { type: "turn-ended", turn: 3 },

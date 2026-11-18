@@ -159,8 +159,15 @@ test("the Reveals first tag follows the view's seat and holds through playback",
   page,
   address,
 }) => {
-  const { staging, revealed } =
+  const { staging, revealed, herald, guardian, voyager } =
     await import("../src/client/stories/fixtures.ts");
+  // The opponent leads `staging` (it reveals first); after the turn our boosted
+  // board leads instead (lanes level, power 9 to 8), so the order flips to us.
+  const next = {
+    ...revealed,
+    revealFirst: 0,
+    own: { ...revealed.own, lanes: [[herald], [guardian, voyager], []] },
+  } satisfies typeof revealed;
   await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
   await page.clock.pauseAt(new Date("2026-01-01T00:00:00Z"));
   await page.routeWebSocket("**/ws", (socket) => {
@@ -168,28 +175,23 @@ test("the Reveals first tag follows the view's seat and holds through playback",
     socket.send(JSON.stringify({ type: "state", view: staging }));
     socket.onMessage(() => {
       // The resolved frame already names the next turn's order.
-      socket.send(
-        JSON.stringify({
-          type: "state",
-          view: { ...revealed, revealFirst: 1 },
-        }),
-      );
+      socket.send(JSON.stringify({ type: "state", view: next }));
     });
   });
   await page.goto(address);
   const lit = page.locator("[data-reveals-first]");
   await expect(lit).toHaveCount(1);
-  await expect(lit).toHaveText("You · Player 1 · Reveals first");
+  await expect(lit).toHaveText("Opponent · Player 2 · Reveals first");
   await commitButton(page).click();
   await page.clock.runFor(360);
   await expect(
     page.getByRole("button", { name: "Skip reveal", exact: true }),
   ).toBeVisible();
   // Mid-playback the tag still shows the order of the turn being played.
-  await expect(lit).toHaveText("You · Player 1 · Reveals first");
+  await expect(lit).toHaveText("Opponent · Player 2 · Reveals first");
   await page.getByRole("button", { name: "Skip reveal", exact: true }).click();
   await expect(lit).toHaveCount(1);
-  await expect(lit).toHaveText("Opponent · Player 2 · Reveals first");
+  await expect(lit).toHaveText("You · Player 1 · Reveals first");
 });
 
 test("two players finish six turns with consistent results", async ({
