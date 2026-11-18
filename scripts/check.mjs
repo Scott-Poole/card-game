@@ -21,6 +21,7 @@ const gates = [
   "test:queue",
   "test:boundaries",
   "test:skill-links",
+  "test:working-markdown",
   "test:browser",
 ];
 for (const gate of gates) {
