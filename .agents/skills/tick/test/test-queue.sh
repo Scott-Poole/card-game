@@ -382,6 +382,14 @@ for spec in "GET issues/1" "POST issues/1/labels" "DELETE issues/1/labels" "POST
 		check "alive is all-or-nothing when [$spec] #$skip fails" is "$(labels 1)" "$([[ $CODE == 0 ]] && echo in-progress || echo in-progress,ready-for-human)"
 	done
 done
+# The raced handoff plus a failing write: the handoff must not end up launchable.
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+FAKE_GH_RACE_HANDOFF=1 run release 1 "thread gone"
+check "a handoff that races release stays with Scott" is "$CODE:$(labels 1)" "1:ready-for-human"
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_RACE_HANDOFF=1 FAKE_GH_FAIL="POST issues/1/labels" FAKE_GH_FAIL_SKIP=1 FAKE_GH_FAIL_ONCE=1 run release 1 "thread gone"
+check "a raced handoff is never left launchable when restoring its label fails" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"

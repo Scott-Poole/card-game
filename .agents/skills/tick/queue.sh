@@ -489,8 +489,10 @@ cmd_release() {
 	case $rc in
 	1) ;;
 	0)
-		disarm
+		# Stay armed until the handoff label is back: if this write fails, the rollback
+		# restores the claim instead of leaving a sole ready-for-agent.
 		transition "$1" "$HUMAN" "$QUEUE"
+		disarm
 		log "#$1 was escalated while being released; left with Scott"
 		exit 1
 		;;

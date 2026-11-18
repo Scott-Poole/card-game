@@ -134,6 +134,10 @@ def route(state, method, path, fields):
         return [state.get("events", {}).get(n, [])]
     if method == "POST" and rest == "/labels":
         label = fields["labels[]"]
+        # $FAKE_GH_RACE_HANDOFF=1: a thread posts its `## Needs you` right after the first label write.
+        if os.environ.get("FAKE_GH_RACE_HANDOFF") and not any(c["body"].startswith("## Needs you") for c in state.get("comments", [])):
+            state.setdefault("comments", []).append({"issue": int(n), "body": "## Needs you\n\nDecision: ...", "author_association": "OWNER",
+                                                     "created_at": "2099-01-01T00:00:00Z"})
         if label not in names:
             iss["labels"].append({"name": label})
             state.setdefault("events", {}).setdefault(n, []).append({
