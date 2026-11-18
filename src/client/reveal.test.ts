@@ -1,3 +1,4 @@
+import type { PlayerView, MatchEvent } from "../protocol/messages.ts";
 import { selectLaneTotals } from "./laneTotals.ts";
 import { expect, test } from "vitest";
 import { sequenceReveal } from "./reveal.ts";
@@ -53,14 +54,15 @@ test("match ending follows the turn and preserves final lanes", () => {
 });
 
 test("player one's match-ending turn maps both sides to the correct lanes", () => {
+  if (ended.phase !== "ended") throw new Error("Expected ended fixture");
   const previous = {
     ...staging,
     player: 1,
-  } satisfies import("../protocol/messages.ts").PlayerView;
+  } satisfies PlayerView;
   const events = [
     ...revealed.events,
     { type: "match-ended", result: ended.result },
-  ] satisfies import("../protocol/messages.ts").MatchEvent[];
+  ] satisfies MatchEvent[];
   const steps = sequenceReveal(previous, events);
   expect(steps.at(-1)?.view.own.lanes).toEqual([
     [herald, revealed.opponent.lanes[0]?.[0]],
