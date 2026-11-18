@@ -168,6 +168,74 @@ test("seeded initiative can pick either player and is reproducible", () => {
   expect([...firsts].sort()).toEqual([0, 1]);
 });
 
+test("every view names the player who reveals first, matching the resolved event order", () => {
+  for (const seed of [0, 1, 2, 3]) {
+    let state = createMatch(seed, [deck(), deck()]);
+    for (let i = 0; i < 6; i++) {
+      const views = [playerView(state, 0), playerView(state, 1)];
+      const first = views[0]?.revealFirst;
+      expect(first === 0 || first === 1).toBe(true);
+      expect(views[1]?.revealFirst).toBe(first);
+      const staged = unwrap(
+        stage(
+          unwrap(stage(state, 0, play(state, 0, i % 3))),
+          1,
+          play(state, 1, (i + i) % 3),
+        ),
+      );
+      expect(playerView(staged, 0).revealFirst).toBe(first);
+      const resolved = turn(
+        state,
+        play(state, 0, i % 3),
+        play(state, 1, (i + i) % 3),
+      );
+      const revealed = resolved.events.find((e) => e.type === "card-revealed");
+      if (revealed?.type === "card-revealed")
+        expect(revealed.player).toBe(first);
+      state = resolved.state;
+    }
+  }
+});
+
+test.each([
+  { a: [0, 1], b: [2, 2], ap: 1, bp: 9, first: 0 },
+  { a: [0, 0], b: [1, 1], ap: 1, bp: 9, first: 1 },
+])(
+  "view announces the lane leader, then total power, as first to reveal: %j",
+  ({ a, b, ap, bp, first }) => {
+    let state = createMatch(42, [deck(ap), deck(bp)]);
+    for (let i = 0; i < 2; i++)
+      state = turn(
+        state,
+        play(state, 0, a[i] ?? 0),
+        play(state, 1, b[i] ?? 0),
+      ).state;
+    expect(playerView(state, 0).revealFirst).toBe(first);
+    expect(playerView(state, 1).revealFirst).toBe(first);
+  },
+);
+
+test("a tied board is broken by a seed-determined flip that varies by seed", () => {
+  const firsts = new Set<number | null>();
+  for (let seed = 0; seed < 20; seed++) {
+    const state = createMatch(seed, [deck(), deck()]);
+    expect(playerView(state, 0).revealFirst).toBe(
+      playerView(createMatch(seed, [deck(), deck()]), 0).revealFirst,
+    );
+    firsts.add(playerView(state, 0).revealFirst);
+  }
+  expect([...firsts].sort()).toEqual([0, 1]);
+});
+
+test("the view reveals first to nobody once the match has ended", () => {
+  let state = createMatch(42, [deck(), deck()]);
+  for (let i = 0; i < 6; i++) state = turn(state).state;
+  expect(playerView(state, 0)).toMatchObject({
+    phase: "ended",
+    revealFirst: null,
+  });
+});
+
 test.each([
   { a: [0, 1], b: [2, 2], ap: 1, bp: 9, lanes: [0, 0, 1], winner: 0 },
   { a: [0, 0], b: [1, 1], ap: 1, bp: 9, lanes: [0, 1, null], winner: 1 },

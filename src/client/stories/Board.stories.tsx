@@ -65,4 +65,7 @@ export const MidTurnStaging: Story = { args: { view: staging } };
 export const AfterReveal: Story = { args: { view: revealed } };
 export const Ended: Story = { args: { view: ended } };
 
+export const OpponentRevealsFirst: Story = {
+  args: { view: { ...staging, revealFirst: 1 } },
+};
 export const FullLanes: Story = { args: { view: full } };

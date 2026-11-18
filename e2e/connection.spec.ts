@@ -155,6 +155,22 @@ test("socket closure displays error", async ({ page, address }) => {
   await expect(page.getByRole("status")).toHaveText("error");
 });
 
+test("both players see the same player reveal first", async ({ pair }) => {
+  const tags = pair.map((page) =>
+    page
+      .locator("[data-reveals-first]")
+      .evaluateAll((nodes) => nodes.map((node) => node.textContent)),
+  );
+  const [a, b] = await Promise.all(tags);
+  expect(a).toHaveLength(1);
+  expect(b).toHaveLength(1);
+  // "You · Player 1 · Reveals first" on one page is "Opponent · Player 1 · …" on the other.
+  expect(a?.[0]?.replace(/^(You|Opponent)/, "")).toBe(
+    b?.[0]?.replace(/^(You|Opponent)/, ""),
+  );
+  expect(a?.[0]?.startsWith("You")).not.toBe(b?.[0]?.startsWith("You"));
+});
+
 test("two players finish six turns with consistent results", async ({
   browser,
   address,
@@ -365,6 +381,7 @@ test("opponent updates do not unlock an unacknowledged stage", async ({
     player: 0,
     turn: 1,
     energy: 1,
+    revealFirst: 0,
     phase: "planning",
     result: null,
     own: {
@@ -1135,6 +1152,7 @@ for (const width of [390, 1440]) {
             result: null,
             turn: 1,
             energy: 1,
+            revealFirst: 0,
             own: {
               hand: [
                 { id: "cheap", name: "Test herald", cost: 1, power: 2 },
@@ -1304,6 +1322,7 @@ for (const changeDuringMatch of [false, true]) {
       result: null,
       turn: 1,
       energy: 1,
+      revealFirst: 0,
       own: {
         hand: [card],
         staged: [],

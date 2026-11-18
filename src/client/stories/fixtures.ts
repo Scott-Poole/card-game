@@ -34,6 +34,7 @@ export const opening: PlayerView = {
   result: null,
   turn: 1,
   energy: 1,
+  revealFirst: 0,
   own: {
     hand: [herald, guardian, voyager, smith],
     staged: [],
@@ -88,6 +89,7 @@ export const ended: PlayerView = {
   result,
   turn: 6,
   energy: 6,
+  revealFirst: null,
   own: { ...revealed.own, committed: true },
   opponent: { ...revealed.opponent, committed: true },
   events: [
