@@ -437,6 +437,11 @@ setup "[$(issue 1 ready-for-human), $(issue 2 in-progress), $(issue 3 ready-for-
 add_comments "$(comment_at 2 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 2 2099-01-01T00:00:00Z $'## Needs you\n\nDecision: ...')"
 run next 2
 check "a run-claimed ticket with a pending handoff is finished and counted" is "$(labels 2):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
+# A ticket this run already handed to Scott holds no WIP slot on the next iteration.
+setup "[$(issue 6 ready-for-human), $(issue 7 in-progress), $(issue 8 in-progress), $(issue 9 in-progress), $(issue 10 ready-for-agent)]" \
+	"{\"6\": [$(claimed_event "$OLD")], \"7\": [$(claimed_event "$TODAY")], \"8\": [$(claimed_event "$TODAY")], \"9\": [$(claimed_event "$TODAY")]}"
+run next 6 7 8 9
+check "a run ticket handed to Scott is not counted as in progress" is "$OUT" "LAUNCH 10 Ticket 10"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"

@@ -233,8 +233,13 @@ cmd_next() {
 	now=$(date -u +%s)
 	claimed=$(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
 		--jq '.[] | select(.pull_request == null) | .number')
+	local rlabels
 	for n in "${run[@]}"; do # claims this run made that the listing doesn't show yet
-		grep -qx "$n" <<<"$claimed" || wip=$((wip + 1))
+		grep -qx "$n" <<<"$claimed" && continue
+		# ...unless the ticket has since been handed to Scott (an escalation this run finished):
+		# a lagging claim never carries ready-for-human, and a handed-off one holds no slot.
+		rlabels=" $(labels_of "$n") "
+		[[ $rlabels == *" $HUMAN "* ]] || wip=$((wip + 1))
 	done
 	for n in $claimed; do
 		wip=$((wip + 1))
