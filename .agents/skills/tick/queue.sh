@@ -9,7 +9,8 @@
 #                               run already claimed
 #   queue.sh parent-done <child> mark its completed parent ready-for-human, leaving it open
 #   queue.sh claim <n>          ready-for-agent -> in-progress, with a claim comment
-#   queue.sh release <n> <why>  in-progress (and any stale ready-for-human) -> ready-for-agent
+#   queue.sh release <n> <why>  in-progress (and any stale ready-for-human) -> ready-for-agent;
+#                               refuses a ticket that no longer holds in-progress
 #   queue.sh alive <n> [nudged] record that the claim's thread lives; resets its stale clock
 #   queue.sh resume-info <n>    print `THREAD <link|none> CLAIMS <k>` from the ticket's history
 #   queue.sh escalate <n> <c>   in-progress -> ready-for-human; <c> must start `## Needs you`
@@ -69,11 +70,12 @@ heartbeat_at() {
 	printf '%s\n' "$times" | sort -n | tail -1 | awk '{print $1 + 0}'
 }
 
-# nudges <n>: how many times the tick woke this claim's thread.
+# nudges <n> <since>: how many times the tick woke this claim's thread since epoch <since>
+# (the claim's start), so a hand-back or a new claim begins with a fresh budget.
 nudges() {
 	local hits
 	hits=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
-		".[] | $TRUSTED | select(.body | contains(\"$NUDGE_MARK\")) | 1")
+		".[] | $TRUSTED | select(.body | contains(\"$NUDGE_MARK\")) | select((.created_at | fromdateiso8601) >= $2) | 1")
 	printf '%s\n' "$hits" | grep -c 1 || true
 }
 
@@ -183,7 +185,7 @@ cmd_next() {
 	# (neither the claim label nor a heartbeat that recent) is surfaced as CHECK: queue.sh
 	# can't see T3, so the tick reads the thread and runs `alive` or `release`. A claim is
 	# never relabelled ready-for-human here: a live thread isn't waiting on Scott.
-	local now n claimed_at beat last wip=0 check=""
+	local now n claimed_at beat last wip=0 check="" check_since=0
 	now=$(date -u +%s)
 	claimed=$(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
 		--jq '.[] | select(.pull_request == null) | .number')
@@ -198,13 +200,13 @@ cmd_next() {
 		beat=$(heartbeat_at "$n")
 		last=$((claimed_at > beat ? claimed_at : beat))
 		if ((now - last > stale_hours * 3600)) && { [[ -z $check ]] || ((n < check)); }; then
-			check=$n
+			check=$n check_since=$claimed_at
 		fi
 	done
 	if [[ -n $check ]]; then
 		local title count
 		title=$(gh api "$API/issues/$check" --jq .title)
-		count=$(nudges "$check")
+		count=$(nudges "$check" "$check_since")
 		echo "CHECK $check $count $title"
 		return
 	fi
@@ -388,6 +390,12 @@ All sub-issues are closed. Close this spec when the outcome matches. This spec s
 }
 
 cmd_release() {
+	# Only a live claim can be released: a thread may have escalated since the caller looked,
+	# and its ready-for-human must not be swept back into the queue.
+	if [[ " $(labels_of "$1") " != *" $CLAIMED "* ]]; then
+		log "refusing to release #$1: it no longer carries $CLAIMED"
+		exit 1
+	fi
 	transition "$1" "$QUEUE" "$CLAIMED"
 	# A pre-heartbeat stale flag may still be on it; the ticket is the agents' turn again.
 	transition "$1" "" "$HUMAN"
@@ -431,8 +439,10 @@ cmd_escalate() {
 		log "refusing to escalate #$1: the comment must start with '## Needs you' (decision, options, recommendation, how to hand back)"
 		exit 1
 	fi
-	transition "$1" "$HUMAN" "$CLAIMED"
+	# The handoff comment lands before the claim is given up, so a failed write never leaves
+	# a ticket with no claim and nothing for Scott to read; a retry just posts it again.
 	comment "$1" "$2"
+	transition "$1" "$HUMAN" "$CLAIMED"
 	log "escalated #$1"
 }
 

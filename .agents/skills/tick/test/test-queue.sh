@@ -308,6 +308,11 @@ add_comments "$(comment_at 1 "$OLD" "$ALIVE$NUDGE woke it"), $(comment_at 1 "$OL
 run next
 check "the check reports how often the thread was already woken" is "$OUT" "CHECK 1 2 Ticket 1"
 
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "2020-01-01T00:00:00Z"), $(claimed_event "2020-02-01T00:00:00Z")]}"
+add_comments "$(comment_at 1 2020-01-15T00:00:00Z "$ALIVE$NUDGE woke it"), $(comment_at 1 2020-01-16T00:00:00Z "$ALIVE$NUDGE woke it again"), $(comment_at 1 2020-02-02T00:00:00Z "$ALIVE$NUDGE woke it")"
+run next
+check "nudges before the current claim do not count" is "$OUT" "CHECK 1 1 Ticket 1"
+
 setup "[$(issue 1 in-progress), $(issue 2 in-progress)]" "{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$OLD")]}"
 run next
 check "the lowest-numbered stale claim is checked first" is "$OUT" "CHECK 1 0 Ticket 1"
@@ -341,6 +346,10 @@ check "claimed tickets never fill the escalation cap" is "$OUT" "LAUNCH 6 Ticket
 setup "[$(issue 1 in-progress,ready-for-human)]"
 run release 1 "thread gone"
 check "release clears a leftover ready-for-human" is "$CODE:$(labels 1)" "0:ready-for-agent"
+# The thread escalated between the check and the release: Scott's handoff must survive.
+setup "[$(issue 1 ready-for-human)]"
+run release 1 "thread gone"
+check "release refuses a ticket that was escalated meanwhile" is "$CODE:$(labels 1):$(comments 1)" "1:ready-for-human:0"
 
 # Hand-back: Scott swaps ready-for-human for ready-for-agent and the ticket re-enters the
 # frontier despite its claim history.
@@ -468,6 +477,10 @@ check "escalate adds ready-for-human" is "$(labels 6)" "ready-for-agent,ready-fo
 setup "[$(issue 6 in-progress)]"
 run escalate 6 "$NEEDS"
 check "escalate swaps labels" is "$(labels 6)" "ready-for-human"
+
+setup "[$(issue 6 in-progress)]"
+FAKE_GH_FAIL="POST comments" run escalate 6 "$NEEDS"
+check "a failed handoff comment leaves the claim in place" is "$CODE:$(labels 6)" "1:in-progress"
 
 setup "[$(issue 6 in-progress)]"
 run escalate 6 "stuck"

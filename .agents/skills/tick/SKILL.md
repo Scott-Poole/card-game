@@ -54,7 +54,7 @@ git show origin/main:.agents/skills/tick/queue.sh | bash -s -- resume-info <n>  
 - **Missing** (no link, the thread is gone, or the send fails): `... -- release <n> "thread gone"`. The ticket returns to `ready-for-agent` and a later launch resumes it (step 3).
 - **Woken three times already** and still idle: escalate for real, `... -- escalate <n> "<## Needs you comment>"`, saying the thread keeps stopping without finishing, with the last status and any PR link.
 
-If the read itself errors, leave the ticket and mention it in the reply; go to step 1 either way. `alive` and `release` change what `next` offers, so the loop terminates. `alive` also clears a `ready-for-human` the old stale sweep left on a claimed ticket.
+If the read itself errors, stop the run: claim nothing more, mention the error in the reply, and go to **Audit**. (`next` would offer the same ticket again, so retrying here never ends.) `alive` and `release` change what `next` offers, so every other outcome terminates. `release` refuses a ticket whose thread escalated in the meantime; leave that one for Scott. `<nudges>` counts only wakes since the current claim began, so a hand-back starts a fresh budget. `alive` also clears a `ready-for-human` the old stale sweep left on a claimed ticket.
 
 ## 2. Claim
 

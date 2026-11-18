@@ -31,7 +31,7 @@ Planners and agents file anything that needs a decision as `ready-for-human` wit
 
 ### The `## Needs you` comment
 
-Every time an agent or planner sets `ready-for-human` it posts one comment, headed exactly `## Needs you`, that stands alone on GitHub (no thread link needed):
+Every time an agent or planner hands a ticket to Scott it posts one comment (a completed parent spec is the exception: `queue.sh parent-done` posts its own "close this spec" notice), headed exactly `## Needs you`, that stands alone on GitHub (no thread link needed):
 
 ```markdown
 ## Needs you
