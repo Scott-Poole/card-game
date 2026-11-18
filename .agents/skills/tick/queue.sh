@@ -397,29 +397,54 @@ All sub-issues are closed. Close this spec when the outcome matches. This spec s
 	fi
 }
 
+# handoff_since_claim <n>: 0 when a trusted `## Needs you` comment is newer than the claim's
+# start, i.e. a thread escalated this ticket; 1 when there is none; 2 when a query failed.
+# `escalate` posts that comment before it touches labels, so it marks a real handoff even
+# while the labels are mid-swap. Callers test the code, so errexit is off in here: every
+# failure is returned explicitly rather than left to `set -e`.
+handoff_since_claim() {
+	local since hits
+	since=$(claim_started "$1") || return 2
+	hits=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+		".[] | $TRUSTED | select(.body | startswith(\"## Needs you\")) | select((.created_at | fromdateiso8601) >= $since) | 1") || return 2
+	[[ -n $hits ]]
+}
+
+# drop_stale_human <n>: remove a ready-for-human the old stale sweep left on a claimed
+# ticket, unless it is a real handoff. Check, write, check again: GitHub has no transaction,
+# but the comment precedes every label write of an escalation, so a handoff that raced the
+# removal is always visible afterwards and gets its label back. Returns 1 when it kept the
+# label; any failed query or write exits the script (fail closed).
+drop_stale_human() {
+	local rc=0
+	handoff_since_claim "$1" || rc=$?
+	case $rc in 0) return 1 ;; 1) ;; *) log "handoff lookup for #$1 failed"; exit 1 ;; esac
+	transition "$1" "" "$HUMAN" || exit 1
+	rc=0
+	handoff_since_claim "$1" || rc=$?
+	case $rc in
+	0) transition "$1" "$HUMAN" "" || exit 1; return 1 ;;
+	1) ;;
+	*) log "handoff lookup for #$1 failed"; exit 1 ;;
+	esac
+}
+
 cmd_release() {
+	local labels
 	# Only a live claim can be released: a thread may have escalated since the caller looked,
 	# and its ready-for-human must not be swept back into the queue.
-	if [[ " $(labels_of "$1") " != *" $CLAIMED "* ]]; then
+	labels=" $(labels_of "$1") "
+	if [[ $labels != *" $CLAIMED "* ]]; then
 		log "refusing to release #$1: it no longer carries $CLAIMED"
 		exit 1
 	fi
 	transition "$1" "$QUEUE" "$CLAIMED"
 	# A pre-heartbeat stale flag may still be on it; the ticket is the agents' turn again.
-	# But a thread may have escalated between the guard above and now. `escalate` posts its
-	# `## Needs you` comment before touching labels, so that comment marks a real handoff:
-	# keep ready-for-human and take back the queue label we just added.
-	if [[ " $(labels_of "$1") " == *" $HUMAN "* ]]; then
-		local since handoffs
-		since=$(claim_started "$1")
-		handoffs=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
-			".[] | $TRUSTED | select(.body | startswith(\"## Needs you\")) | select((.created_at | fromdateiso8601) >= $since) | 1")
-		if [[ -n $handoffs ]]; then
-			transition "$1" "" "$QUEUE"
-			log "#$1 was escalated while being released; left with Scott"
-			exit 1
-		fi
-		transition "$1" "" "$HUMAN"
+	labels=" $(labels_of "$1") "
+	if [[ $labels == *" $HUMAN "* ]] && ! drop_stale_human "$1"; then
+		transition "$1" "" "$QUEUE"
+		log "#$1 was escalated while being released; left with Scott"
+		exit 1
 	fi
 	comment "$1" "tick: released claim, back in the queue. Reason: $2"
 	log "released #$1"
@@ -427,7 +452,7 @@ cmd_release() {
 
 # alive <n> [nudged]: the claim's thread lives (or was just woken). The heartbeat restarts
 # the stale clock, and a ready-for-human left on a claimed ticket by the old stale sweep
-# is cleared: a thread holds it, Scott has nothing to do.
+# is cleared: a thread holds it, Scott has nothing to do. A real handoff is left alone.
 cmd_alive() {
 	local n=$1 nudged=${2:-} labels body
 	labels=" $(labels_of "$n") "
@@ -440,7 +465,7 @@ cmd_alive() {
 	comment "$n" "$body
 tick: thread checked $(date -u +%Y-%m-%dT%H:%MZ); the claim stays${nudged:+ (woke the thread)}."
 	if [[ $labels == *" $HUMAN "* ]]; then
-		transition "$n" "" "$HUMAN"
+		drop_stale_human "$n" || log "#$n carries a handoff; ready-for-human kept"
 	fi
 	log "alive #$n"
 }

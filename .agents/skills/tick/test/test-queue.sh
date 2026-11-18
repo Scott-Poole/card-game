@@ -356,6 +356,18 @@ setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
 run release 1 "thread gone"
 check "release leaves a handoff that raced it and takes back its queue label" is "$CODE:$(labels 1)" "1:ready-for-human"
+# alive must not erase a handoff either (a legacy flag and a real escalation look alike).
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
+run alive 1
+check "alive keeps a ready-for-human that carries a handoff" is "$CODE:$(labels 1)" "0:in-progress,ready-for-human"
+# A failed label read during release must abort, not read as "no handoff".
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+FAKE_GH_FAIL="GET issues/1" run release 1 "thread gone"
+check "release fails closed when the label query fails" is "$CODE:$(comments 1)" "1:0"
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+FAKE_GH_FAIL="GET issues/1/comments" run release 1 "thread gone"
+check "release fails closed when the handoff lookup fails" is "$CODE:$(comments 1)" "1:0"
 # Ancient handoffs (before the current claim) do not block clearing a stale flag.
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$TODAY")]}"
 add_comments "$(comment_at 1 "$OLD" $'## Needs you\n\nDecision: ...')"
