@@ -8,14 +8,14 @@ import { locations } from "../src/server/locations.ts";
 const plain = locations
   .filter((location) => location.effect.kind === "none")
   .slice(0, 3);
-const forge = locations.find(
-  (location) => location.id === "forge-beneath-etna",
-);
-if (!forge) throw new Error("shipped pool lost the Forge Beneath Etna");
-const pool =
-  process.env.E2E_LOCATIONS === "boosted"
-    ? [forge, ...plain.slice(0, 2)]
-    : plain;
+function boostedPool() {
+  const forge = locations.find(
+    (location) => location.id === "forge-beneath-etna",
+  );
+  if (!forge) throw new Error("shipped pool lost the Forge Beneath Etna");
+  return [forge, ...plain.slice(0, 2)];
+}
+const pool = process.env.E2E_LOCATIONS === "boosted" ? boostedPool() : plain;
 
 const server = await startServer({
   port: Number(process.env.PORT ?? "0"),

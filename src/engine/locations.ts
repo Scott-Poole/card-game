@@ -55,9 +55,9 @@ export function validateLocations(
     } else if (!isPowerPerCardAmount(entry.effect.amount)) add("effect");
     // Rule text must state the amount as a whole number, not inside another.
     else if (
-      !new RegExp(`(?<!\\d)${String(entry.effect.amount)}(?!\\d)`).test(
-        entry.text,
-      )
+      !new RegExp(
+        `(?<![\\d.])${String(entry.effect.amount)}(?!\\d|\\.\\d)`,
+      ).test(entry.text)
     )
       add("effect-text");
   });
