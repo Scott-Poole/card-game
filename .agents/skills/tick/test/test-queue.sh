@@ -351,6 +351,17 @@ setup "[$(issue 1 ready-for-human)]"
 run release 1 "thread gone"
 check "release refuses a ticket that was escalated meanwhile" is "$CODE:$(labels 1):$(comments 1)" "1:ready-for-human:0"
 
+# The race the guard cannot see: the thread escalates after release read its labels.
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
+run release 1 "thread gone"
+check "release leaves a handoff that raced it and takes back its queue label" is "$CODE:$(labels 1)" "1:ready-for-human"
+# Ancient handoffs (before the current claim) do not block clearing a stale flag.
+setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$TODAY")]}"
+add_comments "$(comment_at 1 "$OLD" $'## Needs you\n\nDecision: ...')"
+run release 1 "thread gone"
+check "a handoff from an earlier claim does not block release" is "$CODE:$(labels 1)" "0:ready-for-agent"
+
 # Hand-back: Scott swaps ready-for-human for ready-for-agent and the ticket re-enters the
 # frontier despite its claim history.
 setup "[$(issue 1 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")]}"

@@ -57,7 +57,7 @@ The maintainer invokes `/triage` and describes what they want in natural languag
 
 Query the issue tracker and present four buckets, oldest first:
 
-1. **Needs you** (shown first): open issues and PRs labeled `ready-for-human`. For each, print its title and the latest comment that starts `## Needs you` (`gh issue view <n> --json comments --jq '[.comments[] | select(.body | startswith("## Needs you"))] | last | .body'`). One that has none is a bug in the handoff: say so and write the comment from the ticket's history. A completed parent spec is the exception; its `<!-- queue:parent-done -->` notice says to close it. Answering one means commenting the decision and swapping `ready-for-human` for `ready-for-agent`.
+1. **Needs you** (shown first): open issues and PRs labeled `ready-for-human`. For each, print its title and the latest comment that starts `## Needs you` (`gh issue view <n> --json comments --jq '[.comments[] | select((.authorAssociation | IN("OWNER","MEMBER","COLLABORATOR")) and (.body | startswith("## Needs you")))] | last | .body'`; the repo is public, so a stranger's comment never counts). One that has none is a bug in the handoff: say so and write the comment from the ticket's history. A completed parent spec is the exception; its `<!-- queue:parent-done -->` notice says to close it. Answering one means commenting the decision and swapping `ready-for-human` for `ready-for-agent`.
 2. **Unlabeled**: never triaged.
 3. **`needs-triage`**: classified by nobody yet.
 4. **`needs-info` with reporter activity since the last triage notes**: needs re-evaluation.

@@ -70,6 +70,15 @@ heartbeat_at() {
 	printf '%s\n' "$times" | sort -n | tail -1 | awk '{print $1 + 0}'
 }
 
+# claim_started <n>: epoch of the newest in-progress label event, 0 when none. Paginated:
+# a ticket resumed many times has more events than one page.
+claim_started() {
+	local times
+	times=$(gh api --paginate "$API/issues/$1/events?per_page=100" --jq \
+		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | .created_at | fromdateiso8601")
+	printf '%s\n' "$times" | sort -n | tail -1 | awk '{print $1 + 0}'
+}
+
 # nudges <n> <since>: how many times the tick woke this claim's thread since epoch <since>
 # (the claim's start), so a hand-back or a new claim begins with a fresh budget.
 nudges() {
@@ -195,8 +204,7 @@ cmd_next() {
 	for n in $claimed; do
 		wip=$((wip + 1))
 		printf '%s\n' "${run[@]}" | grep -qx "$n" && continue # claimed seconds ago
-		claimed_at=$(gh api "$API/issues/$n/events?per_page=100" --jq \
-			"[.[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | .created_at | fromdateiso8601] | max // 0")
+		claimed_at=$(claim_started "$n")
 		beat=$(heartbeat_at "$n")
 		last=$((claimed_at > beat ? claimed_at : beat))
 		if ((now - last > stale_hours * 3600)) && { [[ -z $check ]] || ((n < check)); }; then
@@ -398,7 +406,21 @@ cmd_release() {
 	fi
 	transition "$1" "$QUEUE" "$CLAIMED"
 	# A pre-heartbeat stale flag may still be on it; the ticket is the agents' turn again.
-	transition "$1" "" "$HUMAN"
+	# But a thread may have escalated between the guard above and now. `escalate` posts its
+	# `## Needs you` comment before touching labels, so that comment marks a real handoff:
+	# keep ready-for-human and take back the queue label we just added.
+	if [[ " $(labels_of "$1") " == *" $HUMAN "* ]]; then
+		local since handoffs
+		since=$(claim_started "$1")
+		handoffs=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+			".[] | $TRUSTED | select(.body | startswith(\"## Needs you\")) | select((.created_at | fromdateiso8601) >= $since) | 1")
+		if [[ -n $handoffs ]]; then
+			transition "$1" "" "$QUEUE"
+			log "#$1 was escalated while being released; left with Scott"
+			exit 1
+		fi
+		transition "$1" "" "$HUMAN"
+	fi
 	comment "$1" "tick: released claim, back in the queue. Reason: $2"
 	log "released #$1"
 }
