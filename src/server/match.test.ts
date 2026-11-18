@@ -1,4 +1,7 @@
+import { privateDeck } from "./match.ts";
+import { doubledRoster } from "./doubled-roster.test-support.ts";
 import { roster } from "./roster.ts";
+import { DECK_CARDS_PER_COST, DECK_SIZE } from "../rules/index.ts";
 import { afterEach, expect, test, vi } from "vitest";
 import {
   decodeServerMessage,
@@ -266,10 +269,15 @@ test("both players' raw frames contain only revealed opponent card ids", async (
 });
 
 test("with the same engine seed, independent entropy changes only the opponent's draw order", async () => {
+  entropy.integer.mockClear();
   const first = await pair();
   server?.close();
+  // Each player's deck takes the same number of samples; player 0's come first.
+  const perDeck = entropy.integer.mock.calls.length / 2;
   let calls = 0;
-  entropy.integer.mockImplementation((max) => (++calls <= 11 ? max - 1 : 0));
+  entropy.integer.mockImplementation((max) =>
+    ++calls <= perDeck ? max - 1 : 0,
+  );
   try {
     const second = await pair();
     expect(second.views[0].own.hand).toEqual(first.views[0].own.hand);
@@ -369,4 +377,27 @@ test("a fifth client queues after a forfeit and a sixth pairs while another matc
     counts.map((count) => count + 1),
   );
   for (const peer of [b, c, d, e, f]) peer.socket.close();
+});
+
+test("each player's private deck is a valid draw from the roster", async () => {
+  for (const player of [0, 1] as const) {
+    // The mocked entropy never swaps, so each cost's first two cards are drawn.
+    const expected = [1, 2, 3, 4, 5, 6].flatMap((cost) =>
+      doubledRoster
+        .filter((entry) => entry.card.cost === cost)
+        .slice(0, DECK_CARDS_PER_COST)
+        .map((entry) => `${String(player)}:${entry.card.id}`),
+    );
+    const deck = privateDeck(player, doubledRoster);
+    expect(deck).toHaveLength(DECK_SIZE);
+    expect(deck.map((card) => card.id).sort()).toEqual(expected.sort());
+    expect(privateDeck(player)).toHaveLength(DECK_SIZE);
+  }
+  const { a, b, views } = await pair();
+  views.forEach((view, player) => {
+    for (const card of view.own.hand)
+      expect(card.id.startsWith(`${String(player)}:`)).toBe(true);
+  });
+  a.socket.close();
+  b.socket.close();
 });

@@ -1,3 +1,4 @@
+import { DECK_CARDS_PER_COST, TURN_LIMIT } from "../rules/index.ts";
 import type { CardDefinition } from "./index.ts";
 
 export interface RosterEntry {
@@ -50,7 +51,7 @@ export function validateRoster(
       )
     )
       add("duplicate-name");
-    if (!Number.isInteger(card.cost) || card.cost < 1 || card.cost > 6)
+    if (!Number.isInteger(card.cost) || card.cost < 1 || card.cost > TURN_LIMIT)
       add("cost");
     if (
       !Number.isInteger(card.power) ||
@@ -69,8 +70,11 @@ export function validateRoster(
       add("name-figure");
     if (!entry.flavor.trim() || entry.flavor.length > 120) add("flavor");
   });
-  for (let cost = 1; cost <= 6; cost++) {
-    if (entries.filter((entry) => entry.card.cost === cost).length < 2)
+  for (let cost = 1; cost <= TURN_LIMIT; cost++) {
+    if (
+      entries.filter((entry) => entry.card.cost === cost).length <
+      DECK_CARDS_PER_COST
+    )
       issues.push({ code: "cost-coverage", cost });
   }
   return issues;

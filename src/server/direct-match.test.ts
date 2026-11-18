@@ -1,7 +1,9 @@
 import { expect, test } from "vitest";
 import { decodeServerMessage, type PlayerView } from "../protocol/messages.ts";
 import { matchHost } from "./match.ts";
-import { starterDeck } from "./roster.ts";
+import { drawDeck } from "./roster.ts";
+
+const fixedIndex = () => 0;
 
 function peer() {
   const views: PlayerView[] = [];
@@ -24,7 +26,7 @@ function latest(p: ReturnType<typeof peer>) {
 test("direct peers receive private views and can stage through host messages", () => {
   const host = matchHost(() => ({
     seed: 42,
-    decks: [starterDeck(0), starterDeck(1)],
+    decks: [drawDeck(0, fixedIndex), drawDeck(1, fixedIndex)],
   }));
   const a = peer(),
     b = peer();
@@ -55,7 +57,7 @@ test("direct peers receive private views and can stage through host messages", (
 test("injected seed and decks replay the same opening views", () => {
   const options = {
     seed: 42,
-    decks: [starterDeck(0), starterDeck(1)],
+    decks: [drawDeck(0, fixedIndex), drawDeck(1, fixedIndex)],
   } satisfies ReturnType<NonNullable<Parameters<typeof matchHost>[0]>>;
   function opening() {
     const host = matchHost(() => options);
@@ -128,7 +130,10 @@ test("a match draws its lanes' locations from the injected pool", () => {
     effect: { kind: "power-per-card", amount: 1 } as const,
   }));
   const host = matchHost(
-    () => ({ seed: 5, decks: [starterDeck(0), starterDeck(1)] }),
+    () => ({
+      seed: 5,
+      decks: [drawDeck(0, fixedIndex), drawDeck(1, fixedIndex)],
+    }),
     pool,
   );
   const a = peer(),
