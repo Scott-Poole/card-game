@@ -59,7 +59,7 @@ Classify the diff `BASE...PIN`. The first matching row wins.
 
 **Author-run**: cross-review's lead judgment is yours, so rejections get checked. Each rejected finding gets a one-line reason in the verdict comment and goes, with that reason, into the next re-check brief. A rejected **high** finding always triggers a re-check, even when no fix was made. If the re-checker upholds a reproducible defect, accept it and run another fix round. Escalate only when resolving it requires a direction decision or another blocker from step 3.
 
-A review **counts** only if **every** reviewer it called for (each lens, or the re-checker) is from the other family, finished, and returned its findings list. For each one that fails to launch or return: relaunch once, then try the `delegate` skill's review fallback. If any required reviewer still hasn't completed, add the `review-blocked` label, comment why, and stop: a significant PR never merges under-reviewed.
+A review **counts** only if **every** reviewer it called for (each lens, or the re-checker) is from a family other than the author's (for Claude-written work: Codex, or DeepSeek Flash when Codex is out of usage), finished, and returned its findings list. For each one that fails to launch or return: relaunch once, then try the `delegate` skill's review fallback. A Codex usage-limit failure goes straight to DeepSeek Flash; do not wait for the reset. If any required reviewer still hasn't completed, add the `review-blocked` label, comment why, and stop: a significant PR never merges under-reviewed.
 
 **direction**: escalate (step 5). Merging is off the table until Scott answers.
 
