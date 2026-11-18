@@ -86,18 +86,18 @@ Add the `ready-for-human` label and post one comment headed `## Needs you`, fram
 
 ## Every outcome
 
-Post the class and verdict on the PR (`gh pr comment <n> --body-file <file>`). Include the cumulative `## Runs` table (step 4.1) in that verdict comment, including on review-blocked, escalated, or abandoned exits. Record completed and failed runs even when merging is impossible.
+Create the class and verdict comment once, then PATCH that same comment on later outcomes or resume; use `delegate`'s per-PR lookup and create/update commands. Include the cumulative `## Runs` table (step 4.1) in that verdict comment, including on review-blocked, escalated, or abandoned exits. Record completed and failed runs even when merging is impossible.
 
 ## Merge audit
 
 Audit the single PR named by the tick. Its claim is already `audit-in-progress`. Read the PR and its merged diff (`gh pr diff <n>`), then apply the [cross-review Skeptic lens](../cross-review/LENSES.md) yourself. This thread is the reviewer chosen by the tick: the other family when authorship is known, or the third-family fallback for unknown historical authorship. Include `author family unknown` in the result when the tick reported that uncertainty; do not claim verified cross-family coverage in that case. No further reviewer is needed.
 
-Write the complete multiline result, marker, and run table to `/tmp/audit-result.md`. A real problem becomes a GitHub issue linking the PR. Record the findings (or explicitly no findings), any issue links, and a `## Runs` table per `delegate` with role `Audit-Skeptic`, in a PR comment through the landed queue script:
+Write the complete multiline result, marker, and run table to `/tmp/audit-result-<pr>.md`. A real problem becomes a GitHub issue linking the PR. Record the findings (or explicitly no findings), any issue links, and a `## Runs` table per `delegate` with role `Audit-Skeptic`, in a PR comment through the landed queue script:
 
 ```sh
-git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-done <n> "$(cat /tmp/audit-result.md)"
+git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-done <n> "$(cat /tmp/audit-result-<pr>.md)"
 ```
 
 If `audit-done` refuses because the claim was swept or replaced, preserve the findings with a plain `gh pr comment <n> --body-file <file>` and leave the current labels alone.
 
-If the audit cannot complete, first preserve its result and run table with `gh pr comment <n> --body-file /tmp/audit-result.md`, then use `audit-release <n> "<why>"` instead so another tick can retry. Done when `audit-done` records the result and removes the claim, or a refused completion is recorded directly without changing labels. The PR comment is the audit record.
+If the audit cannot complete, first preserve its result and run table with `gh pr comment <n> --body-file /tmp/audit-result-<pr>.md`, then use `audit-release <n> "<why>"` instead so another tick can retry. Done when `audit-done` records the result and removes the claim, or a refused completion is recorded directly without changing labels. The PR comment is the audit record.
