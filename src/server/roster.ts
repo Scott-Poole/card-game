@@ -1,4 +1,9 @@
-import type { CardDefinition, PlayerId } from "../engine/index.ts";
+import {
+  shuffle,
+  type CardDefinition,
+  type PlayerId,
+} from "../engine/index.ts";
+import { DECK_CARDS_PER_COST, TURN_LIMIT } from "../rules/index.ts";
 import type { RosterEntry } from "../engine/roster.ts";
 
 export const roster: readonly RosterEntry[] = [
@@ -143,4 +148,27 @@ export function starterDeck(player: PlayerId): readonly CardDefinition[] {
     ...card,
     id: `${String(player)}:${card.id}`,
   }));
+}
+
+/** Draws a deck: DECK_CARDS_PER_COST distinct cards at each cost from 1 to
+ * TURN_LIMIT (the energy curve tops out at the turn limit). The placeholder
+ * that player-built decks would replace. Cards come back in cost order; the
+ * caller shuffles. */
+export function drawDeck(
+  player: PlayerId,
+  randomIndex: (bound: number) => number,
+  entries: readonly RosterEntry[] = roster,
+): readonly CardDefinition[] {
+  const deck: CardDefinition[] = [];
+  for (let cost = 1; cost <= TURN_LIMIT; cost++) {
+    const picks = shuffle(
+      entries.map((entry) => entry.card).filter((card) => card.cost === cost),
+      randomIndex,
+    ).slice(0, DECK_CARDS_PER_COST);
+    if (picks.length < DECK_CARDS_PER_COST)
+      throw new Error(`roster has too few cards at cost ${String(cost)}`);
+    for (const card of picks)
+      deck.push({ ...card, id: `${String(player)}:${card.id}` });
+  }
+  return deck;
 }

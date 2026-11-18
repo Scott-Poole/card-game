@@ -1,3 +1,4 @@
+import { DECK_CARDS_PER_COST } from "../rules/index.ts";
 import type { CardDefinition } from "./index.ts";
 
 export interface RosterEntry {
@@ -70,7 +71,10 @@ export function validateRoster(
     if (!entry.flavor.trim() || entry.flavor.length > 120) add("flavor");
   });
   for (let cost = 1; cost <= 6; cost++) {
-    if (entries.filter((entry) => entry.card.cost === cost).length < 2)
+    if (
+      entries.filter((entry) => entry.card.cost === cost).length <
+      DECK_CARDS_PER_COST
+    )
       issues.push({ code: "cost-coverage", cost });
   }
   return issues;

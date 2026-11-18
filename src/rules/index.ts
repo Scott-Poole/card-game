@@ -1,7 +1,9 @@
 export const LANE_COUNT = 3;
 export const LANE_CAPACITY = 4;
 export const TURN_LIMIT = 6;
-export const DECK_SIZE = 12;
+/** A deck holds this many distinct cards at each cost from 1 to 6. */
+export const DECK_CARDS_PER_COST = 2;
+export const DECK_SIZE = 6 * DECK_CARDS_PER_COST;
 
 export const MAX_LOCATION_NAME = 40;
 export const MAX_LOCATION_TEXT = 160;

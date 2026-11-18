@@ -1,4 +1,6 @@
-import { roster } from "./roster.ts";
+import { privateDeck } from "./match.ts";
+import { drawDeck, roster } from "./roster.ts";
+import { DECK_CARDS_PER_COST, DECK_SIZE } from "../rules/index.ts";
 import { afterEach, expect, test, vi } from "vitest";
 import {
   decodeServerMessage,
@@ -257,7 +259,9 @@ test("with the same engine seed, independent entropy changes only the opponent's
   const first = await pair();
   server?.close();
   let calls = 0;
-  entropy.integer.mockImplementation((max) => (++calls <= 11 ? max - 1 : 0));
+  // Player 0's private deck takes 6 draw samples (one per cost) and 11 shuffle
+  // samples; every later sample is player 1's.
+  entropy.integer.mockImplementation((max) => (++calls <= 17 ? max - 1 : 0));
   try {
     const second = await pair();
     expect(second.views[0].own.hand).toEqual(first.views[0].own.hand);
@@ -357,4 +361,30 @@ test("a fifth client queues after a forfeit and a sixth pairs while another matc
     counts.map((count) => count + 1),
   );
   for (const peer of [b, c, d, e, f]) peer.socket.close();
+});
+
+test("a seated match deals each player a deck that is a valid drawDeck result", async () => {
+  for (const player of [0, 1] as const) {
+    const deck = privateDeck(player);
+    const drawn = drawDeck(player, (bound) => entropy.integer(bound));
+    expect(deck).toHaveLength(DECK_SIZE);
+    // The shipped roster has exactly DECK_CARDS_PER_COST cards per cost, so
+    // every valid draw is the whole roster; the shuffle only reorders it.
+    expect(deck.map((card) => card.id).sort()).toEqual(
+      drawn.map((card) => card.id).sort(),
+    );
+    for (let cost = 1; cost <= 6; cost++)
+      expect(deck.filter((card) => card.cost === cost)).toHaveLength(
+        DECK_CARDS_PER_COST,
+      );
+  }
+  const { a, b, views } = await pair();
+  views.forEach((view, player) => {
+    for (const card of view.own.hand)
+      expect(card.id.startsWith(`${String(player)}:`)).toBe(true);
+    expect(view.own.hand).toHaveLength(3);
+    expect(view.own.deckSize).toBe(DECK_SIZE - 3);
+  });
+  a.socket.close();
+  b.socket.close();
 });

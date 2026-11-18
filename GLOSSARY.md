@@ -68,7 +68,7 @@ The player's ordered supply of cards still available to draw into their hand.
 _Avoid_: Roster
 
 **Roster**:
-The authored collection of cards and their mythological figure, tradition and flavor text from which starter decks are made.
+The authored collection of cards and their mythological figure, tradition and flavor text from which starter decks are made. A deck holds two cards per cost, from 1 to 6, drawn from the roster.
 _Avoid_: Deck
 
 **Power**:
