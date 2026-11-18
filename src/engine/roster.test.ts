@@ -13,11 +13,11 @@ const valid = Array.from(
     ({
       card: {
         id: `figure-${String(index)}`,
-        name: `Figure ${String(index)}`,
+        name: `Figure ${String(index)}, Keeper of Roads`,
         cost: Math.floor(index / 2) + 1,
         power: Math.floor(index / 2) + 1,
       },
-      figure: "Hermes",
+      figure: `Figure ${String(index)}`,
       tradition: "greek",
       flavor: "A road remembers every footstep.",
     }) satisfies RosterEntry,
@@ -38,7 +38,10 @@ test.each([
   ],
   [
     "duplicate-name",
-    { card: { ...first.card, name: "fIGURE 1" } },
+    {
+      figure: "fIGURE 1",
+      card: { ...first.card, name: "fIGURE 1, kEEPER OF rOADS" },
+    },
     [
       { code: "duplicate-name", index: 0 },
       { code: "duplicate-name", index: 1 },
@@ -103,12 +106,50 @@ test.each([
   ["flavor", { flavor: "x".repeat(121) }, [{ code: "flavor", index: 0 }]],
   ["flavor", { flavor: "   " }, [{ code: "flavor", index: 0 }]],
   ["figure", { figure: "   " }, [{ code: "figure", index: 0 }]],
+  [
+    "name-figure (name lacks the figure)",
+    { card: { ...first.card, name: "Hermes, Keeper of Roads" } },
+    [{ code: "name-figure", index: 0 }],
+  ],
+  [
+    "name-figure (no epithet)",
+    { card: { ...first.card, name: "Figure 0" } },
+    [{ code: "name-figure", index: 0 }],
+  ],
+  [
+    "name-figure (blank epithet)",
+    { card: { ...first.card, name: "Figure 0, " } },
+    [{ code: "name-figure", index: 0 }],
+  ],
+  [
+    "name-figure (figure differs in case)",
+    { figure: "FIGURE 0" },
+    [{ code: "name-figure", index: 0 }],
+  ],
+  [
+    "name-figure (no separator)",
+    { card: { ...first.card, name: "Figure 0 Keeper of Roads" } },
+    [{ code: "name-figure", index: 0 }],
+  ],
   ["flavor", { flavor: "" }, [{ code: "flavor", index: 0 }]],
 ])("rejects %s and accepts the valid counterpart", (_code, patch, expected) => {
   expect(validateRoster(valid)).toEqual([]);
   expect(validateRoster([{ ...first, ...patch }, ...valid.slice(1)])).toEqual(
     expected,
   );
+});
+
+test("accepts a figure padded with whitespace and a multi-comma epithet", () => {
+  expect(
+    validateRoster([
+      {
+        ...first,
+        figure: "  Figure 0  ",
+        card: { ...first.card, name: "Figure 0, Keeper, of Roads" },
+      },
+      ...valid.slice(1),
+    ]),
+  ).toEqual([]);
 });
 
 test.each(["greek", "roman"])(
@@ -141,7 +182,7 @@ test("accepts more than two cards at a cost", () => {
       ...valid,
       {
         ...first,
-        card: { ...first.card, id: "extra-card", name: "Extra figure" },
+        card: { ...first.card, id: "extra-card", name: "Figure 0, Extra" },
       },
     ]),
   ).toEqual([]);
@@ -154,7 +195,12 @@ test.each([2, 3, 4, 5, 6])("rejects power below cost %i", (cost) => {
       ...valid,
       {
         ...first,
-        card: { id: "weak-card", name: "Weak figure", cost, power: cost - 1 },
+        card: {
+          id: "weak-card",
+          name: "Figure 0, Weak",
+          cost,
+          power: cost - 1,
+        },
       },
     ]),
   ).toEqual([{ code: "power", index: 12 }]);
