@@ -871,6 +871,10 @@ for (const width of [390, 1440]) {
   }) => {
     await a.setViewportSize({ width, height: 900 });
     await reachPlayableTurn(a, b);
+    await a.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+    await a.clock.pauseAt(new Date("2026-01-01T00:00:01Z"));
+    await a.clock.resume();
+
     const card = a
       .getByRole("region", { name: "Hand", exact: true })
       .getByRole("article")
@@ -918,9 +922,12 @@ for (const width of [390, 1440]) {
     expect(previewBox.width).toBeCloseTo(original.width, 0);
     expect(previewBox.height).toBeCloseTo(original.height, 0);
     expect(previewCost.height).toBeCloseTo(cost.height, 0);
+    // Freeze page time before release so runner latency cannot skip the settle window.
+    await a.clock.pauseAt(new Date("2026-01-01T00:01:00Z"));
     await a.mouse.up();
     // A commit during settle must wait for the dropped play to enter staging.
     await expect(commitButton(a)).toBeDisabled();
+    await a.clock.runFor(60);
     // Observe the public card geometry during settle: a frozen overlay fails this.
     await expect
       .poll(
@@ -928,6 +935,8 @@ for (const width of [390, 1440]) {
         { timeout: 200, intervals: [16] },
       )
       .toBeLessThan(original.width - 3);
+    await a.clock.runFor(300);
+    await a.clock.resume();
     await expect(
       a.getByRole("button", { name: `Unstage ${name ?? ""}`, exact: true }),
     ).toBeVisible();
