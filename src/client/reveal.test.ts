@@ -41,6 +41,26 @@ test("both players reveal in event order and all steps equal authoritative lanes
   expect(steps.at(-1)?.view.opponent.lanes).toEqual(revealed.opponent.lanes);
 });
 
+test("an opponent-first event order maps each reveal to its own side", () => {
+  const [mine, theirs] = revealed.events;
+  if (mine?.type !== "card-revealed" || theirs?.type !== "card-revealed")
+    throw new Error("Expected two reveals");
+  const steps = sequenceReveal(staging, [
+    theirs,
+    mine,
+    { type: "turn-ended", turn: 3 },
+  ]);
+  expect(
+    steps.map((step) =>
+      step.event.type === "card-revealed" ? step.event.player : null,
+    ),
+  ).toEqual([1, 0, null]);
+  expect(steps[0] && selectLaneTotals(steps[0].view)).toEqual({
+    own: [2, 0, 0],
+    opponent: [5, 3, 0],
+  });
+});
+
 test("match ending follows the turn and preserves final lanes", () => {
   const steps = sequenceReveal(revealed, ended.events);
   expect(steps.map((step) => step.event.type)).toEqual([
@@ -48,6 +68,7 @@ test("match ending follows the turn and preserves final lanes", () => {
     "match-ended",
   ]);
   expect(steps.at(-1)?.view.phase).toBe("ended");
+  expect(steps.at(-1)?.view.revealFirst).toBeNull();
   expect(steps.at(-1)?.view.result).toEqual(ended.result);
   expect(steps.at(-1)?.view.own.lanes).toEqual(ended.own.lanes);
   expect(steps.at(-1)?.view.opponent.lanes).toEqual(ended.opponent.lanes);

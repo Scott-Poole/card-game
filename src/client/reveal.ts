@@ -42,7 +42,12 @@ export function sequenceReveal(
         };
         break;
       case "match-ended":
-        view = { ...view, phase: "ended", result: event.result };
+        view = {
+          ...view,
+          phase: "ended",
+          result: event.result,
+          revealFirst: null,
+        };
         break;
       default: {
         const exhaustive: never = event;

@@ -146,6 +146,10 @@ interface ViewFields {
   readonly player: PlayerId;
   readonly turn: number;
   readonly energy: number;
+  /** Who reveals first in the turn `turn`; null once the match has ended.
+   * `events` report the turn before, so a frame that carries resolved events
+   * already names the next turn's order. */
+  readonly revealFirst: PlayerId | null;
   /** One per lane, in lane order. */
   readonly locations: readonly MatchLocation[];
   readonly own: OwnPlayer;
@@ -308,6 +312,7 @@ function isView(v: unknown): v is PlayerView {
       "player",
       "turn",
       "energy",
+      "revealFirst",
       "locations",
       "own",
       "opponent",
@@ -322,7 +327,7 @@ function isView(v: unknown): v is PlayerView {
     isOwn(v.own) &&
     isOpponent(v.opponent) &&
     isList(v.events, isEvent, MAX_EVENTS) &&
-    ((v.phase === "planning" && v.result === null) ||
-      (v.phase === "ended" && isScore(v.result)))
+    ((v.phase === "planning" && v.result === null && isPlayer(v.revealFirst)) ||
+      (v.phase === "ended" && isScore(v.result) && v.revealFirst === null))
   );
 }

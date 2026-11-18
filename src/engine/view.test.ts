@@ -155,6 +155,7 @@ test("phase narrows planning and forfeited view results", () => {
         "player",
         "turn",
         "energy",
+        "revealFirst",
         "locations",
         "own",
         "opponent",
@@ -165,7 +166,9 @@ test("phase narrows planning and forfeited view results", () => {
       if (view.phase === "planning") {
         const result: null = view.result;
         expect(result).toBeNull();
+        expect(view.revealFirst).not.toBeNull();
       } else {
+        expect(view.revealFirst).toBeNull();
         const result: Score = view.result;
         expect(result).toEqual({
           lanes: [null, null, null],

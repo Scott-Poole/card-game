@@ -13,6 +13,7 @@ const view: PlayerView = {
   turn: 1,
   player: 0,
   energy: 1,
+  revealFirst: 0,
   locations,
   own: {
     hand: [],
