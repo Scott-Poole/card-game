@@ -10,7 +10,8 @@ import {
 } from "../engine/index.ts";
 import type { ClientMessage, ServerMessage } from "../protocol/messages.ts";
 import { locations } from "./locations.ts";
-import { starterDeck } from "./roster.ts";
+import type { RosterEntry } from "../engine/roster.ts";
+import { drawDeck } from "./roster.ts";
 
 interface Peer {
   send(message: string): unknown;
@@ -32,8 +33,11 @@ function broadcast(match: Match) {
 }
 // Independent cryptographic permutations keep opponent draws secret even if
 // the engine's replay seed is guessed from a player's own draw order.
-function privateDeck(player: PlayerId) {
-  return shuffle(starterDeck(player), (bound) => randomInt(bound));
+export function privateDeck(
+  player: PlayerId,
+  entries?: readonly RosterEntry[],
+) {
+  return shuffle(drawDeck(player, randomInt, entries), randomInt);
 }
 /** Owns the queue and match lifecycle for a single server instance. */
 export function matchHost(

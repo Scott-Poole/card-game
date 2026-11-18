@@ -6,12 +6,14 @@ import {
   type ClientMessage,
 } from "../protocol/messages.ts";
 import { matchHost } from "./match.ts";
-import { starterDeck } from "./roster.ts";
+import { drawDeck } from "./roster.ts";
+
+const fixedIndex = () => 0;
 import { locations } from "./locations.ts";
 import { scriptedPlayer } from "./scripted-player.test-support.ts";
 
 function run(seed: number, fixed = false) {
-  const decks = [starterDeck(0), starterDeck(1)] as const;
+  const decks = [drawDeck(0, fixedIndex), drawDeck(1, fixedIndex)] as const;
   let authority = createMatch(seed, decks, locations);
   const host = matchHost(() => ({ seed, decks }));
   const players = [scriptedPlayer(seed), scriptedPlayer(seed + 1)] as const;
