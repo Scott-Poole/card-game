@@ -5,19 +5,25 @@
 #   queue.sh audit-claim <pr>   merged-unreviewed -> audit-in-progress, comment claim
 #   queue.sh audit-done <pr> <summary> remove audit claim, comment result
 #   queue.sh audit-release <pr> <why> restore merged-unreviewed after launch failure
-#   queue.sh next [n...]        sweep stale claims, apply caps, print one action line; n... are
-#                               the tickets this run already claimed
+#   queue.sh next [n...]        apply caps, print one action line; n... are the tickets this
+#                               run already claimed
 #   queue.sh parent-done <child> mark its completed parent ready-for-human, leaving it open
 #   queue.sh claim <n>          ready-for-agent -> in-progress, with a claim comment
-#   queue.sh release <n> <why>  in-progress -> ready-for-agent (launch failed)
-#   queue.sh escalate <n> <c>   in-progress -> ready-for-human, posting comment <c>
+#   queue.sh release <n> <why>  in-progress (and any stale ready-for-human) -> ready-for-agent;
+#                               refuses a ticket that no longer holds in-progress
+#   queue.sh alive <n> [nudged] record that the claim's thread lives; resets its stale clock
+#   queue.sh resume-info <n>    print `THREAD <link|none> CLAIMS <k>` from the ticket's history
+#   queue.sh escalate <n> <c>   in-progress -> ready-for-human; <c> must start `## Needs you`
 #   queue.sh note <n> <text>    comment on the issue
 #   queue.sh plan-open <cat> [n...]  open a planning issue (n... as for next); prints its number
 #   queue.sh plan-done <n> <s>  close a planning issue as completed, posting summary <s>
 #   queue.sh plan-abort <n> <w> close a planning issue as not planned (launch failed, stuck)
 #
-# `next` prints exactly one line on stdout: `LAUNCH <n> <title>`, `PLAN <category>`, or
-# `NOOP <reason>`. An empty frontier is a call to plan, not a stop.
+# `next` prints exactly one line on stdout: `CHECK <n> <nudges> <title>` (a claim with no sign
+# of life for staleHours: the tick asks T3 whether its thread lives, then runs `alive` or
+# `release`), `LAUNCH <n> <title>`, `PLAN <category>`, or `NOOP <reason>`. An empty frontier
+# is a call to plan, not a stop. `ready-for-human` means one thing: Scott's turn, with a
+# `## Needs you` comment. Only `escalate` sets it; a stale claim never does.
 # Everything else goes to stderr. Any failure exits non-zero before reporting success:
 # every query is a standalone assignment, because set -e ignores a failing $(...) inside
 # `for ... in` or a test, which would read a failed query as "nothing found".
@@ -37,8 +43,30 @@ CLAIMED=in-progress
 QUEUE=ready-for-agent
 HUMAN=ready-for-human
 PLANNING=planning
+ALIVE_MARK='<!-- queue:alive -->'
+NUDGE_MARK='<!-- queue:nudge -->'
 
 log() { printf '%s\n' "$*" >&2; }
+
+# Rollback for the label writes that must not be left half done. A command arms it with the
+# label to add back and the labels to remove again; if the script then exits for any reason
+# (a failed write, a failed verification, a failed lookup) the EXIT trap restores them, adding
+# before removing so a ticket never ends with neither. Success, or a deliberate end state,
+# disarms it.
+ROLLBACK_N=
+ROLLBACK_ADD=()
+ROLLBACK_DEL=()
+arm() { ROLLBACK_N=$1; ROLLBACK_ADD=("${@:2:1}"); ROLLBACK_DEL=("${@:3}"); }
+disarm() { ROLLBACK_N=; }
+rollback() {
+	[[ -n $ROLLBACK_N ]] || return 0
+	local l n=$ROLLBACK_N
+	disarm
+	for l in "${ROLLBACK_ADD[@]}"; do [[ -z $l ]] || transition "$n" "$l" "" || true; done
+	for l in "${ROLLBACK_DEL[@]}"; do [[ -z $l ]] || transition "$n" "" "$l" || true; done
+	log "labels of #$n restored after a failure"
+}
+trap rollback EXIT
 
 config() {
 	git show "${TICK_REF:-origin/main}:.agents/skills/tick/config.json"
@@ -47,8 +75,51 @@ config() {
 comment() { gh api --method POST "$API/issues/$1/comments" -f "body=$2" --silent; }
 labels_of() { gh api "$API/issues/$1" --jq '[.labels[].name] | join(" ")'; }
 ever_claimed() {
-	gh api "$API/issues/$1/events?per_page=100" --jq \
-		"[.[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\")] | length > 0"
+	local hits
+	hits=$(gh api --paginate "$API/issues/$1/events?per_page=100" --jq \
+		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | 1")
+	[[ -n $hits ]] && echo true || echo false
+}
+
+# Trusted comments only: the repo is public, so a stranger's comment can't hold a claim open.
+TRUSTED='select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")'
+
+# heartbeat_at <n>: epoch of the newest trusted `alive` comment, 0 when none.
+heartbeat_at() {
+	local times
+	times=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+		".[] | $TRUSTED | select(.body | contains(\"$ALIVE_MARK\")) | .created_at | fromdateiso8601")
+	printf '%s\n' "$times" | sort -n | tail -1 | awk '{print $1 + 0}'
+}
+
+# claim_started <n>: epoch the current claim began, 0 when unknown. Only `claim` posts a
+# trusted `tick: claimed <date>` comment (not the retired sweep's `tick: claimed over 8h ago`),
+# so that comment is the anchor: a rollback that puts the
+# in-progress label back leaves a newer label event, which must not move the claim start past
+# a handoff posted in between. Tickets without that comment fall back to the newest
+# in-progress label event. Both lookups are paginated: a ticket resumed many times outgrows
+# one page.
+claim_started() {
+	local comment_times event_times at
+	comment_times=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+		".[] | $TRUSTED | select(.body | test(\"^tick: claimed [0-9]\")) | .created_at | fromdateiso8601") || return 1
+	at=$(printf '%s\n' "$comment_times" | sort -n | tail -1 | awk '{print $1 + 0}')
+	if ((at > 0)); then
+		echo "$at"
+		return 0
+	fi
+	event_times=$(gh api --paginate "$API/issues/$1/events?per_page=100" --jq \
+		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | .created_at | fromdateiso8601") || return 1
+	printf '%s\n' "$event_times" | sort -n | tail -1 | awk '{print $1 + 0}'
+}
+
+# nudges <n> <since>: how many times the tick woke this claim's thread since epoch <since>
+# (the claim's start), so a hand-back or a new claim begins with a fresh budget.
+nudges() {
+	local hits
+	hits=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+		".[] | $TRUSTED | select(.body | contains(\"$NUDGE_MARK\")) | select((.created_at | fromdateiso8601) >= $2) | 1")
+	printf '%s\n' "$hits" | grep -c 1 || true
 }
 
 # transition <n> <add> <remove>: add first, then remove, then verify, so a failure
@@ -135,7 +206,7 @@ cmd_audit_finish() {
 }
 
 cmd_next() {
-	local cfg enabled max_wip max_daily max_escalated stale_hours n run run_json
+	local cfg enabled max_wip max_daily max_escalated stale_hours n run run_json claimed
 	run=("$@")
 	for n in "${run[@]}"; do
 		[[ $n =~ ^[0-9]+$ ]] || { log "next: claimed ticket [$n] is not an issue number"; return 1; }
@@ -153,40 +224,89 @@ cmd_next() {
 		return
 	fi
 
-	# Every in-progress ticket holds a slot, stale or not: a stale thread may still be
-	# alive, so its slot frees only when Scott clears the claim. Stale claims also get
-	# ready-for-human, once, so he hears about them.
-	local now n claimed_at labels claimed wip=0
+	# Every in-progress ticket holds a slot. A claim with no sign of life for stale_hours
+	# (neither the claim label nor a heartbeat that recent) is surfaced as CHECK: queue.sh
+	# can't see T3, so the tick reads the thread and runs `alive` or `release`. A claim is
+	# never relabelled ready-for-human on age: a live thread isn't waiting on Scott. The one
+	# exception is any claim that already carries a trusted `## Needs you` comment, stale or
+	# not: its thread decided to hand off and `escalate` failed between the comment and the
+	# labels, so the labels are finished here. That keeps the handoff counted against the
+	# escalation cap at once, and never offers a CHECK nothing can resolve.
+	local now n claimed_at beat last rc wip=0 check="" check_since=0 listed labels reconciled="" candidates
 	now=$(date -u +%s)
 	claimed=$(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
 		--jq '.[] | select(.pull_request == null) | .number')
-	for n in "${run[@]}"; do # claims this run made that the listing doesn't show yet
-		grep -qx "$n" <<<"$claimed" || wip=$((wip + 1))
-	done
-	for n in $claimed; do
-		wip=$((wip + 1))
-		labels=" $(labels_of "$n") "
-		[[ $labels == *" $HUMAN "* ]] && continue
-		claimed_at=$(gh api "$API/issues/$n/events?per_page=100" --jq \
-			"[.[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | .created_at | fromdateiso8601] | max // 0")
-		if ((now - claimed_at > stale_hours * 3600)); then
-			transition "$n" "$HUMAN" ""
-			comment "$n" "tick: claimed over ${stale_hours}h ago and not merged. Added \`$HUMAN\`; the claim keeps its slot until you remove \`$CLAIMED\` or close the ticket. Check the work-ticket thread linked above before you do."
-			log "stale: #$n -> $HUMAN"
+	# Candidates: every listed claim, plus this run's own claims (the listing may lag them).
+	candidates=$(printf '%s\n' $claimed "${run[@]}" | grep -v '^$' | sort -un || true)
+	for n in $candidates; do
+		listed=0
+		grep -qx "$n" <<<"$claimed" && listed=1
+		if ((listed)); then
+			wip=$((wip + 1))
+		else
+			labels=" $(labels_of "$n") "
+			# Handed to Scott meanwhile (an escalation this run finished): no slot, nothing to check.
+			if [[ $labels == *" $HUMAN "* && $labels != *" $CLAIMED "* ]]; then
+				reconciled="$reconciled $n" # waiting on Scott; the human listing may lag it
+				continue
+			fi
+			wip=$((wip + 1))
+			# A claim the listing lags and a direct read doesn't show either holds a slot only.
+			[[ $labels == *" $CLAIMED "* ]] || continue
+		fi
+		claimed_at=$(claim_started "$n") || return 1
+		rc=0
+		handoff_since_claim "$n" || rc=$?
+		case $rc in
+		0)
+			# Its thread escalated. Normally finish the swap `escalate` started; if Scott has
+			# already answered and swapped ready-for-human for ready-for-agent, the thread is
+			# dead and the dead claim just comes off, so the hand-back resumes the ticket.
+			labels=" $(labels_of "$n") "
+			if [[ $labels == *" $HUMAN "* || $labels != *" $QUEUE "* ]]; then
+				transition "$n" "$HUMAN" "$CLAIMED"
+				reconciled="$reconciled $n"
+				log "completed the pending escalation of #$n"
+			else
+				transition "$n" "" "$CLAIMED"
+				log "dropped #$n's claim: its escalation was handed back"
+			fi
+			wip=$((wip - 1))
+			continue
+			;;
+		1) ;;
+		*) log "handoff lookup for #$n failed"; return 1 ;;
+		esac
+		printf '%s\n' "${run[@]}" | grep -qx "$n" && continue # claimed seconds ago: not stale
+		beat=$(heartbeat_at "$n")
+		last=$((claimed_at > beat ? claimed_at : beat))
+		if ((now - last > stale_hours * 3600)) && { [[ -z $check ]] || ((n < check)); }; then
+			check=$n check_since=$claimed_at
 		fi
 	done
+	if [[ -n $check ]]; then
+		local title count
+		title=$(gh api "$API/issues/$check" --jq .title)
+		count=$(nudges "$check" "$check_since")
+		echo "CHECK $check $count $title"
+		return
+	fi
 
 	# Tickets automation handed to Scott: ready-for-human with a claim in their history.
-	# Tickets planned for humans never carried a claim, so they don't count.
-	local human was_claimed escalated=0
+	# Tickets planned for humans never carried a claim, so they don't count; a ticket still
+	# carrying in-progress is held by a thread, not waiting on Scott.
+	local human was_claimed escalated counted=""
 	human=$(gh api "$API/issues?state=open&labels=$HUMAN&per_page=100" \
-		--jq '.[] | select(.pull_request == null) | .number')
+		--jq ".[] | select(.pull_request == null) | select(any(.labels[]; .name == \"$CLAIMED\") | not) | .number")
 	for n in $human; do
 		was_claimed=$(ever_claimed "$n")
 		if [[ $was_claimed == true ]]; then
-			escalated=$((escalated + 1))
+			counted="$counted $n"
 		fi
 	done
+	# Tickets this run handed to Scott count even before the listing or the event history
+	# shows them; a ticket in both sets counts once.
+	escalated=$(printf '%s\n' $counted $reconciled | sort -u | grep -c . || true)
 	if ((escalated >= max_escalated)); then
 		echo "NOOP $escalated ticket(s) waiting on Scott (cap $max_escalated)"
 		return
@@ -318,12 +438,24 @@ cmd_plan_close() {
 cmd_claim() {
 	local n=$1 labels
 	labels=" $(labels_of "$n") "
-	if [[ $labels == *" $CLAIMED "* || $labels != *" $QUEUE "* ]]; then
+	if [[ $labels == *" $CLAIMED "* || $labels == *" $HUMAN "* || $labels != *" $QUEUE "* ]]; then
 		log "refusing to claim #$n: labels are [$labels]"
 		exit 1
 	fi
-	transition "$n" "$CLAIMED" "$QUEUE"
+	# The claim comment anchors the claim's start (see claim_started) and goes first: a failed
+	# write then changes nothing, and the half-claimed state (labels not swapped yet) never
+	# looks like a dead claim to a concurrent `next`. An escalation landing after the anchor
+	# stays newer than it, so it is still seen as a handoff.
 	comment "$n" "tick: claimed $(date -u +%Y-%m-%dT%H:%MZ); launching a work-ticket thread."
+	arm "$n" "$QUEUE" "$CLAIMED"
+	transition "$n" "$CLAIMED" "$QUEUE"
+	# A thread may have escalated this ticket after `next` picked it: leave the handoff alone.
+	labels=" $(labels_of "$n") "
+	if [[ $labels == *" $HUMAN "* ]]; then
+		log "refusing to claim #$n: it was escalated meanwhile"
+		exit 1
+	fi
+	disarm
 	log "claimed #$n"
 }
 
@@ -353,16 +485,180 @@ All sub-issues are closed. Close this spec when the outcome matches. This spec s
 	fi
 }
 
+# comment_since_claim <n> <jq test on .body> [since]: 0 when a trusted comment passing the test
+# is newer than the claim's start (or than epoch <since>, when given); 1 when there is none; 2
+# when a query failed. Callers test the code, so errexit is off in here: every failure is
+# returned explicitly rather than left to `set -e`.
+comment_since_claim() {
+	local since hits
+	since=${3:-$(claim_started "$1")} || return 2
+	hits=$(gh api --paginate "$API/issues/$1/comments?per_page=100" --jq \
+		".[] | $TRUSTED | select(.body | $2) | select((.created_at | fromdateiso8601) >= $since) | 1") || return 2
+	[[ -n $hits ]]
+}
+
+# handoff_since_claim <n>: a thread escalated this ticket. `escalate` posts the `## Needs you`
+# comment after its holding label and before it gives up the claim, so the comment marks a
+# real handoff even while the labels are mid-swap.
+handoff_since_claim() { comment_since_claim "$1" 'startswith("## Needs you")'; }
+
+# The comment the retired stale sweep posted when it flagged a live claim ready-for-human. It
+# is the only evidence that a ready-for-human on a claimed ticket is that sweep's leftover
+# flag, ours to clear; without it the label belongs to an escalation that may still be in
+# flight. Nothing posts this comment any more, so the migration path ends with the old flags.
+# It is looked up across the whole ticket, not since the claim: a rollback that re-adds the
+# in-progress label leaves a newer label event, and a claim with no anchor comment takes its
+# start from label events, which must not make the sweep's comment look historical.
+legacy_flag_since_claim() { comment_since_claim "$1" 'contains("the claim keeps its slot until you remove")' 0; }
+
+# has_legacy_flag <n>: succeeds when the ticket carries the retired sweep's flag; a failed
+# query exits the script (fail closed).
+has_legacy_flag() {
+	local rc=0
+	legacy_flag_since_claim "$1" || rc=$?
+	case $rc in
+	0) return 0 ;;
+	1) return 1 ;;
+	*) log "legacy-flag lookup for #$1 failed"; exit 1 ;;
+	esac
+}
+
+# no_handoff <n>: succeeds when no thread has escalated this claim, fails (returns 1) when one
+# has; a failed query exits the script (fail closed).
+no_handoff() {
+	local rc=0
+	handoff_since_claim "$1" || rc=$?
+	case $rc in
+	0) return 1 ;;
+	1) return 0 ;;
+	*) log "handoff lookup for #$1 failed"; exit 1 ;;
+	esac
+}
+
+# drop_stale_human <n>: remove a ready-for-human the old stale sweep left on a claimed
+# ticket, unless it is a real handoff. Check, write, check again: GitHub has no transaction,
+# but the comment precedes every label write of an escalation, so a handoff that raced the
+# removal is always visible afterwards and gets its label back. Any failure after the write
+# restores the label through the rollback. Returns 1 when it kept the label.
+drop_stale_human() {
+	local rc=0
+	no_handoff "$1" || return 1
+	has_legacy_flag "$1" || return 1
+	arm "$1" "$HUMAN"
+	transition "$1" "" "$HUMAN" || exit 1
+	handoff_since_claim "$1" || rc=$?
+	case $rc in
+	1) disarm; return 0 ;;
+	0) transition "$1" "$HUMAN" "" || exit 1; disarm; return 1 ;;
+	*) log "handoff lookup for #$1 failed"; exit 1 ;;
+	esac
+}
+
 cmd_release() {
+	local labels rc=0 legacy=0
+	labels=" $(labels_of "$1") "
+	# Only a live claim can be released, and only if no thread has escalated it: a handoff
+	# must not be swept back into the queue, with or without its ready-for-human label yet.
+	if [[ $labels != *" $CLAIMED "* ]]; then
+		log "refusing to release #$1: it no longer carries $CLAIMED"
+		exit 1
+	fi
+	if ! no_handoff "$1"; then
+		log "refusing to release #$1: a thread escalated it"
+		exit 1
+	fi
+	# A ready-for-human on the claim is either the retired sweep's flag (ours to clear) or an
+	# escalation whose comment has not landed yet (not ours): refuse the second.
+	if [[ $labels == *" $HUMAN "* ]]; then
+		if ! has_legacy_flag "$1"; then
+			log "refusing to release #$1: it carries $HUMAN without a stale-sweep comment; an escalation may be in flight"
+			exit 1
+		fi
+		legacy=1
+	fi
+	# From here every failure puts the claim (and any flag removed) back: nothing that might
+	# be a handoff may end up launchable.
+	arm "$1" "$CLAIMED" "$QUEUE"
 	transition "$1" "$QUEUE" "$CLAIMED"
+	if ((legacy)); then
+		ROLLBACK_ADD+=("$HUMAN")
+		transition "$1" "" "$HUMAN"
+	fi
+	# An escalation may have landed between the checks above and the writes: its comment
+	# precedes its labels, so it is visible now. Put the handoff back and leave the queue.
+	handoff_since_claim "$1" || rc=$?
+	case $rc in
+	1) ;;
+	0)
+		# Stay armed until the handoff label is back: if this write fails, the rollback
+		# restores the claim instead of leaving a sole ready-for-agent.
+		transition "$1" "$HUMAN" "$QUEUE"
+		disarm
+		log "#$1 was escalated while being released; left with Scott"
+		exit 1
+		;;
+	*)
+		log "handoff lookup for #$1 failed; release undone"
+		exit 1
+		;;
+	esac
+	disarm
 	comment "$1" "tick: released claim, back in the queue. Reason: $2"
 	log "released #$1"
 }
 
+# alive <n> [nudged]: the claim's thread lives (or was just woken). The heartbeat restarts
+# the stale clock, and a ready-for-human left on a claimed ticket by the old stale sweep
+# is cleared: a thread holds it, Scott has nothing to do. A real handoff is left alone.
+cmd_alive() {
+	local n=$1 nudged=${2:-} labels body
+	labels=" $(labels_of "$n") "
+	if [[ $labels != *" $CLAIMED "* ]]; then
+		log "refusing to refresh #$n: labels are [$labels]"
+		exit 1
+	fi
+	body="$ALIVE_MARK"
+	[[ $nudged == nudged ]] && body="$body$NUDGE_MARK"
+	comment "$n" "$body
+tick: thread checked $(date -u +%Y-%m-%dT%H:%MZ); the claim stays${nudged:+ (woke the thread)}."
+	if [[ $labels == *" $HUMAN "* ]]; then
+		drop_stale_human "$n" || log "#$n carries a handoff; ready-for-human kept"
+	fi
+	log "alive #$n"
+}
+
+# resume-info <n>: where a ticket's earlier work lives. The thread link is the newest
+# `work-ticket thread:` note; CLAIMS counts how often the ticket was claimed.
+cmd_resume_info() {
+	local n=$1 link claims
+	link=$(gh api --paginate "$API/issues/$n/comments?per_page=100" --jq \
+		".[] | $TRUSTED | .body | capture(\"work-ticket thread: (?<l>t3-thread://[^ \\n]+)\") | .l" | tail -1)
+	local hits
+	hits=$(gh api --paginate "$API/issues/$n/events?per_page=100" --jq \
+		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | 1")
+	claims=$(printf '%s\n' "$hits" | grep -c 1 || true)
+	echo "THREAD ${link:-none} CLAIMS $claims"
+}
+
 cmd_escalate() {
-	transition "$1" "$HUMAN" "$CLAIMED"
-	comment "$1" "$2"
-	log "escalated #$1"
+	if [[ $2 != "## Needs you"* ]]; then
+		log "refusing to escalate #$1: the comment must start with '## Needs you' (decision, options, recommendation, how to hand back)"
+		exit 1
+	fi
+	local n=$1 labels add_back="" drop=""
+	labels=" $(labels_of "$n") "
+	[[ $labels != *" $CLAIMED "* ]] || add_back=$CLAIMED
+	[[ $labels == *" $HUMAN "* ]] || drop=$HUMAN
+	# Order: the holding label (no tick launches a ready-for-human ticket), then the comment,
+	# then the claim comes off. Until the comment lands a failure undoes the label, so the
+	# caller can simply retry; once it has landed the handoff is real, and a failed claim
+	# removal leaves in-progress + ready-for-human + comment, which `next` finishes.
+	arm "$n" "$add_back" "$drop"
+	transition "$n" "$HUMAN" ""
+	comment "$n" "$2"
+	disarm
+	transition "$n" "" "$CLAIMED"
+	log "escalated #$n"
 }
 
 case ${1:-} in
@@ -374,13 +670,15 @@ next) shift; cmd_next "$@" ;;
 parent-done) cmd_parent_done "${2:?child issue number}" ;;
 claim) cmd_claim "${2:?issue number}" ;;
 release) cmd_release "${2:?issue number}" "${3:?reason}" ;;
+alive) cmd_alive "${2:?issue number}" "${3:-}" ;;
+resume-info) cmd_resume_info "${2:?issue number}" ;;
 escalate) cmd_escalate "${2:?issue number}" "${3:?comment}" ;;
 note) comment "${2:?issue number}" "${3:?text}" ;;
 plan-open) shift; cmd_plan_open "${1:?category}" "${@:2}" ;;
 plan-done) cmd_plan_close "${2:?issue number}" "${3:?summary}" completed ;;
 plan-abort) cmd_plan_close "${2:?issue number}" "${3:?reason}" not_planned ;;
 *)
-	log "usage: queue.sh audit-next | audit-claim <pr> | audit-done <pr> <summary> | audit-release <pr> <why> | parent-done <child> | next [n...] | claim <n> | release <n> <why> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
+	log "usage: queue.sh audit-next | audit-claim <pr> | audit-done <pr> <summary> | audit-release <pr> <why> | parent-done <child> | next [n...] | claim <n> | release <n> <why> | alive <n> [nudged] | resume-info <n> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
 	exit 2
 	;;
 esac

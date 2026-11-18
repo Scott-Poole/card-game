@@ -217,12 +217,6 @@
       "skillPath": "skills/engineering/to-spec/SKILL.md",
       "computedHash": "eb934b5eda9523c7853a2741544bd4721ee1bea471f5a04f8397827f67bdbdda"
     },
-    "triage": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/triage/SKILL.md",
-      "computedHash": "4342a07c9ebe0696713ec93a883c46e56503a587a34d824fabab5ca61e3bdfbb"
-    },
     "ts-best-practices": {
       "source": "poteto/noodle",
       "sourceType": "github",
