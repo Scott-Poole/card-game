@@ -4,6 +4,15 @@ import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 const commitButton = (page: Page) =>
   page.getByRole("button", { name: /^End turn \d+\/6$/ });
+// Welcome received: the action that needs a connection is enabled, no trouble indicator shown.
+async function expectConnected(page: Page, action: string) {
+  await expect(
+    page.getByRole("button", { name: action, exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("status").filter({ hasText: /connect|error/ }),
+  ).toHaveCount(0);
+}
 const energy = (page: Page) =>
   page.getByRole("meter", { name: "Energy remaining" });
 const test = base.extend<{ address: string; pair: readonly [Page, Page] }>({
@@ -72,7 +81,7 @@ test("production page connects and reconnects after reload", async ({
   address,
 }) => {
   await page.goto(address);
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expectConnected(page, "Find match");
   await expect(page.locator("body")).toHaveCSS(
     "background-color",
     "rgb(21, 23, 25)",
@@ -83,7 +92,7 @@ test("production page connects and reconnects after reload", async ({
   await expect(join).toHaveCSS("outline-offset", "2px");
 
   await page.reload();
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expectConnected(page, "Find match");
 });
 test("stays connecting until a welcome arrives", async ({ page, address }) => {
   const opened = Promise.withResolvers<undefined>();
@@ -178,6 +187,18 @@ test("two players finish six turns with consistent results", async ({
       await expect(
         page.getByRole("heading", { name: "Match result" }),
       ).toBeVisible();
+    for (const page of pages) {
+      // The action bar keeps its row after the match ends.
+      const result = page.getByRole("button", { name: "View result" });
+      await expect(result).toBeEnabled();
+      const orb = await energy(page).boundingBox();
+      const button = await result.boundingBox();
+      if (!orb || !button) throw new Error("Missing ended action bar");
+      expect(
+        Math.abs(orb.y + orb.height / 2 - (button.y + button.height / 2)),
+      ).toBeLessThan(orb.height / 2);
+      expect(orb.x + orb.width).toBeLessThanOrEqual(button.x);
+    }
     const outcomes = await Promise.all(
       pages.map((page) => page.getByLabel("Winner").innerText()),
     );
@@ -427,7 +448,7 @@ test("server rejection after welcome permits another action", async ({
   await page.goto(address);
   await page.getByRole("button", { name: "Find match", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Request rejected");
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expectConnected(page, "Find match");
   await page.getByRole("button", { name: "Find match", exact: true }).click();
   await expect(page.getByText("Waiting for an opponent…")).toBeVisible();
 });
@@ -483,7 +504,7 @@ test("Play joins and moves to Waiting; a state message moves to Match and Result
   address,
 }) => {
   await page.goto(address);
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await expectConnected(page, "Play");
   await page.getByRole("button", { name: "Play", exact: true }).click();
   await expect(page).toHaveURL(address + "/waiting");
   await expect(page.getByText("Waiting for an opponent…")).toBeVisible();
@@ -529,7 +550,7 @@ test("deep links follow session state without interrupting live actions", async 
     ).toBeVisible();
   }
   await a.reload();
-  await expect(a.getByRole("status")).toHaveCount(0);
+  await expectConnected(a, "Play");
   await a.goto(address + "/unknown");
   await expect(
     a.getByRole("heading", { name: "Page not found", exact: true }),

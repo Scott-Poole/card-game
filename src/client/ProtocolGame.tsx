@@ -320,7 +320,17 @@ function Game() {
                     ))}
                   </ul>
                 </section>
-                <div className="board-actions">
+                <div
+                  className={cx(
+                    "board-actions",
+                    css({
+                      display: "grid",
+                      gridTemplateColumns: "[repeat(3, minmax(0, 1fr))]",
+                      alignItems: "center",
+                      my: "sm",
+                    }),
+                  )}
+                >
                   <Reserved label="Retreat" />
                   <div
                     role="meter"

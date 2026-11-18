@@ -56,9 +56,6 @@ export const boardStyles = css({
   "& .board-actions": {
     gridColumn: "1 / -1",
     gridRow: "5",
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    alignItems: "center",
   },
   "& .board-staged, & .board-reveal": {
     gridRow: "6",
@@ -94,7 +91,7 @@ export const boardStyles = css({
     gridColumn: "1 / -1",
     gridRow: "2",
     fontSize: "small",
-    overflow: "hidden",
+    overflow: "auto",
   },
   "& .board-notices p": { m: "none" },
 });
