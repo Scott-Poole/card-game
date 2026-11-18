@@ -53,14 +53,39 @@ export default function Lane({
         }),
       )}
       aria-label={`Lane ${String(number)}`}
+      aria-description={
+        lead === "own"
+          ? "You lead"
+          : lead === "opponent"
+            ? "Opponent leads"
+            : "Lane tied"
+      }
     >
-      <Slots
-        revealingCard={revealingCard}
-        inspectCard={inspectCard}
-        label="Opponent cards"
-        cards={opponent}
-        staged={[]}
-      />
+      <div
+        className={css({
+          display: "flex",
+          flexDirection: "column",
+          flex: "1",
+          minH: "[0]",
+        })}
+      >
+        {playTarget && (
+          <div
+            aria-hidden="true"
+            className={css({
+              h: "[calc(token(sizes.stageTarget) + token(spacing.xs))]",
+              flexShrink: 0,
+            })}
+          />
+        )}
+        <Slots
+          revealingCard={revealingCard}
+          inspectCard={inspectCard}
+          label="Opponent cards"
+          cards={opponent}
+          staged={[]}
+        />
+      </div>
       <header
         className={css({
           position: "relative",
@@ -68,7 +93,8 @@ export default function Lane({
           my: "sm",
           border: "panel",
           borderRadius: "panel",
-          p: "sm",
+          px: "sm",
+          py: "lg",
           bg: lead === "own" ? "laneLeading" : "surface",
           borderColor:
             lead === "own"
@@ -92,6 +118,12 @@ export default function Lane({
                 width: "[100%]",
                 cursor: "pointer",
                 _focusVisible: { outline: "focus" },
+                _after: {
+                  content: '""',
+                  position: "absolute",
+                  inset: "none",
+                  borderRadius: "panel",
+                },
               })}
               onClick={inspect}
             >
@@ -103,15 +135,6 @@ export default function Lane({
         </h3>
         <p className={css({ fontSize: "laneRule", m: "none", color: "muted" })}>
           No location effect.
-        </p>
-        <p aria-label="Lane leadership" className={css({ srOnly: true })}>
-          {lead === "tied"
-            ? "Lane tied"
-            : lead === "own"
-              ? "You lead"
-              : "Opponent leads"}{" "}
-          {lead === "opponent" ? opponentTotal : ownTotal} to{" "}
-          {lead === "opponent" ? ownTotal : opponentTotal}
         </p>
         <p className={css({ srOnly: true })}>
           Opponent total: {opponentTotal} · Your total: {ownTotal}
@@ -229,9 +252,16 @@ function Total({
 }) {
   return (
     <span
-      aria-label={`${side} total: ${String(total)}`}
+      aria-hidden="true"
       className={css({
-        display: "block",
+        position: "absolute",
+        insetInline: "none",
+        top: side === "Opponent" ? "none" : undefined,
+        bottom: side === "Your" ? "none" : undefined,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        h: "laneBadge",
         width: "fit-content",
         mx: "auto",
         px: "sm",
@@ -241,8 +271,6 @@ function Total({
         fontSize: leading ? "heading" : "small",
         bg: leading ? "accent" : "raised",
         color: leading ? "onAccent" : tied ? "text" : "muted",
-        mt: side === "Opponent" ? "-sm" : "xs",
-        mb: side === "Your" ? "-sm" : "xs",
       })}
     >
       {total}

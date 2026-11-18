@@ -68,6 +68,7 @@ export function PlayTarget({
             p: "xs",
             fontSize: "small",
             outline: isDropTarget ? "focus" : undefined,
+            minH: "stageTarget",
           }),
         )}
         disabled={!enabled}

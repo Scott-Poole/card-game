@@ -159,12 +159,12 @@ function Game() {
                   <div
                     className={css({ textAlign: "center", fontSize: "small" })}
                   >
-                    <span>
-                      Current standing: leading in{" "}
+                    <span role="status">
+                      {ended ? "Final board" : "Current standing"}: leading in{" "}
                       {totals?.own.filter(
                         (total, lane) => total > (totals.opponent[lane] ?? 0),
                       ).length ?? 0}{" "}
-                      of 3 lanes
+                      of {view.own.lanes.length} lanes
                     </span>
                   </div>
                   <span>You · Player {view.player + 1}</span>

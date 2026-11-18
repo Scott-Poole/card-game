@@ -1606,15 +1606,46 @@ test("lane standings describe current leads and location inspection", async ({
     }),
   ).toBeVisible();
   await expect(
-    page.getByText("You lead 4 to 0", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("region", { name: "Lane 2", exact: true }),
+  ).toHaveAccessibleDescription("You lead");
   await expect(
-    page.getByText("Opponent leads 5 to 0", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("region", { name: "Lane 3", exact: true }),
+  ).toHaveAccessibleDescription("Opponent leads");
   const lane = page.getByRole("region", { name: "Lane 1", exact: true });
-  await expect(
-    lane.getByText("Lane tied 14 to 14", { exact: true }),
-  ).toBeVisible();
+  await expect(lane).toHaveAccessibleDescription("Lane tied");
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const cards = lane.getByRole("article");
+    await expect(cards).toHaveCount(8);
+    for (const card of await cards.all()) {
+      await expect(async () => {
+        expect(
+          await card.evaluate(
+            (element) => element.scrollHeight <= element.clientHeight,
+          ),
+        ).toBe(true);
+        const box = await card.boundingBox();
+        if (!box) throw new Error("Card not visible");
+        for (const stat of await card
+          .getByRole("img")
+          .filter({ hasText: /^\d+$/ })
+          .all()) {
+          const statBox = await stat.boundingBox();
+          if (!statBox) throw new Error("Stat not visible");
+          expect(statBox.x).toBeGreaterThanOrEqual(box.x);
+          expect(statBox.x + statBox.width).toBeLessThanOrEqual(
+            box.x + box.width,
+          );
+          expect(statBox.y + statBox.height).toBeLessThanOrEqual(
+            box.y + box.height,
+          );
+        }
+      }).toPass();
+    }
+  }
   await lane.getByRole("button", { name: "Lane 1", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("No location effect.");
 });
