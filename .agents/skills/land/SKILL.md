@@ -65,7 +65,7 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
 
 ## 4. Record, verify, merge
 
-1. **Record** (significant, or any author-run): write each reviewer run into the `## Runs` table in the PR's verdict comment per `delegate`. An author-run land includes the author's own **implement** row, with outcome set by review (`pass`: no accepted findings; `fixed`: you fixed some). Record only the evaluated `PIN`; posting the comment does not change it.
+1. **Record** (significant, or any author-run): write each reviewer run into the `## Runs` table in the PR's verdict comment per `delegate`. An author-run land includes the author's own **implement** row, with outcome set by review (`pass`: no accepted findings; `fixed`: you fixed some). Identify the evaluated head SHA in the verdict. Update the single cumulative verdict comment per `delegate`.
 2. **Verify locally and on GitHub**: run the repo's full local gate (`pnpm check` here, which sets CI mode) at the evaluated head before pushing. Local hooks are fast feedback, not a security boundary; keep GitHub's required check as independent verification. Then `gh pr view <n> --json headRefOid` equals `PIN`. If not, someone pushed: restart at step 1, which re-pins and re-syncs `WT`; classify and review the whole PR again. Then `gh pr checks <n>` for that head (skip only when the base branch has no required checks and the repository has no CI workflow; an absent required check is not a pass):
    - **green** → merge.
    - **absent or infrastructure-blocked** → inspect workflow runs and annotations. Billing, permissions or runner availability that you cannot resolve are step-5 blockers. If a required check has not started, diagnose its trigger; never treat its absence as success.
@@ -86,18 +86,18 @@ Add the `ready-for-human` label and post one comment headed `## Needs you`, fram
 
 ## Every outcome
 
-Post the class and verdict on the PR (`gh pr comment <n> --body-file <file>`). Include the `## Runs` table (step 4.1) in that verdict comment.
+Post the class and verdict on the PR (`gh pr comment <n> --body-file <file>`). Include the cumulative `## Runs` table (step 4.1) in that verdict comment, including on review-blocked, escalated, or abandoned exits. Record completed and failed runs even when merging is impossible.
 
 ## Merge audit
 
 Audit the single PR named by the tick. Its claim is already `audit-in-progress`. Read the PR and its merged diff (`gh pr diff <n>`), then apply the [cross-review Skeptic lens](../cross-review/LENSES.md) yourself. This thread is the reviewer chosen by the tick: the other family when authorship is known, or the third-family fallback for unknown historical authorship. Include `author family unknown` in the result when the tick reported that uncertainty; do not claim verified cross-family coverage in that case. No further reviewer is needed.
 
-A real problem becomes a GitHub issue linking the PR. Record the findings (or explicitly no findings), any issue links, and the reviewer model/family in a `## Runs` table per `delegate`, in a PR comment through the landed queue script:
+Write the complete multiline result, marker, and run table to `/tmp/audit-result.md`. A real problem becomes a GitHub issue linking the PR. Record the findings (or explicitly no findings), any issue links, and a `## Runs` table per `delegate` with role `Audit-Skeptic`, in a PR comment through the landed queue script:
 
 ```sh
-git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-done <n> "<summary>"
+git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-done <n> "$(cat /tmp/audit-result.md)"
 ```
 
 If `audit-done` refuses because the claim was swept or replaced, preserve the findings with a plain `gh pr comment <n> --body-file <file>` and leave the current labels alone.
 
-If the audit cannot complete, use `audit-release <n> "<why>"` instead so another tick can retry. Done when `audit-done` records the result and removes the claim, or a refused completion is recorded directly without changing labels. The PR comment is the audit record; post each result and its runs on the audited PR.
+If the audit cannot complete, first preserve its result and run table with `gh pr comment <n> --body-file /tmp/audit-result.md`, then use `audit-release <n> "<why>"` instead so another tick can retry. Done when `audit-done` records the result and removes the claim, or a refused completion is recorded directly without changing labels. The PR comment is the audit record.

@@ -47,13 +47,10 @@ Deduplicate overlapping findings, then write:
 ## Lead judgment     (each finding: accept / reject + one-line reason)
 ## Runs
 
-<!-- delegation-runs -->
-| Tier | Provider / model / effort | Role | Outcome | Rounds |
-|---|---|---|---|---|
-| review | claudeAgent / claude-sonnet-5-5 / default | Skeptic | pass | 0 |
+<table per delegate, populated only with actual runs>
 ```
 
 - **PASS**: no high-severity findings. **CONTESTED**: high findings that reviewers disagree on. **REJECT**: high findings with consensus.
 - Lead judgment is yours (the judge tier): reviewers are adversarial by design, so call out false positives, overreach, and style mistaken for substance.
 
-When the diff is a PR, post the verdict on it: `gh pr comment <n> --body-file <file>`. Include each reviewer run in its `## Runs` table per the `delegate` skill.
+When called by `land`, return the verdict and run rows to land, which owns the cumulative comment per `delegate`. Otherwise, when the diff is a PR, post the verdict on it: `gh pr comment <n> --body-file <file>`. Include each reviewer run in its `## Runs` table per the `delegate` skill.
