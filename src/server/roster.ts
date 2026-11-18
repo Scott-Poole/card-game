@@ -142,18 +142,9 @@ export const roster: readonly RosterEntry[] = [
   },
 ];
 
-// Distinct instance ids preserve per-player identity without sending metadata.
-export function starterDeck(player: PlayerId): readonly CardDefinition[] {
-  return roster.map(({ card }) => ({
-    ...card,
-    id: `${String(player)}:${card.id}`,
-  }));
-}
-
 /** Draws a deck: DECK_CARDS_PER_COST distinct cards at each cost from 1 to
- * TURN_LIMIT (the energy curve tops out at the turn limit). The placeholder
- * that player-built decks would replace. Cards come back in cost order; the
- * caller shuffles. */
+ * TURN_LIMIT. Distinct instance ids preserve per-player identity without
+ * sending metadata. Cards come back in cost order; the caller shuffles. */
 export function drawDeck(
   player: PlayerId,
   randomIndex: (bound: number) => number,

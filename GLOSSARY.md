@@ -64,11 +64,11 @@ The engine's representation of a card's identity, name, cost and power, used for
 The player's private collection of cards available to stage for play.
 
 **Deck**:
-The player's ordered supply of cards still available to draw into their hand.
+The player's ordered supply of cards still available to draw into their hand. It starts as two cards per cost, from 1 to 6, drawn from the roster.
 _Avoid_: Roster
 
 **Roster**:
-The authored collection of cards and their mythological figure, tradition and flavor text from which starter decks are made. A deck holds two cards per cost, from 1 to 6, drawn from the roster.
+The authored collection of cards and their mythological figure, tradition and flavor text from which decks are drawn.
 _Avoid_: Deck
 
 **Power**:
