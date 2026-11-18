@@ -8,6 +8,7 @@ function laneArgs(view: PlayerView, lane: number) {
   const totals = selectLaneTotals(view);
   return {
     number: lane + 1,
+    location: view.locations[lane],
     own: view.own.lanes[lane] ?? [],
     opponent: view.opponent.lanes[lane] ?? [],
     staged: view.own.staged
@@ -49,3 +50,13 @@ export const Full: Story = {
 export const Tied: Story = { args: laneArgs(tied, 0) };
 export const Won: Story = { args: laneArgs(revealed, 1) };
 export const Lost: Story = { args: laneArgs(revealed, 0) };
+export const NamedLocation: Story = {
+  args: laneArgs(opening, 2),
+  parameters: {
+    docs: {
+      description: {
+        story: "The lane shows its match location's name and rule text.",
+      },
+    },
+  },
+};

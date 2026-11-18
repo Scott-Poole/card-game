@@ -1,4 +1,9 @@
-import type { Card, PlayerView, Score } from "../../protocol/messages.ts";
+import type {
+  Card,
+  MatchLocation,
+  PlayerView,
+  Score,
+} from "../../protocol/messages.ts";
 
 export const herald: Card = {
   id: "herald",
@@ -25,6 +30,27 @@ export const smith: Card = {
   power: 5,
 };
 
+export const locations: readonly MatchLocation[] = [
+  {
+    id: "labyrinth-of-knossos",
+    name: "Labyrinth of Knossos",
+    text: "No effect for now.",
+    effect: { kind: "none" },
+  },
+  {
+    id: "styx-crossing",
+    name: "Crossing of the Styx",
+    text: "No effect for now.",
+    effect: { kind: "none" },
+  },
+  {
+    id: "hesperides-grove",
+    name: "Grove of the Hesperides",
+    text: "No effect for now.",
+    effect: { kind: "none" },
+  },
+];
+
 const opponentVoyager: Card = { ...voyager, id: "opponent-voyager" };
 const opponentSmith: Card = { ...smith, id: "opponent-smith" };
 
@@ -34,6 +60,7 @@ export const opening: PlayerView = {
   result: null,
   turn: 1,
   energy: 1,
+  locations,
   own: {
     hand: [herald, guardian, voyager, smith],
     staged: [],

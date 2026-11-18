@@ -3,6 +3,29 @@ export const LANE_CAPACITY = 4;
 export const TURN_LIMIT = 6;
 export const DECK_SIZE = 12;
 
+/** What a location does. Closed union: a new kind fails the typecheck at
+ * LOCATION_EFFECT_KINDS (and at every exhaustive switch) until it is handled. */
+export interface NoLocationEffect {
+  readonly kind: "none";
+}
+export type LocationEffect = NoLocationEffect;
+export type LocationEffectKind = LocationEffect["kind"];
+const LOCATION_EFFECT_KINDS: Readonly<Record<LocationEffectKind, true>> = {
+  none: true,
+};
+export function isLocationEffectKind(
+  kind: unknown,
+): kind is LocationEffectKind {
+  return typeof kind === "string" && Object.hasOwn(LOCATION_EFFECT_KINDS, kind);
+}
+export interface LocationDefinition {
+  readonly id: string;
+  readonly name: string;
+  /** Plain-language rule text shown to players. */
+  readonly text: string;
+  readonly effect: LocationEffect;
+}
+
 export interface Play {
   readonly cardId: string;
   readonly lane: number;

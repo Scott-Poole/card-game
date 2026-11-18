@@ -1,3 +1,4 @@
+import { testLocations } from "./locations.test-support.ts";
 import { expect, test } from "vitest";
 import {
   commit,
@@ -17,6 +18,7 @@ const state: MatchState = {
   turn: 3,
   energy: 3,
   rng: 1987654321,
+  locations: testLocations.slice(0, 3),
   phase: "planning",
   result: null,
   events: [],
@@ -79,7 +81,11 @@ function unwrap<T>(result: Result<T>): T {
   return result.value;
 }
 test("views retain ordered resolved events through staging and commit, and carry the final result", () => {
-  let match = createMatch(42, [[card("a"), card("c")], [card("b")]]);
+  let match = createMatch(
+    42,
+    [[card("a"), card("c")], [card("b")]],
+    testLocations,
+  );
   expect(playerView(match, 0).events).toEqual([]);
   for (let turn = 1; turn <= 6; turn++) {
     const previous = playerView(match, 0).events;
@@ -149,6 +155,7 @@ test("phase narrows planning and forfeited view results", () => {
         "player",
         "turn",
         "energy",
+        "locations",
         "own",
         "opponent",
         "events",
@@ -168,4 +175,12 @@ test("phase narrows planning and forfeited view results", () => {
       }
     }
   }
+});
+
+test("both players see the same three match locations in lane order", () => {
+  const a = playerView(state, 0);
+  const b = playerView(state, 1);
+  expect(a.locations).toHaveLength(3);
+  expect(a.locations).toEqual(state.locations);
+  expect(b.locations).toEqual(state.locations);
 });
