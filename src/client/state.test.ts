@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import type { PlayerView } from "../protocol/messages.ts";
+import { locations } from "./stories/fixtures.ts";
 import { connectionSlice, selectConnection } from "./connectionSlice.ts";
 import { matchSlice, selectMatch } from "./matchSlice.ts";
 import { stagingSlice, selectStaging } from "./stagingSlice.ts";
@@ -13,6 +14,7 @@ const view: PlayerView = {
   player: 0,
   energy: 1,
   revealFirst: 0,
+  locations,
   own: {
     hand: [],
     deckSize: 8,

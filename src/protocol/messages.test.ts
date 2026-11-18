@@ -82,11 +82,32 @@ it("accepts a full staged list", () => {
 
 const card = { id: "a", name: "Aster", cost: 1, power: 2 };
 const score = { lanes: [0, null, 1], power: [2, 2], winner: null };
+const locations = [
+  {
+    id: "place-a",
+    name: "Place A",
+    text: "No effect for now.",
+    effect: { kind: "none" },
+  },
+  {
+    id: "place-b",
+    name: "Place B",
+    text: "No effect for now.",
+    effect: { kind: "none" },
+  },
+  {
+    id: "place-c",
+    name: "Place C",
+    text: "No effect for now.",
+    effect: { kind: "none" },
+  },
+];
 const view = {
   player: 0,
   turn: 1,
   energy: 1,
   revealFirst: 1,
+  locations,
   phase: "planning",
   result: null,
   own: {
@@ -204,6 +225,48 @@ it.each([
   { ...view, energy: Infinity },
   { ...view, player: 3 },
   { ...view, constructor: {} },
+  { ...view, locations: locations.slice(0, 2) },
+  { ...view, locations: [...locations, locations[0]] },
+  { ...view, locations: [] },
+  { ...view, locations: "none" },
+  {
+    ...view,
+    locations: [
+      { ...locations[0], effect: { kind: "teleport" } },
+      ...locations.slice(1),
+    ],
+  },
+  {
+    ...view,
+    locations: [{ ...locations[0], secret: true }, ...locations.slice(1)],
+  },
+  {
+    ...view,
+    locations: [
+      { ...locations[0], effect: { kind: "none", amount: 1 } },
+      ...locations.slice(1),
+    ],
+  },
+  { ...view, locations: [{ ...locations[0], text: 7 }, ...locations.slice(1)] },
+  { ...view, locations: [locations[0], locations[0], locations[2]] },
+  {
+    ...view,
+    locations: [{ ...locations[0], name: "  " }, ...locations.slice(1)],
+  },
+  {
+    ...view,
+    locations: [
+      { ...locations[0], text: "x".repeat(161) },
+      ...locations.slice(1),
+    ],
+  },
+  {
+    ...view,
+    locations: [
+      { ...locations[0], name: "x".repeat(41) },
+      ...locations.slice(1),
+    ],
+  },
   parse(JSON.stringify(view).replace(/}$/, ',"__proto__":{}}')),
 ])("rejects malformed or hidden view %j", (invalidView) => {
   expect(decodeServerMessage({ type: "state", view: invalidView })).toEqual({
@@ -272,6 +335,7 @@ it.each([
   "player",
   "turn",
   "energy",
+  "locations",
   "own",
   "opponent",
   "events",

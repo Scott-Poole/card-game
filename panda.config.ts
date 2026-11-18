@@ -57,7 +57,6 @@ export default defineConfig({
       fonts: { body: { value: "Georgia, serif" } },
       fontSizes: {
         body: { value: "1rem" },
-        laneRule: { value: "1.125rem" },
         small: { value: "0.875rem" },
         title: { value: "2rem" },
         heading: { value: "1.25rem" },

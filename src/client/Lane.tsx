@@ -1,5 +1,5 @@
 import { CardMotion } from "./motion.tsx";
-import type { Card as CardData } from "../protocol/messages.ts";
+import type { Card as CardData, MatchLocation } from "../protocol/messages.ts";
 import { LANE_CAPACITY } from "../rules/index.ts";
 import { panel } from "../../styled-system/recipes/index.js";
 import { css, cx } from "../../styled-system/css/index.js";
@@ -8,6 +8,7 @@ import Card from "./Card.tsx";
 
 export default function Lane({
   number,
+  location,
   revealingCard,
   own,
   opponent,
@@ -25,6 +26,7 @@ export default function Lane({
   inspectCard?: (card: CardData) => void;
   playTarget?: (children: ReactNode) => ReactNode;
   number: number;
+  location?: MatchLocation | undefined;
   revealingCard?: string | undefined;
   own: readonly CardData[];
   opponent: readonly CardData[];
@@ -94,7 +96,7 @@ export default function Lane({
           border: "panel",
           borderRadius: "panel",
           px: "sm",
-          py: "md",
+          py: "sm",
           bg: lead === "own" ? "laneLeading" : "surface",
           borderColor:
             lead === "own"
@@ -133,15 +135,29 @@ export default function Lane({
             <>Lane {number}</>
           )}
         </h3>
+        {location && (
+          <p
+            className={css({
+              fontSize: "small",
+              fontWeight: "strong",
+              lineHeight: "heading",
+              lineClamp: 1,
+              m: "none",
+            })}
+          >
+            {location.name}
+          </p>
+        )}
         <p
           className={css({
-            fontSize: "laneRule",
+            fontSize: "small",
             lineHeight: "heading",
+            lineClamp: 2,
             m: "none",
             color: "muted",
           })}
         >
-          No location effect.
+          {location?.text ?? "No location effect."}
         </p>
         <p className={css({ srOnly: true })}>
           Opponent total: {opponentTotal} · Your total: {ownTotal}

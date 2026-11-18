@@ -1,5 +1,5 @@
 import { checkStaging, LANE_COUNT, TURN_LIMIT } from "../rules/index.ts";
-import type { StagingError } from "../rules/index.ts";
+import type { LocationDefinition, StagingError } from "../rules/index.ts";
 const LANE_IDS = Array.from({ length: LANE_COUNT }, (_, i) => i);
 const OPENING_HAND = 3;
 
@@ -30,6 +30,8 @@ interface MatchFields {
   readonly turn: number;
   readonly energy: number;
   readonly rng: number;
+  /** One per lane, in lane order; fixed for the match. */
+  readonly locations: readonly LocationDefinition[];
   readonly players: readonly [PlayerState, PlayerState];
   /** Ordered events from the most recent resolved turn; empty before resolution. */
   readonly events: readonly MatchEvent[];
@@ -74,21 +76,30 @@ export function shuffle(
   }
   return shuffled;
 }
-/** Card IDs must be unique within each supplied deck.
+/** Card IDs must be unique within each supplied deck; the location pool needs
+ * at least one location per lane, with unique ids.
  * Seeds normalize to uint32. RNG consumption: player 0 shuffle, player 1
- * shuffle, then one sample for each tied reveal-order flip. Replay uses this ruleset. */
+ * shuffle, three samples that partially shuffle the location pool (so adding
+ * a pool entry never moves later samples), then one sample for each tied
+ * reveal-order flip. Replay uses this ruleset. */
 export function createMatch(
   seed: number,
   decks: readonly [readonly CardDefinition[], readonly CardDefinition[]],
+  pool: readonly LocationDefinition[],
 ): MatchState {
+  if (pool.length < LANE_COUNT)
+    throw new Error("location pool needs a location for every lane");
+  if (new Set(pool.map((location) => location.id)).size !== pool.length)
+    throw new Error("location pool ids must be unique");
   let rng = seed >>> 0;
+  function sample(bound: number): number {
+    rng = random(rng);
+    return Math.floor((rng / 4294967296) * bound);
+  }
   function player(deck: readonly CardDefinition[]): PlayerState {
     const cards = shuffle(
       deck.map((card) => ({ ...card })),
-      (bound) => {
-        rng = random(rng);
-        return Math.floor((rng / 4294967296) * bound);
-      },
+      sample,
     );
     return {
       hand: cards.slice(0, OPENING_HAND),
@@ -102,10 +113,23 @@ export function createMatch(
     player(decks[0]),
     player(decks[1]),
   ];
+  const drawn = [...pool];
+  for (let lane = 0; lane < LANE_COUNT; lane++) {
+    const pick = lane + sample(drawn.length - lane);
+    const a = drawn[lane];
+    const b = drawn[pick];
+    // Both indices are inside the copy: lane < LANE_COUNT <= pool length.
+    if (a !== undefined && b !== undefined) {
+      drawn[lane] = b;
+      drawn[pick] = a;
+    }
+  }
+  const locations = drawn.slice(0, LANE_COUNT).map((l) => ({ ...l }));
   return {
     turn: 1,
     energy: 1,
     rng,
+    locations,
     players,
     phase: "planning",
     result: null,
@@ -291,6 +315,7 @@ interface PlayerViewFields {
    * already names the next turn's order. Orders only reveals that exist: a
    * player who staged nothing reveals nothing, first or not. */
   readonly revealFirst: PlayerId | null;
+  readonly locations: readonly LocationDefinition[];
   readonly events: readonly MatchEvent[];
 }
 export type PlayerView = PlayerViewFields & MatchOutcome;
@@ -310,6 +335,7 @@ export function playerView(state: MatchState, id: PlayerId): PlayerView {
     turn: state.turn,
     energy: state.energy,
     revealFirst: state.phase === "ended" ? null : firstToReveal(state).first,
+    locations: state.locations,
     own: { ...publicPlayer(own), hand: own.hand, staged: own.staged },
     opponent: { ...publicPlayer(opponent), handSize: opponent.hand.length },
     events: state.events,

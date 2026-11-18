@@ -1,3 +1,4 @@
+import { testLocations } from "./locations.test-support.ts";
 import { expect, test } from "vitest";
 import { checkStaging, legalPlays } from "../rules/index.ts";
 import { createMatch, playerView, stage, commit, resolve } from "./index.ts";
@@ -15,7 +16,7 @@ test("shared staging checks agree with the engine across seeded mid-turn views",
       cost: i % 4,
       power: i,
     }));
-    let state = createMatch(seed, [deck, deck]);
+    let state = createMatch(seed, [deck, deck], testLocations);
     while (state.phase === "planning") {
       for (const id of [0, 1] as const) {
         for (let trial = 0; trial < 30; trial++) {

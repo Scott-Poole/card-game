@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import type { PlayerView } from "../protocol/messages.ts";
+import { locations } from "./stories/fixtures.ts";
 import { isAcknowledged } from "./isAcknowledged.ts";
 
 const view: PlayerView = {
@@ -9,6 +10,7 @@ const view: PlayerView = {
   player: 0,
   energy: 1,
   revealFirst: 0,
+  locations,
   own: {
     hand: [],
     deckSize: 8,
