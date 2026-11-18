@@ -3,6 +3,10 @@ import {
   LANE_CAPACITY,
   TURN_LIMIT,
   DECK_SIZE,
+  isLocationEffectKind,
+  MAX_LOCATION_NAME,
+  MAX_LOCATION_TEXT,
+  type LocationDefinition,
 } from "../rules/index.ts";
 // Each player can reveal their full deck, then turn-ended and match-ended.
 const MAX_EVENTS = 2 * DECK_SIZE + 2;
@@ -123,6 +127,8 @@ export type MatchEvent =
     }
   | { readonly type: "turn-ended"; readonly turn: number }
   | { readonly type: "match-ended"; readonly result: Score };
+/** A lane's match-fixed location: authored name and rule text, and its effect. */
+export type MatchLocation = LocationDefinition;
 export interface OwnPlayer {
   readonly hand: readonly Card[];
   readonly staged: readonly Play[];
@@ -140,6 +146,8 @@ interface ViewFields {
   readonly player: PlayerId;
   readonly turn: number;
   readonly energy: number;
+  /** One per lane, in lane order. */
+  readonly locations: readonly MatchLocation[];
   readonly own: OwnPlayer;
   readonly opponent: Opponent;
   readonly events: readonly MatchEvent[];
@@ -249,6 +257,29 @@ function isLanes(v: unknown): v is Card[][] {
     ) && v.length === LANE_COUNT
   );
 }
+function isLocation(v: unknown): v is MatchLocation {
+  return (
+    isRecord(v) &&
+    exact(v, ["id", "name", "text", "effect"]) &&
+    typeof v.id === "string" &&
+    typeof v.name === "string" &&
+    v.name.trim() !== "" &&
+    v.name.length <= MAX_LOCATION_NAME &&
+    typeof v.text === "string" &&
+    v.text.trim() !== "" &&
+    v.text.length <= MAX_LOCATION_TEXT &&
+    isRecord(v.effect) &&
+    exact(v.effect, ["kind"]) &&
+    isLocationEffectKind(v.effect.kind)
+  );
+}
+function isLocations(v: unknown): v is MatchLocation[] {
+  return (
+    isList(v, isLocation, LANE_COUNT) &&
+    v.length === LANE_COUNT &&
+    new Set(v.map((location) => location.id)).size === LANE_COUNT
+  );
+}
 function isOwn(v: unknown): v is OwnPlayer {
   return (
     isRecord(v) &&
@@ -277,6 +308,7 @@ function isView(v: unknown): v is PlayerView {
       "player",
       "turn",
       "energy",
+      "locations",
       "own",
       "opponent",
       "events",
@@ -286,6 +318,7 @@ function isView(v: unknown): v is PlayerView {
     isPlayer(v.player) &&
     integer(v.turn, 1, TURN_LIMIT) &&
     integer(v.energy, 0, TURN_LIMIT) &&
+    isLocations(v.locations) &&
     isOwn(v.own) &&
     isOpponent(v.opponent) &&
     isList(v.events, isEvent, MAX_EVENTS) &&

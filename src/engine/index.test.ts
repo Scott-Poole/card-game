@@ -1,3 +1,5 @@
+import type { LocationDefinition } from "../rules/index.ts";
+import { testLocations } from "./locations.test-support.ts";
 import { expect, test } from "vitest";
 import {
   applyAction,
@@ -41,22 +43,26 @@ function play(state: MatchState, id: 0 | 1, lane: number): Play[] {
 }
 
 test("creates a seeded match with three opening cards and one energy", () => {
-  const state = createMatch(42, [deck(), deck()]);
+  const state = createMatch(42, [deck(), deck()], testLocations);
   expect(state.players.map((p) => [p.hand.length, p.deck.length])).toEqual([
     [3, 9],
     [3, 9],
   ]);
   expect(state.energy).toBe(1);
-  expect(state).toEqual(createMatch(42, [deck(), deck()]));
+  expect(state).toEqual(createMatch(42, [deck(), deck()], testLocations));
   expect(state.players[0]).not.toEqual(
-    createMatch(43, [deck(), deck()]).players[0],
+    createMatch(43, [deck(), deck()], testLocations).players[0],
   );
 });
 
 test.each([0, 1, 2, 3, 4, 12])(
   "draws once on later turns, including an exhausted deck of %i",
   (size) => {
-    let state = createMatch(1, [deck(1, 0, size), deck(1, 0, size)]);
+    let state = createMatch(
+      1,
+      [deck(1, 0, size), deck(1, 0, size)],
+      testLocations,
+    );
     for (const n of [1, 2, 3, 4, 5, 6]) {
       expect(state.energy).toBe(n);
       expect(state.players[0].hand.length).toBe(Math.min(size, n + 2));
@@ -76,7 +82,7 @@ test.each([
 ] satisfies [string, Play[]][])(
   "rejects %s without changing state",
   (error, plays) => {
-    const state = createMatch(42, [deck(), deck()]);
+    const state = createMatch(42, [deck(), deck()], testLocations);
     const before = JSON.stringify(state);
     expect(stage(state, 0, plays)).toEqual({ ok: false, error });
     expect(JSON.stringify(state)).toEqual(before);
@@ -84,7 +90,7 @@ test.each([
 );
 
 test("rejects duplicate cards and overspend; replacing staging refunds the old plays", () => {
-  const state = createMatch(42, [deck(1, 1), deck()]);
+  const state = createMatch(42, [deck(1, 1), deck()], testLocations);
   const plays = play(state, 0, 0);
   expect(stage(state, 0, [...plays, ...plays])).toEqual({
     ok: false,
@@ -103,7 +109,7 @@ test("rejects duplicate cards and overspend; replacing staging refunds the old p
 });
 
 test("commit locks staging; resolution requires both commits and consumes no input state", () => {
-  const initial = createMatch(42, [deck(), deck()]);
+  const initial = createMatch(42, [deck(), deck()], testLocations);
   const state = unwrap(commit(initial, 0));
   expect(stage(state, 0, [])).toEqual({
     ok: false,
@@ -119,7 +125,7 @@ test("commit locks staging; resolution requires both commits and consumes no inp
 });
 
 test("lane capacity counts placed and newly staged cards", () => {
-  let state = createMatch(42, [deck(), deck()]);
+  let state = createMatch(42, [deck(), deck()], testLocations);
   for (let n = 0; n < 4; n++) state = turn(state, play(state, 0, 0)).state;
   expect(stage(state, 0, play(state, 0, 0))).toEqual({
     ok: false,
@@ -140,7 +146,7 @@ test.each([
 ])(
   "initiative uses lane wins then total power: %j",
   ({ a, b, ap, bp, first }) => {
-    let state = createMatch(42, [deck(ap), deck(bp)]);
+    let state = createMatch(42, [deck(ap), deck(bp)], testLocations);
     for (let i = 0; i < 2; i++)
       state = turn(
         state,
@@ -157,7 +163,7 @@ test.each([
 test("seeded initiative can pick either player and is reproducible", () => {
   const firsts = new Set<number>();
   for (let seed = 0; seed < 20; seed++) {
-    const state = createMatch(seed, [deck(), deck()]);
+    const state = createMatch(seed, [deck(), deck()], testLocations);
     const a = play(state, 0, 0);
     const b = play(state, 1, 0);
     const result = turn(state, a, b);
@@ -176,7 +182,7 @@ test.each([
   "scores a complete six-turn public-API match: %j",
   ({ a, b, ap, bp, lanes, winner }) => {
     function run() {
-      let state = createMatch(42, [deck(ap), deck(bp)]);
+      let state = createMatch(42, [deck(ap), deck(bp)], testLocations);
       const history = [];
       for (let n = 0; n < 6; n++) {
         const result = turn(
@@ -205,7 +211,7 @@ test.each([
 );
 
 test("reveals each staged card in list order, removes it from hand, and resets energy", () => {
-  let state = createMatch(42, [deck(2, 1), deck()]);
+  let state = createMatch(42, [deck(2, 1), deck()], testLocations);
   state = turn(state).state;
   const plays = state.players[0].hand
     .slice(0, 2)
@@ -231,7 +237,7 @@ test("reveals each staged card in list order, removes it from hand, and resets e
 test.each([0, 1])(
   "turn 2 has exactly two energy after spending %i on turn 1",
   (spent) => {
-    let state = createMatch(42, [deck(1, 1), deck()]);
+    let state = createMatch(42, [deck(1, 1), deck()], testLocations);
     state = turn(state, spent ? play(state, 0, 0) : []).state;
     const plays = state.players[0].hand
       .slice(0, 3)
@@ -242,7 +248,7 @@ test.each([0, 1])(
 );
 
 test("equal non-empty lanes are tied", () => {
-  let state = createMatch(42, [deck(3), deck(3)]);
+  let state = createMatch(42, [deck(3), deck(3)], testLocations);
   state = turn(state, play(state, 0, 0), play(state, 1, 0)).state;
   for (let n = 1; n < 6; n++) state = turn(state).state;
   expect(state.result).toEqual({
@@ -254,14 +260,14 @@ test("equal non-empty lanes are tied", () => {
 
 test("caller changes to deck definitions do not change a created match", () => {
   const cards = deck();
-  const state = createMatch(42, [cards, cards]);
+  const state = createMatch(42, [cards, cards], testLocations);
   const before = JSON.stringify(state);
   Object.assign(cards[0] ?? {}, { power: 999 });
   expect(JSON.stringify(state)).toBe(before);
 });
 
 test("draws the next shuffled card for each player and conserves the deck", () => {
-  const state = createMatch(42, [deck(), deck(7)]);
+  const state = createMatch(42, [deck(), deck(7)], testLocations);
   const next = turn(state).state;
   for (const id of [0, 1] satisfies (0 | 1)[]) {
     expect(next.players[id].hand).toEqual([
@@ -277,7 +283,7 @@ test("draws the next shuffled card for each player and conserves the deck", () =
 
 test("plays cards on every turn with real energy costs in a reproducible full match", () => {
   function run() {
-    let state = createMatch(42, [deck(2, 1), deck(1, 1)]);
+    let state = createMatch(42, [deck(2, 1), deck(1, 1)], testLocations);
     const history = [];
     for (let n = 1; n <= 6; n++) {
       const lane = (n - 1) % 3;
@@ -299,7 +305,7 @@ test("plays cards on every turn with real energy costs in a reproducible full ma
 });
 
 test("persists RNG across non-empty ties and leaves it alone on a lane lead", () => {
-  const initial = createMatch(42, [deck(), deck()]);
+  const initial = createMatch(42, [deck(), deck()], testLocations);
   const tied = turn(initial, play(initial, 0, 0), play(initial, 1, 0));
   expect(tied.state.rng).not.toBe(initial.rng);
   const next = turn(tied.state, play(tied.state, 0, 1), play(tied.state, 1, 1));
@@ -312,7 +318,7 @@ test("persists RNG across non-empty ties and leaves it alone on a lane lead", ()
 });
 
 test("staging owns a copy of the caller play list", () => {
-  const initial = createMatch(42, [deck(), deck()]);
+  const initial = createMatch(42, [deck(), deck()], testLocations);
   const plays = play(initial, 0, 0);
   const state = unwrap(stage(initial, 0, plays));
   plays.splice(0, plays.length);
@@ -324,15 +330,15 @@ test.each([
   [-1, 4294967295],
   [NaN, 0],
 ])("normalizes seed %s to uint32 %s", (seed, normalized) => {
-  expect(createMatch(seed, [deck(), deck()])).toEqual(
-    createMatch(normalized, [deck(), deck()]),
+  expect(createMatch(seed, [deck(), deck()], testLocations)).toEqual(
+    createMatch(normalized, [deck(), deck()], testLocations),
   );
 });
 
-// Golden vector captured from the engine before the shared shuffle extraction.
+// Golden vector: the RNG state follows both deck shuffles and the location draw.
 test("preserves the seeded replay deck order and RNG state", () => {
-  const state = createMatch(42, [deck(), deck()]);
-  expect(state.rng).toBe(775312688);
+  const state = createMatch(42, [deck(), deck()], testLocations);
+  expect(state.rng).toBe(4050676697);
   expect(
     state.players.map((player) => ({
       hand: player.hand.map((card) => card.id),
@@ -351,7 +357,7 @@ test("preserves the seeded replay deck order and RNG state", () => {
 });
 
 test("applying the second commit resolves atomically while the first stays planning", () => {
-  const initial = createMatch(42, [deck(), deck()]);
+  const initial = createMatch(42, [deck(), deck()], testLocations);
   const before = JSON.stringify(initial);
   const first = unwrap(applyAction(initial, 1, { type: "commit" }));
   expect(first.phase).toBe("planning");
@@ -376,8 +382,8 @@ test("applying the second commit resolves atomically while the first stays plann
 });
 
 test("action-only six-turn replay matches the scripted low-level match and events", () => {
-  let state = createMatch(42, [deck(2, 1), deck(1, 1)]);
-  let reference = createMatch(42, [deck(2, 1), deck(1, 1)]);
+  let state = createMatch(42, [deck(2, 1), deck(1, 1)], testLocations);
+  let reference = createMatch(42, [deck(2, 1), deck(1, 1)], testLocations);
   for (let n = 0; n < 6; n++) {
     const a = play(state, 0, n % 3);
     const b = play(state, 1, n % 3);
@@ -415,7 +421,7 @@ test("action-only six-turn replay matches the scripted low-level match and event
 });
 
 test("invalid action preserves the state and existing staging error", () => {
-  const state = createMatch(42, [deck(), deck()]);
+  const state = createMatch(42, [deck(), deck()], testLocations);
   const before = JSON.stringify(state);
   expect(
     applyAction(state, 0, {
@@ -424,4 +430,59 @@ test("invalid action preserves the state and existing staging error", () => {
     }),
   ).toEqual({ ok: false, error: "card-not-in-hand" });
   expect(JSON.stringify(state)).toBe(before);
+});
+
+test("draws three distinct locations from the pool, fixed for the match", () => {
+  const state = createMatch(42, [deck(), deck()], testLocations);
+  expect(state.locations).toHaveLength(3);
+  expect(new Set(state.locations.map((l) => l.id)).size).toBe(3);
+  for (const location of state.locations)
+    expect(testLocations).toContainEqual(location);
+  expect(state.locations).toEqual(
+    createMatch(42, [deck(), deck()], testLocations).locations,
+  );
+  const next = turn(state, play(state, 0, 0), play(state, 1, 0)).state;
+  expect(next.locations).toEqual(state.locations);
+});
+
+test("different seeds draw different location selections", () => {
+  const selections = new Set<string>();
+  for (let seed = 0; seed < 30; seed++)
+    selections.add(
+      createMatch(seed, [deck(), deck()], testLocations)
+        .locations.map((l) => l.id)
+        .join(","),
+    );
+  expect(selections.size).toBeGreaterThan(1);
+});
+
+test("draws the pinned locations for a seed, in lane order", () => {
+  expect(
+    createMatch(42, [deck(), deck()], testLocations).locations.map((l) => l.id),
+  ).toEqual(["place-3", "place-2", "place-5"]);
+});
+
+test("pool size never moves the rng stream that follows the draw", () => {
+  const extra: LocationDefinition = {
+    id: "extra",
+    name: "Extra",
+    text: "No effect for now.",
+    effect: { kind: "none" },
+  };
+  const small = createMatch(42, [deck(), deck()], testLocations);
+  const large = createMatch(42, [deck(), deck()], [...testLocations, extra]);
+  expect(large.rng).toBe(small.rng);
+});
+
+test("rejects a location pool with duplicate ids", () => {
+  const duplicated = testLocations.map((location, index) =>
+    index === 1 ? { ...location, id: testLocations[0]?.id ?? "" } : location,
+  );
+  expect(() => createMatch(42, [deck(), deck()], duplicated)).toThrow("unique");
+});
+
+test("rejects a location pool too small to fill the lanes", () => {
+  expect(() =>
+    createMatch(42, [deck(), deck()], testLocations.slice(0, 2)),
+  ).toThrow("location pool");
 });

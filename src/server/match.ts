@@ -9,6 +9,7 @@ import {
   type PlayerId,
 } from "../engine/index.ts";
 import type { ClientMessage, ServerMessage } from "../protocol/messages.ts";
+import { locations } from "./locations.ts";
 import { starterDeck } from "./roster.ts";
 
 interface Peer {
@@ -71,7 +72,7 @@ export function matchHost(
       throw new Error("peers must be distinct and unseated");
     const { seed, decks } = inputs();
     const match: Match = {
-      state: createMatch(seed, decks),
+      state: createMatch(seed, decks, locations),
       peers: [first, second],
     };
     seats.set(first, { match, player: 0 });
