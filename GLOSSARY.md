@@ -45,11 +45,11 @@ Each player's budget for the combined cost of their staged cards in a turn, star
 One of three shared board positions, each with room for up to four revealed cards per player.
 
 **Lane total**:
-The sum of the power of one player's revealed cards in a lane.
+The sum of the power of one player's revealed cards in a lane, plus whatever the lane's location effect adds. Under `power-per-card`, each of that player's revealed cards in the lane adds the effect's `amount` (1 or 2).
 _Avoid_: Total power (when referring to a single lane)
 
 **Location**:
-A named place with rule text, attached to one lane for the whole match. Each match draws three distinct locations from the authored pool by seed, and both players see them. Every location currently has the `none` effect kind: no implemented effect.
+A named place with rule text, attached to one lane for the whole match. Each match draws three distinct locations from the authored pool by seed, and both players see them. A location's effect is `none` or `power-per-card`; effects change lane totals, and so lane winners, total power and reveal order.
 
 ## Cards
 

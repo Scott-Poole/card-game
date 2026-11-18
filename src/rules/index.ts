@@ -6,21 +6,59 @@ export const DECK_SIZE = 12;
 export const MAX_LOCATION_NAME = 40;
 export const MAX_LOCATION_TEXT = 160;
 
+export const MIN_POWER_PER_CARD = 1;
+export const MAX_POWER_PER_CARD = 2;
+
 /** What a location does. Closed union: adding a kind fails the typecheck at
- * LOCATION_EFFECT_KINDS until it is registered there. Nothing resolves effects
- * yet; the ticket that adds the first real kind adds the exhaustive switch. */
+ * LOCATION_EFFECT_KINDS and at laneTotal's exhaustive switch until both
+ * handle it. */
 export interface NoLocationEffect {
   readonly kind: "none";
 }
-export type LocationEffect = NoLocationEffect;
+/** Each of a player's revealed cards in the lane adds `amount` power. */
+export interface PowerPerCardEffect {
+  readonly kind: "power-per-card";
+  /** An integer from MIN_POWER_PER_CARD to MAX_POWER_PER_CARD. */
+  readonly amount: number;
+}
+export type LocationEffect = NoLocationEffect | PowerPerCardEffect;
 export type LocationEffectKind = LocationEffect["kind"];
 const LOCATION_EFFECT_KINDS: Readonly<Record<LocationEffectKind, true>> = {
   none: true,
+  "power-per-card": true,
 };
 export function isLocationEffectKind(
   kind: unknown,
 ): kind is LocationEffectKind {
   return typeof kind === "string" && Object.hasOwn(LOCATION_EFFECT_KINDS, kind);
+}
+/** True for an amount a `power-per-card` effect may carry. */
+export function isPowerPerCardAmount(amount: unknown): amount is number {
+  return (
+    typeof amount === "number" &&
+    Number.isInteger(amount) &&
+    amount >= MIN_POWER_PER_CARD &&
+    amount <= MAX_POWER_PER_CARD
+  );
+}
+/** One player's lane total: printed power of their revealed cards plus what
+ * the lane's location effect adds. The single implementation: engine scoring
+ * and the client's running totals both call it. */
+export function laneTotal(
+  cards: readonly { readonly power: number }[],
+  effect: LocationEffect,
+): number {
+  const printed = cards.reduce((sum, card) => sum + card.power, 0);
+  switch (effect.kind) {
+    case "none":
+      return printed;
+    case "power-per-card":
+      return printed + effect.amount * cards.length;
+    default: {
+      const exhaustive: never = effect;
+      return exhaustive;
+    }
+  }
 }
 export interface LocationDefinition {
   readonly id: string;

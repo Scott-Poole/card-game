@@ -8,8 +8,9 @@ import {
   type MatchState,
   type PlayerId,
 } from "../engine/index.ts";
+import type { LocationDefinition } from "../rules/index.ts";
 import type { ClientMessage, ServerMessage } from "../protocol/messages.ts";
-import { locations } from "./locations.ts";
+import { locations as shippedLocations } from "./locations.ts";
 import { starterDeck } from "./roster.ts";
 
 interface Peer {
@@ -44,6 +45,8 @@ export function matchHost(
     seed: randomBytes(4).readUInt32LE(),
     decks: [privateDeck(0), privateDeck(1)],
   }),
+  /** The pool each match draws its lanes' locations from. */
+  locations: readonly LocationDefinition[] = shippedLocations,
 ) {
   // A peer may answer synchronously from send(). Finish delivering the current
   // transition to both players before applying any of those replies.

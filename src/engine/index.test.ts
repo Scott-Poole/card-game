@@ -543,3 +543,43 @@ test("rejects a location pool too small to fill the lanes", () => {
     createMatch(42, [deck(), deck()], testLocations.slice(0, 2)),
   ).toThrow("location pool");
 });
+
+test("power-per-card flips a lane winner, the reveal order and the match winner relative to printed power", () => {
+  const boosted = (
+    effect: LocationDefinition["effect"],
+    text: string,
+  ): MatchState => {
+    const state = createMatch(7, [deck(3), deck(1)], testLocations);
+    const [first, ...rest] = state.locations;
+    if (!first) throw new Error("Missing location");
+    return { ...state, locations: [{ ...first, text, effect }, ...rest] };
+  };
+  // Seat 0 reveals one 3-power card in lane 0; seat 1 reveals two 1-power cards.
+  const playOut = (start: MatchState) => {
+    const hand1 = start.players[1].hand;
+    let state = turn(
+      start,
+      play(start, 0, 0),
+      hand1.slice(0, 2).map((card) => ({ cardId: card.id, lane: 0 })),
+    ).state;
+    const revealFirst = playerView(state, 0).revealFirst;
+    for (let t = 2; t <= 6; t++) state = turn(state).state;
+    return { state, revealFirst };
+  };
+  const printed = playOut(boosted({ kind: "none" }, "No effect for now."));
+  expect(printed.state.result?.lanes).toEqual([0, null, null]);
+  expect(printed.state.result?.power).toEqual([3, 2]);
+  expect(printed.state.result?.winner).toBe(0);
+  expect(printed.revealFirst).toBe(0);
+
+  const boostedMatch = playOut(
+    boosted(
+      { kind: "power-per-card", amount: 2 },
+      "Each card you reveal here adds 2 power.",
+    ),
+  );
+  expect(boostedMatch.state.result?.lanes).toEqual([1, null, null]);
+  expect(boostedMatch.state.result?.power).toEqual([5, 6]);
+  expect(boostedMatch.state.result?.winner).toBe(1);
+  expect(boostedMatch.revealFirst).toBe(1);
+});

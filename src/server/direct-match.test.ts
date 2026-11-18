@@ -119,3 +119,24 @@ test("synchronous replies receive each transition once in order", () => {
     ]);
   }
 });
+
+test("a match draws its lanes' locations from the injected pool", () => {
+  const pool = ["a", "b", "c"].map((id) => ({
+    id: `place-${id}`,
+    name: `Place ${id}`,
+    text: "Each card adds 1 power.",
+    effect: { kind: "power-per-card", amount: 1 } as const,
+  }));
+  const host = matchHost(
+    () => ({ seed: 5, decks: [starterDeck(0), starterDeck(1)] }),
+    pool,
+  );
+  const a = peer(),
+    b = peer();
+  host.start(a, b);
+  expect(
+    latest(a)
+      .locations.map((location) => location.id)
+      .sort(),
+  ).toEqual(pool.map((location) => location.id));
+});

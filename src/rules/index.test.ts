@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { checkStaging, legalPlays } from "./index.ts";
+import { checkStaging, laneTotal, legalPlays } from "./index.ts";
+import type { LocationEffect } from "./index.ts";
 
 test("move generation excludes spent energy, full lanes and already staged cards", () => {
   const view = {
@@ -60,3 +61,28 @@ test("replacement staging preserves established errors and precedence", () => {
     ),
   ).toEqual({ ok: false, error: "wrong-phase" });
 });
+
+const cardsOf = (count: number) =>
+  [3, 1, 2, 4].slice(0, count).map((power) => ({ power }));
+const none: LocationEffect = { kind: "none" };
+const perCard = (amount: number): LocationEffect => ({
+  kind: "power-per-card",
+  amount,
+});
+
+test.each([
+  ["none", none, 0, 0],
+  ["none", none, 1, 3],
+  ["none", none, 4, 10],
+  ["power-per-card 1", perCard(1), 0, 0],
+  ["power-per-card 1", perCard(1), 1, 4],
+  ["power-per-card 1", perCard(1), 4, 14],
+  ["power-per-card 2", perCard(2), 0, 0],
+  ["power-per-card 2", perCard(2), 1, 5],
+  ["power-per-card 2", perCard(2), 4, 18],
+])(
+  "lane total under %s with %i revealed cards is %i",
+  (_name, effect, count, total) => {
+    expect(laneTotal(cardsOf(count), effect)).toBe(total);
+  },
+);
