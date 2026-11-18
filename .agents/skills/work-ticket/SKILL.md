@@ -53,7 +53,7 @@ Run [`land`](../land/SKILL.md) on your own PR. You are the **author**, which cha
 
 CI may still be running when review ends: land step 4.2 says how to wait for it.
 
-Immediately before land's merge (step 4.3), re-read the ticket's labels and its comments (the paginated request from Orient). Still `in-progress`, and no trusted `## Needs you` comment newer than the last `tick: claimed` comment → merge. Such a comment means a handoff (possibly half-finished by a failed label write) is waiting on Scott: do not merge, comment the PR's state on the ticket and stop. The claim is gone (`in-progress` removed, `ready-for-agent` or `closed`) → someone released or closed it: comment the PR's state on the ticket and stop. A leftover `ready-for-human` beside `in-progress` does not stop a merge.
+Immediately before land's merge (step 4.3), re-read the ticket's labels and its comments (the paginated request from Orient). Still `in-progress`, no trusted `## Needs you` comment newer than the last `tick: claimed <date>` comment, and no `ready-for-human` label (one with the retired stale sweep's comment on the ticket is that sweep's leftover and does not count; any other `ready-for-human` is an escalation whose comment may not have landed yet) → merge. Such a comment means a handoff (possibly half-finished by a failed label write) is waiting on Scott: do not merge, comment the PR's state on the ticket and stop. The claim is gone (`in-progress` removed, `ready-for-agent` or `closed`) → someone released or closed it: comment the PR's state on the ticket and stop. A leftover `ready-for-human` beside `in-progress` does not stop a merge.
 
 ## 5. Finish
 
