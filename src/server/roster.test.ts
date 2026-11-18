@@ -70,3 +70,11 @@ test("a roster without enough cards at a cost cannot draw a deck", () => {
   const short = doubledRoster.filter((e) => e.card.cost !== 3);
   expect(() => drawDeck(0, sequence(1), short)).toThrow();
 });
+
+test("a cost whose cards share an id cannot draw a deck", () => {
+  const twins = doubledRoster.map((e) => ({
+    ...e,
+    card: { ...e.card, id: e.card.cost === 1 ? "twin" : e.card.id },
+  }));
+  expect(() => drawDeck(0, sequence(1), twins)).toThrow();
+});

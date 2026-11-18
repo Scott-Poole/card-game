@@ -156,8 +156,13 @@ export function drawDeck(
       entries.map((entry) => entry.card).filter((card) => card.cost === cost),
       randomIndex,
     ).slice(0, DECK_CARDS_PER_COST);
-    if (picks.length < DECK_CARDS_PER_COST)
-      throw new Error(`roster has too few cards at cost ${String(cost)}`);
+    if (
+      picks.length < DECK_CARDS_PER_COST ||
+      new Set(picks.map((card) => card.id)).size < picks.length
+    )
+      throw new Error(
+        `roster needs ${String(DECK_CARDS_PER_COST)} distinct cards at cost ${String(cost)}`,
+      );
     for (const card of picks)
       deck.push({ ...card, id: `${String(player)}:${card.id}` });
   }
