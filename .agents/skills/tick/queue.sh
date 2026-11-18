@@ -75,7 +75,7 @@ heartbeat_at() {
 claim_started() {
 	local times
 	times=$(gh api --paginate "$API/issues/$1/events?per_page=100" --jq \
-		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | .created_at | fromdateiso8601")
+		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | .created_at | fromdateiso8601") || return 1
 	printf '%s\n' "$times" | sort -n | tail -1 | awk '{print $1 + 0}'
 }
 
@@ -204,7 +204,7 @@ cmd_next() {
 	for n in $claimed; do
 		wip=$((wip + 1))
 		printf '%s\n' "${run[@]}" | grep -qx "$n" && continue # claimed seconds ago
-		claimed_at=$(claim_started "$n")
+		claimed_at=$(claim_started "$n") || return 1
 		beat=$(heartbeat_at "$n")
 		last=$((claimed_at > beat ? claimed_at : beat))
 		if ((now - last > stale_hours * 3600)) && { [[ -z $check ]] || ((n < check)); }; then
@@ -410,39 +410,54 @@ handoff_since_claim() {
 	[[ -n $hits ]]
 }
 
+# no_handoff <n>: succeeds when no thread has escalated this claim, fails (returns 1) when one
+# has; a failed query exits the script (fail closed).
+no_handoff() {
+	local rc=0
+	handoff_since_claim "$1" || rc=$?
+	case $rc in
+	0) return 1 ;;
+	1) return 0 ;;
+	*) log "handoff lookup for #$1 failed"; exit 1 ;;
+	esac
+}
+
 # drop_stale_human <n>: remove a ready-for-human the old stale sweep left on a claimed
 # ticket, unless it is a real handoff. Check, write, check again: GitHub has no transaction,
 # but the comment precedes every label write of an escalation, so a handoff that raced the
 # removal is always visible afterwards and gets its label back. Returns 1 when it kept the
 # label; any failed query or write exits the script (fail closed).
 drop_stale_human() {
-	local rc=0
-	handoff_since_claim "$1" || rc=$?
-	case $rc in 0) return 1 ;; 1) ;; *) log "handoff lookup for #$1 failed"; exit 1 ;; esac
+	no_handoff "$1" || return 1
 	transition "$1" "" "$HUMAN" || exit 1
-	rc=0
-	handoff_since_claim "$1" || rc=$?
-	case $rc in
-	0) transition "$1" "$HUMAN" "" || exit 1; return 1 ;;
-	1) ;;
-	*) log "handoff lookup for #$1 failed"; exit 1 ;;
-	esac
+	no_handoff "$1" && return 0
+	transition "$1" "$HUMAN" "" || exit 1
+	return 1
 }
 
 cmd_release() {
 	local labels
-	# Only a live claim can be released: a thread may have escalated since the caller looked,
-	# and its ready-for-human must not be swept back into the queue.
 	labels=" $(labels_of "$1") "
+	# Only a live claim can be released, and only if no thread has escalated it: a handoff
+	# must not be swept back into the queue, with or without its ready-for-human label yet.
 	if [[ $labels != *" $CLAIMED "* ]]; then
 		log "refusing to release #$1: it no longer carries $CLAIMED"
+		exit 1
+	fi
+	if ! no_handoff "$1"; then
+		log "refusing to release #$1: a thread escalated it"
 		exit 1
 	fi
 	transition "$1" "$QUEUE" "$CLAIMED"
 	# A pre-heartbeat stale flag may still be on it; the ticket is the agents' turn again.
 	labels=" $(labels_of "$1") "
-	if [[ $labels == *" $HUMAN "* ]] && ! drop_stale_human "$1"; then
-		transition "$1" "" "$QUEUE"
+	if [[ $labels == *" $HUMAN "* ]]; then
+		transition "$1" "" "$HUMAN"
+	fi
+	# An escalation may have landed between the checks above and the writes: its comment
+	# precedes its labels, so it is visible now. Put the handoff back and leave the queue.
+	if ! no_handoff "$1"; then
+		transition "$1" "$HUMAN" "$QUEUE"
 		log "#$1 was escalated while being released; left with Scott"
 		exit 1
 	fi

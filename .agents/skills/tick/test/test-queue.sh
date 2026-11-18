@@ -355,7 +355,15 @@ check "release refuses a ticket that was escalated meanwhile" is "$CODE:$(labels
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
 run release 1 "thread gone"
-check "release leaves a handoff that raced it and takes back its queue label" is "$CODE:$(labels 1)" "1:ready-for-human"
+check "release leaves a flagged claim that carries a handoff untouched" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
+# A handoff comment without its label yet (escalate mid-flight) also blocks the release.
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
+add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
+run release 1 "thread gone"
+check "release refuses a claim whose handoff comment is already posted" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress:1"
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
+FAKE_GH_FAIL="GET issues/1/events" run release 1 "thread gone"
+check "release fails closed when the claim-start lookup fails" is "$CODE:$(labels 1)" "1:in-progress"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
