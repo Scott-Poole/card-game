@@ -1227,6 +1227,9 @@ test("tap a card then tap a lane without closing inspection", async ({
     .first();
   const name = await card.getAttribute("aria-label");
   const board = a.getByRole("region", { name: "Match board", exact: true });
+  await expect
+    .poll(async () => (await board.boundingBox())?.width)
+    .toBeCloseTo(390, 0);
   const before = await board.boundingBox();
   await card.getByRole("img", { name: "Art placeholder" }).click();
   await expect(a.getByRole("dialog")).toBeVisible();
@@ -1533,6 +1536,9 @@ test("match-ending reveal stays on the board until playback finishes", async ({
   await expect(page.getByText("Turn ended", { exact: true })).toBeVisible();
   await page.clock.runFor(360);
   await expect(page.getByText("Match ended", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Match result", exact: true }),
+  ).toHaveCount(0);
   await page.clock.runFor(360);
   await expect(
     page.getByRole("heading", { name: "Match result", exact: true }),

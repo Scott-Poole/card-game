@@ -408,7 +408,7 @@ function Game() {
                     ))}
                   </ol>
                 </section>
-                {view.phase === "ended" && (
+                {!revealing && view.phase === "ended" && (
                   <section
                     className={cx(
                       panel(),
