@@ -48,6 +48,26 @@ NUDGE_MARK='<!-- queue:nudge -->'
 
 log() { printf '%s\n' "$*" >&2; }
 
+# Rollback for the label writes that must not be left half done. A command arms it with the
+# label to add back and the labels to remove again; if the script then exits for any reason
+# (a failed write, a failed verification, a failed lookup) the EXIT trap restores them, adding
+# before removing so a ticket never ends with neither. Success, or a deliberate end state,
+# disarms it.
+ROLLBACK_N=
+ROLLBACK_ADD=()
+ROLLBACK_DEL=()
+arm() { ROLLBACK_N=$1; ROLLBACK_ADD=("${@:2:1}"); ROLLBACK_DEL=("${@:3}"); }
+disarm() { ROLLBACK_N=; }
+rollback() {
+	[[ -n $ROLLBACK_N ]] || return 0
+	local l n=$ROLLBACK_N
+	disarm
+	for l in "${ROLLBACK_ADD[@]}"; do transition "$n" "$l" "" || true; done
+	for l in "${ROLLBACK_DEL[@]}"; do [[ -z $l ]] || transition "$n" "" "$l" || true; done
+	log "labels of #$n restored after a failure"
+}
+trap rollback EXIT
+
 config() {
 	git show "${TICK_REF:-origin/main}:.agents/skills/tick/config.json"
 }
@@ -425,23 +445,23 @@ no_handoff() {
 # drop_stale_human <n>: remove a ready-for-human the old stale sweep left on a claimed
 # ticket, unless it is a real handoff. Check, write, check again: GitHub has no transaction,
 # but the comment precedes every label write of an escalation, so a handoff that raced the
-# removal is always visible afterwards and gets its label back. If the second check cannot
-# be answered, the label goes back too (the state before this call) and the script exits.
-# Returns 1 when it kept the label; any other failed query or write exits (fail closed).
+# removal is always visible afterwards and gets its label back. Any failure after the write
+# restores the label through the rollback. Returns 1 when it kept the label.
 drop_stale_human() {
 	local rc=0
 	no_handoff "$1" || return 1
+	arm "$1" "$HUMAN"
 	transition "$1" "" "$HUMAN" || exit 1
 	handoff_since_claim "$1" || rc=$?
 	case $rc in
-	1) return 0 ;;
-	0) transition "$1" "$HUMAN" "" || exit 1; return 1 ;;
-	*) transition "$1" "$HUMAN" "" || true; log "handoff lookup for #$1 failed; ready-for-human restored"; exit 1 ;;
+	1) disarm; return 0 ;;
+	0) transition "$1" "$HUMAN" "" || exit 1; disarm; return 1 ;;
+	*) log "handoff lookup for #$1 failed"; exit 1 ;;
 	esac
 }
 
 cmd_release() {
-	local labels had_human=0 rc=0
+	local labels rc=0
 	labels=" $(labels_of "$1") "
 	# Only a live claim can be released, and only if no thread has escalated it: a handoff
 	# must not be swept back into the queue, with or without its ready-for-human label yet.
@@ -453,32 +473,33 @@ cmd_release() {
 		log "refusing to release #$1: a thread escalated it"
 		exit 1
 	fi
+	# From here every failure puts the claim (and any flag removed) back: nothing that might
+	# be a handoff may end up launchable.
+	arm "$1" "$CLAIMED" "$QUEUE"
 	transition "$1" "$QUEUE" "$CLAIMED"
 	# A pre-heartbeat stale flag may still be on it; the ticket is the agents' turn again.
 	labels=" $(labels_of "$1") "
 	if [[ $labels == *" $HUMAN "* ]]; then
-		had_human=1
+		ROLLBACK_ADD+=("$HUMAN")
 		transition "$1" "" "$HUMAN"
 	fi
 	# An escalation may have landed between the checks above and the writes: its comment
 	# precedes its labels, so it is visible now. Put the handoff back and leave the queue.
-	# If the lookup itself fails, undo the writes: no outcome may leave a possible handoff
-	# launchable.
 	handoff_since_claim "$1" || rc=$?
 	case $rc in
 	1) ;;
 	0)
+		disarm
 		transition "$1" "$HUMAN" "$QUEUE"
 		log "#$1 was escalated while being released; left with Scott"
 		exit 1
 		;;
 	*)
-		transition "$1" "$CLAIMED" "$QUEUE" || true
-		if ((had_human)); then transition "$1" "$HUMAN" "" || true; fi
 		log "handoff lookup for #$1 failed; release undone"
 		exit 1
 		;;
 	esac
+	disarm
 	comment "$1" "tick: released claim, back in the queue. Reason: $2"
 	log "released #$1"
 }

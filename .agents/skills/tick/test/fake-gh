@@ -57,7 +57,9 @@ def main():
             seen = int(open(counter).read()) if os.path.exists(counter) else 0
             with open(counter, "w") as c:
                 c.write(str(seen + 1))
-            if seen >= int(os.environ.get("FAKE_GH_FAIL_SKIP", "0")):
+            skip = int(os.environ.get("FAKE_GH_FAIL_SKIP", "0"))
+            # $FAKE_GH_FAIL_ONCE=1 fails only the (skip+1)th match: a blip, not an outage.
+            if seen == skip or (seen > skip and not os.environ.get("FAKE_GH_FAIL_ONCE")):
                 fail("gh: Service Unavailable (HTTP 503)")
 
     state_file = os.environ["FAKE_GH_STATE"]

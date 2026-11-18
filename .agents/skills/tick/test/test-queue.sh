@@ -364,19 +364,24 @@ check "release refuses a claim whose handoff comment is already posted" is "$COD
 setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
 FAKE_GH_FAIL="GET issues/1/events" run release 1 "thread gone"
 check "release fails closed when the claim-start lookup fails" is "$CODE:$(labels 1)" "1:in-progress"
-# A lookup that fails AFTER the writes must undo them: nothing may end up launchable.
-setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
-rm -f "$WORK/state.json.failseen"
-FAKE_GH_FAIL="GET issues/1/events" FAKE_GH_FAIL_SKIP=1 run release 1 "thread gone"
-check "release undoes its writes when the final lookup fails" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress,ready-for-human:0"
-setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
-rm -f "$WORK/state.json.failseen"
-FAKE_GH_FAIL="GET issues/1/events" FAKE_GH_FAIL_SKIP=1 run release 1 "thread gone"
-check "release undoes a flagless release too" is "$CODE:$(labels 1)" "1:in-progress"
-setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
-rm -f "$WORK/state.json.failseen"
-FAKE_GH_FAIL="GET issues/1/events" FAKE_GH_FAIL_SKIP=1 run alive 1
-check "alive restores the flag when its final lookup fails" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
+# Fail every call, one at a time, at every position of a release or an alive. Whatever fails,
+# the ticket ends either fully done or exactly as it started, never half-swapped.
+for spec in "GET issues/1" "POST issues/1/labels" "DELETE issues/1/labels" "POST issues/1/comments"; do
+	# The release comment is the last step: if only it fails the swap has completed, which is fine.
+	release_specs=$([[ $spec == "POST issues/1/comments" ]] && echo skip || echo run)
+	for skip in 0 1 2 3 4 5 6 7 8 9; do
+		setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+		rm -f "$WORK/state.json.failseen"
+		if [[ $release_specs == run ]]; then
+			FAKE_GH_FAIL="$spec" FAKE_GH_FAIL_SKIP=$skip FAKE_GH_FAIL_ONCE=1 run release 1 "thread gone"
+			check "release is all-or-nothing when [$spec] #$skip fails" is "$(labels 1)" "$([[ $CODE == 0 ]] && echo ready-for-agent || echo in-progress,ready-for-human)"
+		fi
+		setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
+		rm -f "$WORK/state.json.failseen"
+		FAKE_GH_FAIL="$spec" FAKE_GH_FAIL_SKIP=$skip FAKE_GH_FAIL_ONCE=1 run alive 1
+		check "alive is all-or-nothing when [$spec] #$skip fails" is "$(labels 1)" "$([[ $CODE == 0 ]] && echo in-progress || echo in-progress,ready-for-human)"
+	done
+done
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
@@ -505,7 +510,7 @@ setup "[$(issue 6 in-progress)]"
 FAKE_GH_FAIL="DELETE labels/in-progress" run release 6 "launch failed"
 check "failed removal exits non-zero" is "$CODE" "1"
 check "failed removal posts no success comment" is "$(comments 6)" "0"
-check "failed removal never leaves the ticket unlabelled" is "$(labels 6)" "in-progress,ready-for-agent"
+check "failed removal rolls back and never leaves the ticket unlabelled" is "$(labels 6)" "in-progress"
 
 # Failed add aborts before removing (finding: stale cleanup removed before adding).
 setup "[$(issue 6 in-progress)]"
