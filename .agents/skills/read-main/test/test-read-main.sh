@@ -23,7 +23,12 @@ git init -q --bare -b main "$WORK/origin.git"
 git clone -q "$WORK/origin.git" "$WORK/seed" 2>/dev/null
 git -C "$WORK/seed" switch -q -c main
 echo one >"$WORK/seed/file.txt"
-git -C "$WORK/seed" add . && git -C "$WORK/seed" commit -q -m "first commit" && git -C "$WORK/seed" push -q origin main
+# Awkward tree entries: spaces, a newline, a symlink, a gitlink (a submodule entry has no files).
+echo x >"$WORK/seed/with space.txt"
+echo y >"$WORK/seed/$(printf 'new\nline.txt')"
+ln -s file.txt "$WORK/seed/link.txt"
+git -C "$WORK/seed" update-index --add --cacheinfo 160000,1111111111111111111111111111111111111111,vendor
+git -C "$WORK/seed" add -- . && git -C "$WORK/seed" commit -q -m "first commit" && git -C "$WORK/seed" push -q origin main
 git clone -q "$WORK/origin.git" "$WORK/primary"
 git -C "$WORK/primary" worktree add -q -b feature "$WORK/feature" >/dev/null 2>&1
 
@@ -158,8 +163,8 @@ OUT=$(cd "$WORK/primary" && env -u READ_MAIN_DIR HOME="$WORK/home" bash "$SCRIPT
 check "default path is under HOME/.t3/worktrees/card-game" '[ "$CODE" -eq 0 ] && grep -Fq "main-view   $WORK/home/.t3/worktrees/card-game/main-view" <<<"$OUT"'
 
 # 17. A reader's git state cannot hide files from the view or wedge it.
-files() { (cd "$1" && find . -path ./.git -prune -o -type f -print | sort); }
-tree_files() { git -C "$1" ls-tree -r --name-only HEAD | sed 's|^|./|' | sort; }
+files() { (cd "$1" && find . -path ./.git -prune -o \( -type f -o -type l \) -print0 | sed -z 's|^\./||' | sort -z | tr '\0' '|'); }
+tree_files() { git -C "$1" ls-tree -r -z HEAD | sed -z '/^160000 /d; s/^[^\t]*\t//' | sort -z | tr '\0' '|'; }
 git -C "$WORK/seed" pull -q origin main 2>/dev/null; echo more >"$WORK/seed/extra.txt"
 git -C "$WORK/seed" add . && git -C "$WORK/seed" commit -q -m "add extra" && git -C "$WORK/seed" push -q origin main
 run "$WORK/primary"
@@ -199,6 +204,28 @@ check "a nested repository is gone after the run" '[ "$CODE" -eq 0 ] && [ ! -e "
 # 21. A view nested inside a third worktree of the repo is refused too.
 OUT=$(cd "$WORK/primary" && READ_MAIN_DIR=$WORK/away/view bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
 check "a view inside another worktree is refused" '[ "$CODE" -ne 0 ] && grep -Fq "inside the checkout" <<<"$ERR" && [ -z "$(git -C "$WORK/away" status --porcelain)" ]'
+
+# 22. A realistic registry: with dozens of worktrees the view is still recognised on every run
+# (`git worktree list | grep -q` under pipefail failed the second run with SIGPIPE).
+for i in $(seq 1 70); do git -C "$WORK/primary" worktree add -q --detach "$WORK/many/w$i" origin/main >/dev/null 2>&1; done
+for n in 1 2 3; do run "$WORK/primary"; [ "$CODE" -eq 0 ] || break; done
+check "the view is recognised repeatedly among 70 other worktrees" '[ "$CODE" -eq 0 ]'
+for i in 1 2 3 4; do (cd "$WORK/primary" && bash "$SCRIPT" >/dev/null 2>"$WORK/many$i.err"; echo $? >"$WORK/many$i.code") & done
+wait
+check "concurrent runs among 70 other worktrees all succeed" '[ "$(cat "$WORK"/many?.code | sort -u | tr -d "\n")" = 0 ]'
+
+# 23. A branch worktree registered at the view path whose directory vanished is not adopted.
+git -C "$WORK/primary" worktree add -q -b gone "$WORK/gone-view" >/dev/null 2>&1
+rm -rf "$WORK/gone-view"
+OUT=$(cd "$WORK/primary" && READ_MAIN_DIR=$WORK/gone-view bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
+check "a vanished branch worktree is not adopted as a view" '[ "$CODE" -ne 0 ] && grep -Fq "registered on a branch" <<<"$ERR"'
+
+# 24. A worktree nested inside the view is refused, not wiped.
+git -C "$WORK/primary" worktree add -q -b inner "$READ_MAIN_DIR/inner" >/dev/null 2>&1
+echo wip >"$READ_MAIN_DIR/inner/wip.txt"
+run "$WORK/primary"
+check "a worktree inside the view is refused with its files intact" '[ "$CODE" -ne 0 ] && grep -Fq "is inside" <<<"$ERR" && [ -f "$READ_MAIN_DIR/inner/wip.txt" ]'
+git -C "$WORK/primary" worktree remove --force "$READ_MAIN_DIR/inner"
 
 echo "read-main: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -2,6 +2,7 @@
 # Print the path of a read-only worktree pinned to the tip of origin/main. Run from any
 # checkout of this repo; only the view worktree is ever reset, never the caller's checkout.
 # READ_MAIN_DIR overrides the worktree path (the tests use it).
+# Never pipe into `grep -q` here: under pipefail its early exit can fail the pipeline (SIGPIPE).
 set -euo pipefail
 # A git hook exports GIT_DIR and friends; without this the script would read another repository.
 # shellcheck disable=SC2046
@@ -16,7 +17,8 @@ CALLER=$(git rev-parse --show-toplevel 2>/dev/null) || die "run it inside a chec
 COMMON=$(git -C "$CALLER" rev-parse --path-format=absolute --git-common-dir)
 # Git records resolved paths, so compare resolved paths.
 VIEW=$(realpath -m "${READ_MAIN_DIR:-$HOME/.t3/worktrees/card-game/main-view}")
-PRIMARY=$(git -C "$CALLER" worktree list --porcelain | sed -n '1s/^worktree //p')
+worktrees() { git -C "$CALLER" worktree list --porcelain; }
+PRIMARY=$(worktrees | sed -n '1s/^worktree //p')
 
 # One lock per repository: concurrent agents serialise instead of fighting over the ref and the checkout.
 exec 9>"$COMMON/read-main.lock"
@@ -28,13 +30,24 @@ git -C "$CALLER" fetch --quiet origin +refs/heads/main:refs/remotes/origin/main 
 	die "'git fetch origin main' failed; refusing to show a stale main"
 SHA=$(git -C "$CALLER" rev-parse --verify --quiet 'origin/main^{commit}') || die "origin/main does not exist after the fetch"
 
-registered() { git -C "$CALLER" worktree list --porcelain | grep -Fxq "worktree $1"; }
+registered() { # registered <path>
+	local list
+	list=$(worktrees)
+	grep -Fxq "worktree $1" <<<"$list"
+}
+registered_branch() { # registered_branch <path>: the branch a registration holds, if any
+	local list
+	list=$(worktrees)
+	awk -v want="worktree $1" '$0 == want {on = 1; next} /^worktree / {on = 0} on && /^branch / {print; exit}' <<<"$list"
+}
 
-# A view nested inside any checkout of this repo would show up as untracked files there.
-while read -r checkout; do
-	checkout=$(realpath -m "$checkout")
-	if [[ $VIEW == "$checkout"/* ]]; then die "$VIEW is inside the checkout $checkout; pick a path outside it"; fi
-done < <(git -C "$CALLER" worktree list --porcelain | sed -n 's/^worktree //p')
+# Another worktree of this repo nested in the view would be wiped with it; the view nested in
+# one would show up there as untracked files.
+while read -r other; do
+	other=$(realpath -m "$other")
+	if [[ $VIEW == "$other"/* ]]; then die "$VIEW is inside the checkout $other; pick a path outside it"; fi
+	if [[ $other == "$VIEW"/* ]]; then die "the worktree $other is inside $VIEW; refusing to reset the view around it"; fi
+done < <(worktrees | sed -n 's/^worktree //p')
 
 marker() { echo "$(git -C "$VIEW" rev-parse --absolute-git-dir)/read-main-view"; }
 create() {
@@ -43,17 +56,21 @@ create() {
 	git -C "$CALLER" worktree add --quiet --detach -f "$VIEW" "$SHA"
 	touch "$(marker)"
 }
-# The tree matches the tip only when nothing hides files from it and nothing extra survives: no
+view_files() { (cd "$VIEW" && find . -path ./.git -prune -o \( -type f -o -type l \) -print0 | sed -z 's|^\./||' | sort -z); }
+tip_files() { git -C "$VIEW" ls-tree -r -z "$SHA" | sed -z '/^160000 /d; s/^[^\t]*\t//' | sort -z; }
+# The view matches the tip only when nothing hides files from it and nothing extra survives: no
 # skip-worktree, assume-unchanged or sparse-checkout bits (git ls-files -v tags every normal entry
 # "H"), and exactly the tip's files on disk (a repository a reader cloned inside survives clean).
+matches_tip() {
+	local flags
+	flags=$(git -C "$VIEW" ls-files -v)
+	! grep -qv '^H ' <<<"$flags" && cmp -s <(view_files) <(tip_files)
+}
 reset() {
 	git -C "$VIEW" sparse-checkout disable 2>/dev/null || true
 	git -C "$VIEW" checkout --quiet --detach -f "$SHA" &&
 		git -C "$VIEW" clean --quiet -ffdx >&2 &&
-		! git -C "$VIEW" ls-files -v | grep -qv '^H ' &&
-		cmp -s \
-			<(cd "$VIEW" && find . -path ./.git -prune -o \( -type f -o -type l \) -print0 | sed -z 's|^\./||' | sort -z) \
-			<(git -C "$VIEW" ls-tree -r -z --name-only "$SHA" | sort -z)
+		matches_tip
 }
 
 if [ -d "$VIEW" ]; then
@@ -63,17 +80,22 @@ if [ -d "$VIEW" ]; then
 	[ "$VIEW" != "$(realpath -m "$PRIMARY")" ] || die "$VIEW is the primary checkout; refusing to reset it"
 	! git -C "$VIEW" symbolic-ref -q HEAD >/dev/null || die "$VIEW has a branch checked out; refusing to reset it"
 	[ -e "$(marker)" ] || die "$VIEW is a worktree this script did not create; refusing to reset it (a leftover from an older read-main? remove it and re-run)"
-	# Reader state the reset cannot clear (an index flag that blocks checkout, a repository cloned
-	# inside): rebuild the view, and say so.
+	# Reader state the reset cannot clear (a stale index.lock, say): rebuild the view, and say so.
 	if ! RESET_ERR=$(reset 2>&1); then
 		echo "read-main: the reset left the view unclean (${RESET_ERR//$'\n'/ }); rebuilding it" >&2
-		git -C "$CALLER" worktree remove --force --force "$VIEW"
+		git -C "$CALLER" worktree remove --force --force "$VIEW" ||
+			die "could not remove $VIEW; delete the directory by hand, run 'git worktree prune', and re-run"
 		create
 	fi
 else
+	# A registration whose directory is gone: do not adopt a branch worktree that lost its directory.
+	BRANCH=$(registered_branch "$VIEW")
+	[ -z "$BRANCH" ] || die "$VIEW is registered on a branch ($BRANCH) but its directory is missing; run 'git worktree prune' if it is abandoned"
 	create
 fi
+# Both paths end here: a view that differs from the tip never leaves with exit 0.
 [ "$(git -C "$VIEW" rev-parse HEAD)" = "$SHA" ] || die "$VIEW is not at $SHA after the reset"
+matches_tip || die "$VIEW does not match the files of $SHA after the reset; delete it and re-run"
 
 echo "main-view   $VIEW"
 git -C "$VIEW" log -1 --format='origin/main  %H %s (%cs)' "$SHA"
