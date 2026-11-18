@@ -157,5 +157,33 @@ mkdir "$WORK/home"
 OUT=$(cd "$WORK/primary" && env -u READ_MAIN_DIR HOME="$WORK/home" bash "$SCRIPT" 2>"$WORK/err"); CODE=$?
 check "default path is under HOME/.t3/worktrees/card-game" '[ "$CODE" -eq 0 ] && grep -Fq "main-view   $WORK/home/.t3/worktrees/card-game/main-view" <<<"$OUT"'
 
+# 17. A reader's git state cannot hide files from the view or wedge it.
+files() { (cd "$1" && find . -path ./.git -prune -o -type f -print | sort); }
+tree_files() { git -C "$1" ls-tree -r --name-only HEAD | sed 's|^|./|' | sort; }
+git -C "$WORK/seed" pull -q origin main 2>/dev/null; echo more >"$WORK/seed/extra.txt"
+git -C "$WORK/seed" add . && git -C "$WORK/seed" commit -q -m "add extra" && git -C "$WORK/seed" push -q origin main
+run "$WORK/primary"
+git -C "$READ_MAIN_DIR" sparse-checkout set --no-cone file.txt >/dev/null 2>&1
+run "$WORK/primary"
+check "a sparse-checkout narrowing is undone" '[ "$CODE" -eq 0 ] && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ]'
+git -C "$READ_MAIN_DIR" update-index --skip-worktree extra.txt
+echo changed >"$WORK/seed/extra.txt" && git -C "$WORK/seed" commit -q -am "touch extra" && git -C "$WORK/seed" push -q origin main
+run "$WORK/primary"
+check "a skip-worktree flag does not wedge the view" '[ "$CODE" -eq 0 ] && [ "$(cat "$READ_MAIN_DIR/extra.txt")" = changed ] && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ]'
+
+# 18. A detached worktree the script did not create is refused untouched.
+git -C "$WORK/primary" worktree add -q --detach "$WORK/pin" origin/main >/dev/null 2>&1
+echo precious >"$WORK/pin/wip.txt"
+OUT=$(cd "$WORK/primary" && READ_MAIN_DIR=$WORK/pin bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
+check "a foreign detached worktree is refused with its files intact" '[ "$CODE" -ne 0 ] && grep -Fq "did not create" <<<"$ERR" && [ -f "$WORK/pin/wip.txt" ]'
+
+# 19. A view nested inside a checkout is refused; running from inside the view prints the path first.
+OUT=$(cd "$WORK/primary" && READ_MAIN_DIR=$WORK/primary/nested bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
+check "a view inside a checkout is refused" '[ "$CODE" -ne 0 ] && grep -Fq "inside a checkout" <<<"$ERR" && [ -z "$(git -C "$WORK/primary" status --porcelain)" ]'
+mkdir -p "$READ_MAIN_DIR/untracked-cwd"
+OUT=$(cd "$READ_MAIN_DIR/untracked-cwd" && bash "$SCRIPT" 2>/dev/null); CODE=$?
+check "stdout starts with the view path even from an untracked directory in the view" '[ "$CODE" -eq 0 ] && [[ $(head -1 <<<"$OUT") == "main-view   "* ]]'
+rm -rf "$READ_MAIN_DIR/untracked-cwd"
+
 echo "read-main: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
