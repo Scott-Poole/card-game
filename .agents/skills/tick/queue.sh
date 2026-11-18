@@ -225,9 +225,10 @@ cmd_next() {
 	# (neither the claim label nor a heartbeat that recent) is surfaced as CHECK: queue.sh
 	# can't see T3, so the tick reads the thread and runs `alive` or `release`. A claim is
 	# never relabelled ready-for-human on age: a live thread isn't waiting on Scott. The one
-	# exception is a stale claim that already carries a trusted `## Needs you` comment: its
-	# thread decided to hand off and `escalate` failed between the comment and the labels, so
-	# the labels are finished here rather than offering a CHECK nothing can resolve.
+	# exception is any claim that already carries a trusted `## Needs you` comment, stale or
+	# not: its thread decided to hand off and `escalate` failed between the comment and the
+	# labels, so the labels are finished here. That keeps the handoff counted against the
+	# escalation cap at once, and never offers a CHECK nothing can resolve.
 	local now n claimed_at beat last rc wip=0 check="" check_since=0
 	now=$(date -u +%s)
 	claimed=$(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
@@ -239,9 +240,6 @@ cmd_next() {
 		wip=$((wip + 1))
 		printf '%s\n' "${run[@]}" | grep -qx "$n" && continue # claimed seconds ago
 		claimed_at=$(claim_started "$n") || return 1
-		beat=$(heartbeat_at "$n")
-		last=$((claimed_at > beat ? claimed_at : beat))
-		((now - last > stale_hours * 3600)) || continue
 		rc=0
 		handoff_since_claim "$n" || rc=$?
 		case $rc in
@@ -249,10 +247,16 @@ cmd_next() {
 			transition "$n" "$HUMAN" "$CLAIMED"
 			wip=$((wip - 1))
 			log "completed the pending escalation of #$n"
+			continue
 			;;
-		1) if [[ -z $check ]] || ((n < check)); then check=$n check_since=$claimed_at; fi ;;
+		1) ;;
 		*) log "handoff lookup for #$n failed"; return 1 ;;
 		esac
+		beat=$(heartbeat_at "$n")
+		last=$((claimed_at > beat ? claimed_at : beat))
+		if ((now - last > stale_hours * 3600)) && { [[ -z $check ]] || ((n < check)); }; then
+			check=$n check_since=$claimed_at
+		fi
 	done
 	if [[ -n $check ]]; then
 		local title count
