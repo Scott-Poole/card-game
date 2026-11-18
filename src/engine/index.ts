@@ -224,9 +224,10 @@ function score(state: MatchState): Score {
 }
 /** Who reveals first this turn (the glossary's reveal order): the player
  * leading the board (lanes, then total power); a tied board, including turn 1,
- * is broken by a flip seeded from the match RNG, drawn fresh on each tied turn. Pure: `rng` is the state after the flip, which only
- * resolution commits. Board and RNG are fixed during planning, so the answer
- * is stable from the start of the turn until it resolves. */
+ * is broken by a flip seeded from the match RNG, drawn fresh on each tied
+ * turn. Pure: `rng` is the state after the flip, which only resolution
+ * commits. Board and RNG are fixed during planning, so the answer is stable
+ * from the start of the turn until it resolves. */
 function firstToReveal(state: MatchState): {
   readonly first: PlayerId;
   readonly rng: number;
