@@ -30,11 +30,11 @@ SHA=$(git -C "$CALLER" rev-parse --verify --quiet 'origin/main^{commit}') || die
 
 registered() { git -C "$CALLER" worktree list --porcelain | grep -Fxq "worktree $1"; }
 
-# A view nested inside a checkout would show up as untracked files there.
-for checkout in "$CALLER" "$PRIMARY"; do
+# A view nested inside any checkout of this repo would show up as untracked files there.
+while read -r checkout; do
 	checkout=$(realpath -m "$checkout")
-	if [[ $VIEW == "$checkout"/* ]]; then die "$VIEW is inside a checkout; pick a path outside it"; fi
-done
+	if [[ $VIEW == "$checkout"/* ]]; then die "$VIEW is inside the checkout $checkout; pick a path outside it"; fi
+done < <(git -C "$CALLER" worktree list --porcelain | sed -n 's/^worktree //p')
 
 marker() { echo "$(git -C "$VIEW" rev-parse --absolute-git-dir)/read-main-view"; }
 create() {
@@ -43,13 +43,17 @@ create() {
 	git -C "$CALLER" worktree add --quiet --detach -f "$VIEW" "$SHA"
 	touch "$(marker)"
 }
-# The tree matches the tip only when nothing hides files from it: no skip-worktree, assume-unchanged
-# or sparse-checkout bits (git ls-files -v tags every normal entry "H").
+# The tree matches the tip only when nothing hides files from it and nothing extra survives: no
+# skip-worktree, assume-unchanged or sparse-checkout bits (git ls-files -v tags every normal entry
+# "H"), and exactly the tip's files on disk (a repository a reader cloned inside survives clean).
 reset() {
 	git -C "$VIEW" sparse-checkout disable 2>/dev/null || true
 	git -C "$VIEW" checkout --quiet --detach -f "$SHA" &&
-		git -C "$VIEW" clean --quiet -fdx >&2 &&
-		! git -C "$VIEW" ls-files -v | grep -qv '^H '
+		git -C "$VIEW" clean --quiet -ffdx >&2 &&
+		! git -C "$VIEW" ls-files -v | grep -qv '^H ' &&
+		cmp -s \
+			<(cd "$VIEW" && find . -path ./.git -prune -o \( -type f -o -type l \) -print0 | sed -z 's|^\./||' | sort -z) \
+			<(git -C "$VIEW" ls-tree -r -z --name-only "$SHA" | sort -z)
 }
 
 if [ -d "$VIEW" ]; then
@@ -58,12 +62,14 @@ if [ -d "$VIEW" ]; then
 	# never the primary checkout, never a worktree on a branch, never a worktree it did not create.
 	[ "$VIEW" != "$(realpath -m "$PRIMARY")" ] || die "$VIEW is the primary checkout; refusing to reset it"
 	! git -C "$VIEW" symbolic-ref -q HEAD >/dev/null || die "$VIEW has a branch checked out; refusing to reset it"
-	[ -e "$(marker)" ] || die "$VIEW is a worktree this script did not create; refusing to reset it"
-	# A reader's git state the reset cannot clear (an index flag that blocks checkout): rebuild.
-	reset 2>/dev/null || {
-		git -C "$CALLER" worktree remove --force "$VIEW"
+	[ -e "$(marker)" ] || die "$VIEW is a worktree this script did not create; refusing to reset it (a leftover from an older read-main? remove it and re-run)"
+	# Reader state the reset cannot clear (an index flag that blocks checkout, a repository cloned
+	# inside): rebuild the view, and say so.
+	if ! RESET_ERR=$(reset 2>&1); then
+		echo "read-main: the reset left the view unclean (${RESET_ERR//$'\n'/ }); rebuilding it" >&2
+		git -C "$CALLER" worktree remove --force --force "$VIEW"
 		create
-	}
+	fi
 else
 	create
 fi

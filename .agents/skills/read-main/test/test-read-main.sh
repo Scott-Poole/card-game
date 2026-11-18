@@ -164,12 +164,18 @@ git -C "$WORK/seed" pull -q origin main 2>/dev/null; echo more >"$WORK/seed/extr
 git -C "$WORK/seed" add . && git -C "$WORK/seed" commit -q -m "add extra" && git -C "$WORK/seed" push -q origin main
 run "$WORK/primary"
 git -C "$READ_MAIN_DIR" sparse-checkout set --no-cone file.txt >/dev/null 2>&1
+check "the sparse-checkout really narrowed the view first" '[ ! -e "$READ_MAIN_DIR/extra.txt" ]'
 run "$WORK/primary"
 check "a sparse-checkout narrowing is undone" '[ "$CODE" -eq 0 ] && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ]'
 git -C "$READ_MAIN_DIR" update-index --skip-worktree extra.txt
 echo changed >"$WORK/seed/extra.txt" && git -C "$WORK/seed" commit -q -am "touch extra" && git -C "$WORK/seed" push -q origin main
 run "$WORK/primary"
 check "a skip-worktree flag does not wedge the view" '[ "$CODE" -eq 0 ] && [ "$(cat "$READ_MAIN_DIR/extra.txt")" = changed ] && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ]'
+
+# 17b. A stale index.lock (a killed git) blocks the reset; the view is rebuilt, with a note.
+touch "$(git -C "$READ_MAIN_DIR" rev-parse --absolute-git-dir)/index.lock"
+run "$WORK/primary"
+check "a stale index.lock triggers a rebuild that succeeds" '[ "$CODE" -eq 0 ] && grep -Fq "rebuilding it" <<<"$ERR" && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ] && [ -e "$(git -C "$READ_MAIN_DIR" rev-parse --absolute-git-dir)/read-main-view" ]'
 
 # 18. A detached worktree the script did not create is refused untouched.
 git -C "$WORK/primary" worktree add -q --detach "$WORK/pin" origin/main >/dev/null 2>&1
@@ -179,11 +185,20 @@ check "a foreign detached worktree is refused with its files intact" '[ "$CODE" 
 
 # 19. A view nested inside a checkout is refused; running from inside the view prints the path first.
 OUT=$(cd "$WORK/primary" && READ_MAIN_DIR=$WORK/primary/nested bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
-check "a view inside a checkout is refused" '[ "$CODE" -ne 0 ] && grep -Fq "inside a checkout" <<<"$ERR" && [ -z "$(git -C "$WORK/primary" status --porcelain)" ]'
+check "a view inside a checkout is refused" '[ "$CODE" -ne 0 ] && grep -Fq "inside the checkout" <<<"$ERR" && [ -z "$(git -C "$WORK/primary" status --porcelain)" ]'
 mkdir -p "$READ_MAIN_DIR/untracked-cwd"
 OUT=$(cd "$READ_MAIN_DIR/untracked-cwd" && bash "$SCRIPT" 2>/dev/null); CODE=$?
 check "stdout starts with the view path even from an untracked directory in the view" '[ "$CODE" -eq 0 ] && [[ $(head -1 <<<"$OUT") == "main-view   "* ]]'
 rm -rf "$READ_MAIN_DIR/untracked-cwd"
+
+# 20. A repository a reader cloned inside the view is removed.
+git clone -q "$WORK/origin.git" "$READ_MAIN_DIR/vendor-checkout"
+run "$WORK/primary"
+check "a nested repository is gone after the run" '[ "$CODE" -eq 0 ] && [ ! -e "$READ_MAIN_DIR/vendor-checkout" ] && [ "$(files "$READ_MAIN_DIR")" = "$(tree_files "$READ_MAIN_DIR")" ]'
+
+# 21. A view nested inside a third worktree of the repo is refused too.
+OUT=$(cd "$WORK/primary" && READ_MAIN_DIR=$WORK/away/view bash "$SCRIPT" 2>"$WORK/err"); CODE=$?; ERR=$(cat "$WORK/err")
+check "a view inside another worktree is refused" '[ "$CODE" -ne 0 ] && grep -Fq "inside the checkout" <<<"$ERR" && [ -z "$(git -C "$WORK/away" status --porcelain)" ]'
 
 echo "read-main: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
