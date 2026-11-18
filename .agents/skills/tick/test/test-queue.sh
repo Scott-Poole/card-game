@@ -410,38 +410,43 @@ FAKE_GH_NOW=2100-01-01T00:00:00Z FAKE_GH_RACE_HANDOFF=1 FAKE_GH_FAIL="POST issue
 check "the raced release rolls back" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
 FAKE_GH_NOW=2100-01-02T00:00:00Z run release 1 "thread gone"
 check "a retry after the rollback still sees the handoff" is "$CODE:$(labels 1)" "1:in-progress,ready-for-human"
-# escalate posts its comment, then swaps labels. If the swap fails, the stale claim already
-# carries a handoff: next finishes the escalation instead of offering a CHECK nothing resolves.
+# escalate: holding label, comment, then the claim comes off. Until the comment lands a failure
+# undoes everything (so the caller can retry); after it, next finishes a failed claim removal.
+HANDOFF=$'## Needs you\n\nDecision: ...'
+setup "[$(issue 6 ready-for-agent)]"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_FAIL="POST issues/6/labels" FAKE_GH_FAIL_ONCE=1 run escalate 6 "$HANDOFF"
+check "a failed holding label leaves no comment on a queued ticket" is "$CODE:$(labels 6):$(comments 6)" "1:ready-for-agent:0"
+setup "[$(issue 6 ready-for-agent)]"
+rm -f "$WORK/state.json.failseen"
+FAKE_GH_FAIL="POST issues/6/comments" FAKE_GH_FAIL_ONCE=1 run escalate 6 "$HANDOFF"
+check "a failed handoff comment removes the holding label again" is "$CODE:$(labels 6):$(comments 6)" "1:ready-for-agent:0"
 setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
 rm -f "$WORK/state.json.failseen"
-FAKE_GH_FAIL="POST issues/1/labels" FAKE_GH_FAIL_ONCE=1 run escalate 1 $'## Needs you\n\nDecision: ...'
-check "a failed label swap leaves the claim and the handoff comment" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress:1"
+FAKE_GH_FAIL="DELETE issues/1/labels" FAKE_GH_FAIL_ONCE=1 run escalate 1 "$HANDOFF"
+check "a failed claim removal leaves claim, flag and comment" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress,ready-for-human:1"
 run next
-check "next finishes a pending escalation instead of checking it" is "$(labels 1):$OUT" "ready-for-human:PLAN feature"
+check "next finishes the half-done escalation" is "$(labels 1):$OUT" "ready-for-human:PLAN feature"
 run next
 check "the finished escalation does not recur" is "$OUT" "PLAN feature"
-# A FRESH claim with a pending handoff counts against the cap at once, not after staleHours.
-setup "[$(issue 1 ready-for-human), $(issue 2 in-progress), $(issue 3 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$TODAY")]}"
-add_comments "$(comment_at 2 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 2 2099-01-01T00:00:00Z $'## Needs you\n\nDecision: ...')"
+# Scott answered a half-done escalation and swapped the label: the dead claim just comes off.
+setup "[$(issue 1 in-progress,ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")]}"
+add_comments "$(comment_at 1 2099-01-01T00:00:00Z "$HANDOFF")"
 run next
-check "a fresh pending escalation is finished and counted" is "$(labels 2):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
-# A ready-for-human ticket is never claimed, and an escalation landing during the claim undoes it.
-setup "[$(issue 6 ready-for-agent,ready-for-human)]"
-run claim 6
-check "claim refuses a ticket that carries ready-for-human" is "$CODE:$(labels 6):$(comments 6)" "1:ready-for-agent,ready-for-human:0"
-setup "[$(issue 6 ready-for-agent)]"
-FAKE_GH_RACE_HUMAN=1 run claim 6
-check "a claim that raced an escalation is undone without an anchor" is "$CODE:$(labels 6):$(comments 6)" "1:ready-for-agent,ready-for-human:0"
-# This run's own claim is reconciled too: a half-done escalation counts at once.
-setup "[$(issue 1 ready-for-human), $(issue 2 in-progress), $(issue 3 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$TODAY")]}"
-add_comments "$(comment_at 2 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 2 2099-01-01T00:00:00Z $'## Needs you\n\nDecision: ...')"
-run next 2
-check "a run-claimed ticket with a pending handoff is finished and counted" is "$(labels 2):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
-# A ticket this run already handed to Scott holds no WIP slot on the next iteration.
-setup "[$(issue 6 ready-for-human), $(issue 7 in-progress), $(issue 8 in-progress), $(issue 9 in-progress), $(issue 10 ready-for-agent)]" \
-	"{\"6\": [$(claimed_event "$OLD")], \"7\": [$(claimed_event "$TODAY")], \"8\": [$(claimed_event "$TODAY")], \"9\": [$(claimed_event "$TODAY")]}"
-run next 6 7 8 9
-check "a run ticket handed to Scott is not counted as in progress" is "$OUT" "LAUNCH 10 Ticket 10"
+check "a handed-back half-done escalation resumes instead of reverting" is "$(labels 1):$OUT" "ready-for-agent:LAUNCH 1 Ticket 1"
+# A lagging run claim whose escalation half-finished is reconciled and counted at once.
+setup "[$(issue 1 ready-for-human), $(issue 6 in-progress,ready-for-human), $(issue 10 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"6\": [$(claimed_event "$TODAY")]}"
+add_comments "$(comment_at 6 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 6 2099-01-01T00:00:00Z "$HANDOFF")"
+FAKE_GH_LAG_LISTING="6" run next 6
+check "a lagging claim with a pending handoff is reconciled and counted" is "$(labels 6):$OUT" "ready-for-human:NOOP 2 ticket(s) waiting on Scott (cap 2)"
+# Claim history on a second page of events still counts.
+setup "[$(issue 1 ready-for-human), $(issue 2 ready-for-human), $(issue 6 ready-for-agent)]"
+jq --argjson e "[$(claimed_event "$OLD")]" '.event_pages = {"1": [[{"event":"closed"}], $e], "2": [[{"event":"closed"}], $e]}' "$WORK/state.json" >"$WORK/new.json" && mv "$WORK/new.json" "$WORK/state.json"
+run next
+check "claims on a later events page count toward the escalation cap" is "$OUT" "NOOP 2 ticket(s) waiting on Scott (cap 2)"
+jq --argjson e "[$(claimed_event "$OLD")]" '.event_pages = {"1": [[{"event":"closed"}], $e]}' "$WORK/state.json" >"$WORK/new.json" && mv "$WORK/new.json" "$WORK/state.json"
+run resume-info 1
+check "resume-info counts claims on a later events page" is "$OUT" "THREAD none CLAIMS 1"
 # alive must not erase a handoff either (a legacy flag and a real escalation look alike).
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"

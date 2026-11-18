@@ -92,9 +92,10 @@ def route(state, method, path, fields):
 
     if method == "GET" and url.path == "issues":
         want, st = q.get("labels"), q.get("state", "open")
+        lag = os.environ.get("FAKE_GH_LAG_LISTING", "").split()  # issue numbers the listing hasn't caught up on
         found = [
             iss for _, iss in sorted(issues.items(), key=lambda kv: int(kv[0]))
-            if (st == "all" or iss["state"] == st)
+            if (st == "all" or iss["state"] == st) and not (want is not None and str(iss["number"]) in lag)
             and (want is None or want in [l["name"] for l in iss["labels"]])
         ]
         if q.get("direction") == "desc":
@@ -131,6 +132,9 @@ def route(state, method, path, fields):
     if method == "GET" and rest == "/sub_issues":
         return [[i for i in issues.values() if i.get("parent_issue_url") == f"https://api.github.com/{API}issues/{n}"]]
     if method == "GET" and rest == "/events":
+        # state["event_pages"][n]: a list of pages, for histories longer than one page.
+        if n in state.get("event_pages", {}):
+            return state["event_pages"][n]
         return [state.get("events", {}).get(n, [])]
     if method == "POST" and rest == "/labels":
         label = fields["labels[]"]

@@ -62,7 +62,7 @@ rollback() {
 	[[ -n $ROLLBACK_N ]] || return 0
 	local l n=$ROLLBACK_N
 	disarm
-	for l in "${ROLLBACK_ADD[@]}"; do transition "$n" "$l" "" || true; done
+	for l in "${ROLLBACK_ADD[@]}"; do [[ -z $l ]] || transition "$n" "$l" "" || true; done
 	for l in "${ROLLBACK_DEL[@]}"; do [[ -z $l ]] || transition "$n" "" "$l" || true; done
 	log "labels of #$n restored after a failure"
 }
@@ -75,8 +75,10 @@ config() {
 comment() { gh api --method POST "$API/issues/$1/comments" -f "body=$2" --silent; }
 labels_of() { gh api "$API/issues/$1" --jq '[.labels[].name] | join(" ")'; }
 ever_claimed() {
-	gh api "$API/issues/$1/events?per_page=100" --jq \
-		"[.[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\")] | length > 0"
+	local hits
+	hits=$(gh api --paginate "$API/issues/$1/events?per_page=100" --jq \
+		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | 1")
+	[[ -n $hits ]] && echo true || echo false
 }
 
 # Trusted comments only: the repo is public, so a stranger's comment can't hold a claim open.
@@ -229,28 +231,43 @@ cmd_next() {
 	# not: its thread decided to hand off and `escalate` failed between the comment and the
 	# labels, so the labels are finished here. That keeps the handoff counted against the
 	# escalation cap at once, and never offers a CHECK nothing can resolve.
-	local now n claimed_at beat last rc wip=0 check="" check_since=0
+	local now n claimed_at beat last rc wip=0 check="" check_since=0 listed labels reconciled="" candidates
 	now=$(date -u +%s)
 	claimed=$(gh api "$API/issues?state=open&labels=$CLAIMED&per_page=100" \
 		--jq '.[] | select(.pull_request == null) | .number')
-	local rlabels
-	for n in "${run[@]}"; do # claims this run made that the listing doesn't show yet
-		grep -qx "$n" <<<"$claimed" && continue
-		# ...unless the ticket has since been handed to Scott (an escalation this run finished):
-		# a lagging claim never carries ready-for-human, and a handed-off one holds no slot.
-		rlabels=" $(labels_of "$n") "
-		[[ $rlabels == *" $HUMAN "* ]] || wip=$((wip + 1))
-	done
-	for n in $claimed; do
-		wip=$((wip + 1))
+	# Candidates: every listed claim, plus this run's own claims (the listing may lag them).
+	candidates=$(printf '%s\n' $claimed "${run[@]}" | grep -v '^$' | sort -un || true)
+	for n in $candidates; do
+		listed=0
+		grep -qx "$n" <<<"$claimed" && listed=1
+		if ((listed)); then
+			wip=$((wip + 1))
+		else
+			labels=" $(labels_of "$n") "
+			# Handed to Scott meanwhile (an escalation this run finished): no slot, nothing to check.
+			[[ $labels == *" $HUMAN "* && $labels != *" $CLAIMED "* ]] && continue
+			wip=$((wip + 1))
+			# A claim the listing lags and a direct read doesn't show either holds a slot only.
+			[[ $labels == *" $CLAIMED "* ]] || continue
+		fi
 		claimed_at=$(claim_started "$n") || return 1
 		rc=0
 		handoff_since_claim "$n" || rc=$?
 		case $rc in
 		0)
-			transition "$n" "$HUMAN" "$CLAIMED"
+			# Its thread escalated. Normally finish the swap `escalate` started; if Scott has
+			# already answered and swapped ready-for-human for ready-for-agent, the thread is
+			# dead and the dead claim just comes off, so the hand-back resumes the ticket.
+			labels=" $(labels_of "$n") "
+			if [[ $labels == *" $HUMAN "* || $labels != *" $QUEUE "* ]]; then
+				transition "$n" "$HUMAN" "$CLAIMED"
+				reconciled="$reconciled $n"
+				log "completed the pending escalation of #$n"
+			else
+				transition "$n" "" "$CLAIMED"
+				log "dropped #$n's claim: its escalation was handed back"
+			fi
 			wip=$((wip - 1))
-			log "completed the pending escalation of #$n"
 			continue
 			;;
 		1) ;;
@@ -282,6 +299,9 @@ cmd_next() {
 		if [[ $was_claimed == true ]]; then
 			escalated=$((escalated + 1))
 		fi
+	done
+	for n in $reconciled; do # finished above; the listing may not show them yet
+		grep -qx "$n" <<<"$human" || escalated=$((escalated + 1))
 	done
 	if ((escalated >= max_escalated)); then
 		echo "NOOP $escalated ticket(s) waiting on Scott (cap $max_escalated)"
@@ -575,8 +595,10 @@ cmd_resume_info() {
 	local n=$1 link claims
 	link=$(gh api --paginate "$API/issues/$n/comments?per_page=100" --jq \
 		".[] | $TRUSTED | .body | capture(\"work-ticket thread: (?<l>t3-thread://[^ \\n]+)\") | .l" | tail -1)
-	claims=$(gh api "$API/issues/$n/events?per_page=100" --jq \
-		"[.[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\")] | length")
+	local hits
+	hits=$(gh api --paginate "$API/issues/$n/events?per_page=100" --jq \
+		".[] | select(.event == \"labeled\" and .label.name == \"$CLAIMED\") | 1")
+	claims=$(printf '%s\n' "$hits" | grep -c 1 || true)
 	echo "THREAD ${link:-none} CLAIMS $claims"
 }
 
@@ -585,11 +607,20 @@ cmd_escalate() {
 		log "refusing to escalate #$1: the comment must start with '## Needs you' (decision, options, recommendation, how to hand back)"
 		exit 1
 	fi
-	# The handoff comment lands before the claim is given up, so a failed write never leaves
-	# a ticket with no claim and nothing for Scott to read; a retry just posts it again.
-	comment "$1" "$2"
-	transition "$1" "$HUMAN" "$CLAIMED"
-	log "escalated #$1"
+	local n=$1 labels add_back="" drop=""
+	labels=" $(labels_of "$n") "
+	[[ $labels != *" $CLAIMED "* ]] || add_back=$CLAIMED
+	[[ $labels == *" $HUMAN "* ]] || drop=$HUMAN
+	# Order: the holding label (no tick launches a ready-for-human ticket), then the comment,
+	# then the claim comes off. Until the comment lands a failure undoes the label, so the
+	# caller can simply retry; once it has landed the handoff is real, and a failed claim
+	# removal leaves in-progress + ready-for-human + comment, which `next` finishes.
+	arm "$n" "$add_back" "$drop"
+	transition "$n" "$HUMAN" ""
+	comment "$n" "$2"
+	disarm
+	transition "$n" "" "$CLAIMED"
+	log "escalated #$n"
 }
 
 case ${1:-} in
