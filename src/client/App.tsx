@@ -24,7 +24,7 @@ function SessionRoute() {
 
 function Shell() {
   const { pathname } = useLocation();
-  if (pathname === "/match")
+  if (pathname === "/match" || pathname === "/result")
     return (
       <main>
         <ProtocolGame />
@@ -109,7 +109,7 @@ export default function App() {
             <Route index element={<Home />} />
             <Route path="waiting" element={<h1>Waiting</h1>} />
             <Route path="match" element={null} />
-            <Route path="result" element={<h1>Result</h1>} />
+            <Route path="result" element={null} />
           </Route>
           <Route
             path="*"

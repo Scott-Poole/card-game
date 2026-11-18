@@ -60,11 +60,13 @@ export function CardMotion({
   className,
   id,
   appear = false,
+  flip = false,
 }: {
   children: ReactNode;
   className?: string;
   id: string;
   appear?: boolean;
+  flip?: boolean;
 }) {
   const transition = useGameMotion();
   const dragging = useContext(DraggingCard) === id;
@@ -73,8 +75,14 @@ export function CardMotion({
       transition={transition}
       layout
       {...(dragging ? {} : { layoutId: id })}
-      initial={appear && !dragging ? { opacity: 0 } : false}
-      animate={{ opacity: 1 }}
+      initial={
+        flip
+          ? { rotateY: 90, opacity: 0 }
+          : appear && !dragging
+            ? { opacity: 0 }
+            : false
+      }
+      animate={{ opacity: 1, rotateY: 0 }}
       className={className}
       style={{ height: "100%" }}
     >

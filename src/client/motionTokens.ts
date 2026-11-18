@@ -3,5 +3,6 @@ export const motionTokens = {
   instant: 0,
   quick: 120,
   reveal: 240,
+  revealStep: 360,
   standard: [0, 0, 0.58, 1] satisfies [number, number, number, number],
 };
