@@ -27,7 +27,7 @@ Fix the diff range. When the caller passes explicit base and head SHAs and a che
 
 ## 2. Spawn reviewers
 
-Use the `delegate` skill's **review** tier: the family that did *not* write the code. Launch all reviewers in parallel with `delegate_task`, `role: "review"`, `isolation: "shared"`.
+Use the `delegate` skill's **review** tier: the family that did *not* write the code (its table also names the fallback when Codex is out of usage). Launch all reviewers in parallel with `delegate_task`, `role: "review"`, `isolation: "shared"`.
 
 Each brief contains: the intent, the checkout path, the exact `git diff <base>...<head>` command to run, the full text of its one lens from LENSES.md, and this instruction:
 
