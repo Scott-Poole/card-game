@@ -41,7 +41,7 @@ Work your category's lens, and go **relentless** within it: read the code, run `
 | `bug-hunt` | Malformed and hostile input at every decoder and socket, server lifecycle edges, client states the tests skip. | A **reproduced** bug: exact repro steps, with a failing test as the first criterion. |
 | `code-health` | The [`improve-codebase-architecture`](../improve-codebase-architecture/SKILL.md) lens: shallow modules, leaky seams, duplication, dead code, loose types. | One refactor with the behaviour it must preserve and the test that proves it. |
 | `verification` | Untested seams, weak assertions, missing e2e coverage, slow or flaky checks, gaps in the CI gate. | The missing test or check, named by the seam it guards. |
-| `process` | Recent work-ticket and planner runs: merged PRs and their review comments, escalations, `docs/agents/delegation-log.md`. Look for where agents stumbled, retried, or argued. | A fix to a skill, script, or check, with the stumble it prevents quoted as evidence. |
+| `process` | Recent work-ticket and planner runs: merged PRs and their review comments, escalations, PR verdict `## Runs` tables (use `delegate`'s `/retro` query). Look for where agents stumbled, retried, or argued. | A fix to a skill, script, or check, with the stumble it prevents quoted as evidence. |
 | `docs` | `GLOSSARY.md`, `docs/adr/`, `AGENTS.md`, and the skills, checked against the code as it stands. | One drift corrected or one undocumented decision recorded. |
 
 `AGENTS.md` sets the originality line for every category: genre mechanics are fair game, and all content is invented fresh.
