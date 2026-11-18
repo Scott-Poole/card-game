@@ -382,6 +382,17 @@ for spec in "GET issues/1" "POST issues/1/labels" "DELETE issues/1/labels" "POST
 		check "alive is all-or-nothing when [$spec] #$skip fails" is "$(labels 1)" "$([[ $CODE == 0 ]] && echo in-progress || echo in-progress,ready-for-human)"
 	done
 done
+# A claim is all-or-nothing too: without its comment it has no start, so a failed write
+# puts the ticket back in the queue.
+for spec in "GET issues/6" "POST issues/6/labels" "DELETE issues/6/labels" "POST issues/6/comments"; do
+	for skip in 0 1 2 3 4; do
+		setup "[$(issue 6 ready-for-agent)]"
+		rm -f "$WORK/state.json.failseen"
+		FAKE_GH_FAIL="$spec" FAKE_GH_FAIL_SKIP=$skip FAKE_GH_FAIL_ONCE=1 run claim 6
+		check "claim is all-or-nothing when [$spec] #$skip fails" is "$(labels 6)" "$([[ $CODE == 0 ]] && echo in-progress || echo ready-for-agent)"
+		check "a claim that exits 0 has its comment [$spec] #$skip" is "$([[ $CODE == 0 ]] && comments 6 || echo 1)" "1"
+	done
+done
 # The raced handoff plus a failing write: the handoff must not end up launchable.
 setup "[$(issue 1 in-progress,ready-for-human)]" "{\"1\": [$(claimed_event "$OLD")]}"
 FAKE_GH_RACE_HANDOFF=1 run release 1 "thread gone"

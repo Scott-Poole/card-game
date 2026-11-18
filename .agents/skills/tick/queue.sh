@@ -397,8 +397,12 @@ cmd_claim() {
 		log "refusing to claim #$n: labels are [$labels]"
 		exit 1
 	fi
+	# The claim comment anchors the claim's start (see claim_started), so a claim without it
+	# is no claim: a failed write puts the ticket back in the queue.
+	arm "$n" "$QUEUE" "$CLAIMED"
 	transition "$n" "$CLAIMED" "$QUEUE"
 	comment "$n" "tick: claimed $(date -u +%Y-%m-%dT%H:%MZ); launching a work-ticket thread."
+	disarm
 	log "claimed #$n"
 }
 
