@@ -4,6 +4,8 @@ import {
   TURN_LIMIT,
   DECK_SIZE,
   isLocationEffectKind,
+  MAX_LOCATION_NAME,
+  MAX_LOCATION_TEXT,
   type LocationDefinition,
 } from "../rules/index.ts";
 // Each player can reveal their full deck, then turn-ended and match-ended.
@@ -261,14 +263,22 @@ function isLocation(v: unknown): v is MatchLocation {
     exact(v, ["id", "name", "text", "effect"]) &&
     typeof v.id === "string" &&
     typeof v.name === "string" &&
+    v.name.trim() !== "" &&
+    v.name.length <= MAX_LOCATION_NAME &&
     typeof v.text === "string" &&
+    v.text.trim() !== "" &&
+    v.text.length <= MAX_LOCATION_TEXT &&
     isRecord(v.effect) &&
     exact(v.effect, ["kind"]) &&
     isLocationEffectKind(v.effect.kind)
   );
 }
 function isLocations(v: unknown): v is MatchLocation[] {
-  return isList(v, isLocation, LANE_COUNT) && v.length === LANE_COUNT;
+  return (
+    isList(v, isLocation, LANE_COUNT) &&
+    v.length === LANE_COUNT &&
+    new Set(v.map((location) => location.id)).size === LANE_COUNT
+  );
 }
 function isOwn(v: unknown): v is OwnPlayer {
   return (

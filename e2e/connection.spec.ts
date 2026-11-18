@@ -279,10 +279,11 @@ test("both players see the same three locations, one per lane in lane order", as
         name: `Lane ${String(number)}`,
         exact: true,
       });
-      await expect(lane).toContainText("No effect for now");
+      await expect(lane).toContainText(pool[0]?.text ?? "");
       const text = (await lane.textContent()) ?? "";
       const matches = pool.filter(({ name }) => text.includes(name));
       expect(matches).toHaveLength(1);
+      await expect(lane).toContainText(matches[0]?.text ?? "");
       names.push(matches[0]?.name);
     }
     expect(new Set(names).size).toBe(3);
@@ -1729,7 +1730,9 @@ test("lane standings describe current leads and location inspection", async ({
     }
   }
   await lane.getByRole("button", { name: "Lane 1", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("No effect for now.");
+  await expect(page.getByRole("dialog")).toContainText(
+    full.locations[0]?.text ?? "",
+  );
 });
 
 test("unaffordable hand card stays inspectable and cannot be staged", async ({

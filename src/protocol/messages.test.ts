@@ -238,6 +238,25 @@ it.each([
     ],
   },
   { ...view, locations: [{ ...locations[0], text: 7 }, ...locations.slice(1)] },
+  { ...view, locations: [locations[0], locations[0], locations[2]] },
+  {
+    ...view,
+    locations: [{ ...locations[0], name: "  " }, ...locations.slice(1)],
+  },
+  {
+    ...view,
+    locations: [
+      { ...locations[0], text: "x".repeat(161) },
+      ...locations.slice(1),
+    ],
+  },
+  {
+    ...view,
+    locations: [
+      { ...locations[0], name: "x".repeat(41) },
+      ...locations.slice(1),
+    ],
+  },
   parse(JSON.stringify(view).replace(/}$/, ',"__proto__":{}}')),
 ])("rejects malformed or hidden view %j", (invalidView) => {
   expect(decodeServerMessage({ type: "state", view: invalidView })).toEqual({

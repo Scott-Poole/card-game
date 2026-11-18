@@ -1,8 +1,10 @@
-import { isLocationEffectKind } from "../rules/index.ts";
+import {
+  isLocationEffectKind,
+  MAX_LOCATION_NAME,
+  MAX_LOCATION_TEXT,
+} from "../rules/index.ts";
 
 export const MIN_LOCATION_POOL = 6;
-export const MAX_LOCATION_NAME = 40;
-export const MAX_LOCATION_TEXT = 160;
 
 export type LocationIssue =
   | { readonly code: "pool-size" }

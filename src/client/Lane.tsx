@@ -141,6 +141,7 @@ export default function Lane({
               fontSize: "small",
               fontWeight: "strong",
               lineHeight: "heading",
+              lineClamp: 1,
               m: "none",
             })}
           >
@@ -151,6 +152,7 @@ export default function Lane({
           className={css({
             fontSize: "small",
             lineHeight: "heading",
+            lineClamp: 2,
             m: "none",
             color: "muted",
           })}

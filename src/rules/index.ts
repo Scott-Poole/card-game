@@ -3,8 +3,12 @@ export const LANE_CAPACITY = 4;
 export const TURN_LIMIT = 6;
 export const DECK_SIZE = 12;
 
-/** What a location does. Closed union: a new kind fails the typecheck at
- * LOCATION_EFFECT_KINDS (and at every exhaustive switch) until it is handled. */
+export const MAX_LOCATION_NAME = 40;
+export const MAX_LOCATION_TEXT = 160;
+
+/** What a location does. Closed union: adding a kind fails the typecheck at
+ * LOCATION_EFFECT_KINDS until it is registered there. Nothing resolves effects
+ * yet; the ticket that adds the first real kind adds the exhaustive switch. */
 export interface NoLocationEffect {
   readonly kind: "none";
 }

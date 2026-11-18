@@ -59,10 +59,10 @@ function random(rng: number): number {
 /** Returns a shallow shuffled copy. randomIndex must return an integer in [0, bound).
  * Replay contract: sample once per descending bound length, length - 1, ... 2;
  * empty and singleton decks consume no samples. */
-export function shuffle<T>(
-  cards: readonly T[],
+export function shuffle(
+  cards: readonly CardDefinition[],
   randomIndex: (bound: number) => number,
-): T[] {
+): CardDefinition[] {
   const shuffled = [...cards];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = randomIndex(i + 1);
@@ -79,8 +79,9 @@ export function shuffle<T>(
 /** Card IDs must be unique within each supplied deck; the location pool needs
  * at least one location per lane, with unique ids.
  * Seeds normalize to uint32. RNG consumption: player 0 shuffle, player 1
- * shuffle, one shuffle of the location pool (its first three are the lanes'
- * locations), then one sample for each tied initiative. Replay uses this ruleset. */
+ * shuffle, three samples that partially shuffle the location pool (so adding
+ * a pool entry never moves later samples), then one sample for each tied
+ * initiative. Replay uses this ruleset. */
 export function createMatch(
   seed: number,
   decks: readonly [readonly CardDefinition[], readonly CardDefinition[]],
@@ -88,6 +89,8 @@ export function createMatch(
 ): MatchState {
   if (pool.length < LANE_COUNT)
     throw new Error("location pool needs a location for every lane");
+  if (new Set(pool.map((location) => location.id)).size !== pool.length)
+    throw new Error("location pool ids must be unique");
   let rng = seed >>> 0;
   function sample(bound: number): number {
     rng = random(rng);
@@ -110,9 +113,18 @@ export function createMatch(
     player(decks[0]),
     player(decks[1]),
   ];
-  const locations = shuffle(pool, sample)
-    .slice(0, LANE_COUNT)
-    .map((location) => ({ ...location, effect: { ...location.effect } }));
+  const drawn = [...pool];
+  for (let lane = 0; lane < LANE_COUNT; lane++) {
+    const pick = lane + sample(drawn.length - lane);
+    const a = drawn[lane];
+    const b = drawn[pick];
+    // Both indices are inside the copy: lane < LANE_COUNT <= pool length.
+    if (a !== undefined && b !== undefined) {
+      drawn[lane] = b;
+      drawn[pick] = a;
+    }
+  }
+  const locations = drawn.slice(0, LANE_COUNT).map((l) => ({ ...l }));
   return {
     turn: 1,
     energy: 1,

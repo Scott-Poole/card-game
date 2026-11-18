@@ -1,3 +1,4 @@
+import type { LocationDefinition } from "../rules/index.ts";
 import { testLocations } from "./locations.test-support.ts";
 import { expect, test } from "vitest";
 import {
@@ -337,7 +338,7 @@ test.each([
 // Golden vector: the RNG state follows both deck shuffles and the location draw.
 test("preserves the seeded replay deck order and RNG state", () => {
   const state = createMatch(42, [deck(), deck()], testLocations);
-  expect(state.rng).toBe(666982259);
+  expect(state.rng).toBe(4050676697);
   expect(
     state.players.map((player) => ({
       hand: player.hand.map((card) => card.id),
@@ -453,6 +454,31 @@ test("different seeds draw different location selections", () => {
         .join(","),
     );
   expect(selections.size).toBeGreaterThan(1);
+});
+
+test("draws the pinned locations for a seed, in lane order", () => {
+  expect(
+    createMatch(42, [deck(), deck()], testLocations).locations.map((l) => l.id),
+  ).toEqual(["place-3", "place-2", "place-5"]);
+});
+
+test("pool size never moves the rng stream that follows the draw", () => {
+  const extra: LocationDefinition = {
+    id: "extra",
+    name: "Extra",
+    text: "No effect for now.",
+    effect: { kind: "none" },
+  };
+  const small = createMatch(42, [deck(), deck()], testLocations);
+  const large = createMatch(42, [deck(), deck()], [...testLocations, extra]);
+  expect(large.rng).toBe(small.rng);
+});
+
+test("rejects a location pool with duplicate ids", () => {
+  const duplicated = testLocations.map((location, index) =>
+    index === 1 ? { ...location, id: testLocations[0]?.id ?? "" } : location,
+  );
+  expect(() => createMatch(42, [deck(), deck()], duplicated)).toThrow("unique");
 });
 
 test("rejects a location pool too small to fill the lanes", () => {
