@@ -35,7 +35,17 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Empty: Story = {};
 export const Partial: Story = { args: laneArgs(staging, 1) };
-export const Full: Story = { args: laneArgs(full, 0) };
+export const Full: Story = {
+  args: laneArgs(full, 0),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Eight revealed cards: four per side around the central location.",
+      },
+    },
+  },
+};
 export const Tied: Story = { args: laneArgs(tied, 0) };
 export const Won: Story = { args: laneArgs(revealed, 1) };
 export const Lost: Story = { args: laneArgs(revealed, 0) };

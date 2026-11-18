@@ -21,6 +21,7 @@ export default defineConfig({
         border: { value: "#50575e" },
         accent: { value: "#b9c9df" },
         accentHover: { value: "#cbd8e9" },
+        laneLeading: { value: "#263b31" },
         positive: { value: "#a5d6b5" },
         negative: { value: "#f0aaaa" },
         own: { value: "#a9c9e8" },
@@ -55,6 +56,7 @@ export default defineConfig({
       fonts: { body: { value: "Georgia, serif" } },
       fontSizes: {
         body: { value: "1rem" },
+        laneRule: { value: "1.125rem" },
         small: { value: "0.875rem" },
         title: { value: "2rem" },
         heading: { value: "1.25rem" },
@@ -129,7 +131,7 @@ export default defineConfig({
               gap: "none",
               lineHeight: "heading",
               height: "[100%]",
-              fontSize: "small",
+              fontSize: "heading",
               '& [data-part="name"]': {
                 fontSize: "small",
                 lineClamp: 1,

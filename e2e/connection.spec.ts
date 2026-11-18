@@ -1573,3 +1573,48 @@ test("planning board shows no debug text, heading or energy line", async ({
   await commitButton(a).focus();
   await expect(commitButton(a)).toBeFocused();
 });
+
+test("lane standings describe current leads and location inspection", async ({
+  page,
+  address,
+}) => {
+  const { full, guardian, smith } =
+    await import("../src/client/stories/fixtures.ts");
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.send(JSON.stringify({ type: "welcome" }));
+    socket.send(
+      JSON.stringify({
+        type: "state",
+        view: {
+          ...full,
+          own: {
+            ...full.own,
+            lanes: [full.own.lanes[0] ?? [], [guardian], []],
+          },
+          opponent: {
+            ...full.opponent,
+            lanes: [full.opponent.lanes[0] ?? [], [], [smith]],
+          },
+        },
+      }),
+    );
+  });
+  await page.goto(address);
+  await expect(
+    page.getByText("Current standing: leading in 1 of 3 lanes", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("You lead 4 to 0", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Opponent leads 5 to 0", { exact: true }),
+  ).toBeVisible();
+  const lane = page.getByRole("region", { name: "Lane 1", exact: true });
+  await expect(
+    lane.getByText("Lane tied 14 to 14", { exact: true }),
+  ).toBeVisible();
+  await lane.getByRole("button", { name: "Lane 1", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("No location effect.");
+});

@@ -8,7 +8,7 @@ import { connectionSlice } from "../connectionSlice.ts";
 import { matchSlice } from "../matchSlice.ts";
 import { stagingSlice } from "../stagingSlice.ts";
 import { css } from "../../../styled-system/css/index.js";
-import { opening, staging, revealed, ended } from "./fixtures.ts";
+import { opening, staging, revealed, ended, full } from "./fixtures.ts";
 
 // Each mount gets a fresh store. No transport is connected; these are inspection fixtures.
 function FixtureBoard({ view }: { view: PlayerView }) {
@@ -64,3 +64,5 @@ export const OpeningHand: Story = { args: { view: opening } };
 export const MidTurnStaging: Story = { args: { view: staging } };
 export const AfterReveal: Story = { args: { view: revealed } };
 export const Ended: Story = { args: { view: ended } };
+
+export const FullLanes: Story = { args: { view: full } };

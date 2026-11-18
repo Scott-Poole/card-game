@@ -1,4 +1,3 @@
-import { motion } from "motion/react";
 import { CardMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { LANE_CAPACITY } from "../rules/index.ts";
@@ -55,49 +54,6 @@ export default function Lane({
       )}
       aria-label={`Lane ${String(number)}`}
     >
-      <header>
-        <h3 className={css({ fontSize: "small", m: "none" })}>
-          {inspect ? (
-            <button onClick={inspect}>Lane {number}</button>
-          ) : (
-            <>Lane {number}</>
-          )}
-        </h3>
-        <div
-          aria-label="Lane leadership"
-          className={css({ minH: "[token(spacing.xs)]", color: "muted" })}
-        >
-          <motion.span
-            key={lead}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={css({
-              m: "none",
-              fontSize: "small",
-              color:
-                lead === "own"
-                  ? "positive"
-                  : lead === "opponent"
-                    ? "negative"
-                    : "muted",
-            })}
-          >
-            {lead === "tied"
-              ? "Lane tied"
-              : lead === "own"
-                ? "You lead"
-                : "Opponent leads"}
-          </motion.span>
-        </div>
-        <motion.p
-          key={`${String(ownTotal)}:${String(opponentTotal)}`}
-          initial={{ opacity: 0.5 }}
-          animate={{ opacity: 1 }}
-          className={css({ m: "none", fontSize: "small", color: "muted" })}
-        >
-          Opponent total: {opponentTotal} · Your total: {ownTotal}
-        </motion.p>
-      </header>
       <Slots
         revealingCard={revealingCard}
         inspectCard={inspectCard}
@@ -105,6 +61,68 @@ export default function Lane({
         cards={opponent}
         staged={[]}
       />
+      <header
+        className={css({
+          position: "relative",
+          flexShrink: 0,
+          my: "sm",
+          border: "panel",
+          borderRadius: "panel",
+          p: "sm",
+          bg: lead === "own" ? "laneLeading" : "surface",
+          borderColor:
+            lead === "own"
+              ? "positive"
+              : lead === "opponent"
+                ? "negative"
+                : "border",
+          textAlign: "center",
+        })}
+      >
+        <Total
+          side="Opponent"
+          total={opponentTotal}
+          leading={lead === "opponent"}
+          tied={lead === "tied"}
+        />
+        <h3 className={css({ fontSize: "body", m: "none" })}>
+          {inspect ? (
+            <button
+              className={css({
+                width: "[100%]",
+                cursor: "pointer",
+                _focusVisible: { outline: "focus" },
+              })}
+              onClick={inspect}
+            >
+              Lane {number}
+            </button>
+          ) : (
+            <>Lane {number}</>
+          )}
+        </h3>
+        <p className={css({ fontSize: "laneRule", m: "none", color: "muted" })}>
+          No location effect.
+        </p>
+        <p aria-label="Lane leadership" className={css({ srOnly: true })}>
+          {lead === "tied"
+            ? "Lane tied"
+            : lead === "own"
+              ? "You lead"
+              : "Opponent leads"}{" "}
+          {lead === "opponent" ? opponentTotal : ownTotal} to{" "}
+          {lead === "opponent" ? ownTotal : opponentTotal}
+        </p>
+        <p className={css({ srOnly: true })}>
+          Opponent total: {opponentTotal} · Your total: {ownTotal}
+        </p>
+        <Total
+          side="Your"
+          total={ownTotal}
+          leading={lead === "own"}
+          tied={lead === "tied"}
+        />
+      </header>
       {playTarget ? (
         playTarget(
           <Slots
@@ -195,5 +213,39 @@ function Slots({
         );
       })}
     </div>
+  );
+}
+
+function Total({
+  side,
+  total,
+  leading,
+  tied,
+}: {
+  side: "Your" | "Opponent";
+  total: number;
+  leading: boolean;
+  tied: boolean;
+}) {
+  return (
+    <span
+      aria-label={`${side} total: ${String(total)}`}
+      className={css({
+        display: "block",
+        width: "fit-content",
+        mx: "auto",
+        px: "sm",
+        border: "panel",
+        borderRadius: "control",
+        fontWeight: "strong",
+        fontSize: leading ? "heading" : "small",
+        bg: leading ? "accent" : "raised",
+        color: leading ? "onAccent" : tied ? "text" : "muted",
+        mt: side === "Opponent" ? "-sm" : "xs",
+        mb: side === "Your" ? "-sm" : "xs",
+      })}
+    >
+      {total}
+    </span>
   );
 }
