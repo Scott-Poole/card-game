@@ -65,7 +65,7 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
 
 ## 4. Record, verify, merge
 
-1. **Record** (significant, or any author-run): append each reviewer run to `docs/agents/delegation-log.md` in `WT`; an author-run land also appends the author's own **implement** row, its outcome set by the review (`pass`: no accepted findings; `fixed`: you fixed some). Commit (`docs(agents): log review of #<n>`), push. That record commit is the one change allowed after review: confirm `git diff --name-only <PIN> HEAD` lists only that file, then set `PIN` to the new head.
+1. **Record** (significant, or any author-run): write each reviewer run into the `## Runs` table in the PR's verdict comment per `delegate`. An author-run land includes the author's own **implement** row, with outcome set by review (`pass`: no accepted findings; `fixed`: you fixed some). Identify the evaluated head SHA in the verdict. Update the single cumulative verdict comment per `delegate`.
 2. **Verify locally and on GitHub**: run the repo's full local gate (`pnpm check` here, which sets CI mode) at the evaluated head before pushing. Local hooks are fast feedback, not a security boundary; keep GitHub's required check as independent verification. Then `gh pr view <n> --json headRefOid` equals `PIN`. If not, someone pushed: restart at step 1, which re-pins and re-syncs `WT`; classify and review the whole PR again. Then `gh pr checks <n>` for that head (skip only when the base branch has no required checks and the repository has no CI workflow; an absent required check is not a pass):
    - **green** → merge.
    - **absent or infrastructure-blocked** → inspect workflow runs and annotations. Billing, permissions or runner availability that you cannot resolve are step-5 blockers. If a required check has not started, diagnose its trigger; never treat its absence as success.
@@ -76,7 +76,7 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
    gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=squash -f sha=$PIN
    ```
    (`gh pr merge` can hit the Projects-classic GraphQL bug noted in `AGENTS.md`; REST avoids it.)
-4. **Clean up**: if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git fetch origin main` (never pull in Scott's primary checkout; it is his to update), and delete the local `<headRefName>` if no worktree still uses it. A squash leaves the branch's commits off `main`'s history, so `git branch -d` refuses and the guardrail blocks `-D`: leave the local branch; GitHub already deleted the remote one, and `git fetch --prune` drops the tracking ref. Trivial merges also get the `merged-unreviewed` label, except **record-only** PRs (every changed path is `docs/agents/delegation-log.md`), which need no audit.
+4. **Clean up**: if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git fetch origin main` (never pull in Scott's primary checkout; it is his to update), and delete the local `<headRefName>` if no worktree still uses it. A squash leaves the branch's commits off `main`'s history, so `git branch -d` refuses and the guardrail blocks `-D`: leave the local branch; GitHub already deleted the remote one, and `git fetch --prune` drops the tracking ref. Trivial merges also get the `merged-unreviewed` label.
 
 Done when `origin/main` contains the squash commit and step 4.4 is done.
 
@@ -86,18 +86,18 @@ Add the `ready-for-human` label and post one comment headed `## Needs you`, fram
 
 ## Every outcome
 
-Post the class and verdict on the PR (`gh pr comment <n> --body-file <file>`). Review records reach `main` only through the PR (step 4.1), never as a commit on `main`.
+Create the class and verdict comment once, then PATCH that same comment on later outcomes or resume; use `delegate`'s per-PR lookup and create/update commands. Include the cumulative `## Runs` table (step 4.1) in that verdict comment, including on review-blocked, escalated, or abandoned exits. Record completed and failed runs even when merging is impossible.
 
 ## Merge audit
 
 Audit the single PR named by the tick. Its claim is already `audit-in-progress`. Read the PR and its merged diff (`gh pr diff <n>`), then apply the [cross-review Skeptic lens](../cross-review/LENSES.md) yourself. This thread is the reviewer chosen by the tick: the other family when authorship is known, or the third-family fallback for unknown historical authorship. Include `author family unknown` in the result when the tick reported that uncertainty; do not claim verified cross-family coverage in that case. No further reviewer is needed.
 
-A real problem becomes a GitHub issue linking the PR. Record the findings (or explicitly no findings), any issue links, and the reviewer model/family in a PR comment through the landed queue script:
+Write the complete multiline result, marker, and run table to `/tmp/audit-result-<pr>.md`. A real problem becomes a GitHub issue linking the PR. Record the findings (or explicitly no findings), any issue links, and a `## Runs` table per `delegate` with role `Audit-Skeptic`, in a PR comment through the landed queue script:
 
 ```sh
-git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-done <n> "<summary>"
+git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-done <n> "$(cat /tmp/audit-result-<pr>.md)"
 ```
 
 If `audit-done` refuses because the claim was swept or replaced, preserve the findings with a plain `gh pr comment <n> --body-file <file>` and leave the current labels alone.
 
-If the audit cannot complete, use `audit-release <n> "<why>"` instead so another tick can retry. Done when `audit-done` records the result and removes the claim, or a refused completion is recorded directly without changing labels. The PR comment is the audit record.
+If the audit cannot complete, first preserve its result and run table with `gh pr comment <n> --body-file /tmp/audit-result-<pr>.md`, then use `audit-release <n> "<why>"` instead so another tick can retry. Done when `audit-done` records the result and removes the claim, or a refused completion is recorded directly without changing labels. The PR comment is the audit record.

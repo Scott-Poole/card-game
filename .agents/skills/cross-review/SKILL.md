@@ -45,9 +45,12 @@ Deduplicate overlapping findings, then write:
 ## Findings          (high → low; each: severity, file:line, lens, recommendation)
 ## What went well    (1–3 items)
 ## Lead judgment     (each finding: accept / reject + one-line reason)
+## Runs
+
+<table per delegate, populated only with actual runs>
 ```
 
 - **PASS**: no high-severity findings. **CONTESTED**: high findings that reviewers disagree on. **REJECT**: high findings with consensus.
 - Lead judgment is yours (the judge tier): reviewers are adversarial by design, so call out false positives, overreach, and style mistaken for substance.
 
-When the diff is a PR, post the verdict on it: `gh pr comment <n> --body-file <file>`. Log each reviewer run in `docs/agents/delegation-log.md` per the `delegate` skill.
+When called by `land`, return the verdict and run rows to land, which owns the cumulative comment per `delegate`. Otherwise, when the diff is a PR, post the verdict on it: `gh pr comment <n> --body-file <file>`. Include each reviewer run in its `## Runs` table per the `delegate` skill.

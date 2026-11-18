@@ -48,3 +48,9 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (see **Count open blockers**, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+
+## Where records live
+
+Repo markdown holds knowledge that changes with the code and is read at HEAD: `AGENTS.md`, skills, `GLOSSARY.md`, ADRs, and code docs. Records of what happened—status, claims, findings, verdicts, runs, resolutions, and dates—belong in GitHub comments, labels, and close reasons. Working markdown produced during a skill is gitignored scratch, never committed; summarize its outcome in the ticket resolution.
+
+Run metadata belongs in the verdict comment's marked `## Runs` table; see the `delegate` skill for its format and `/retro` query. For a ticket closed without a PR, comment the outcome and a pointer to the commit, PR, or follow-up issue before closing. For `wontfix`, close with `gh issue close <number> --reason "not planned"`.

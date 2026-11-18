@@ -66,6 +66,33 @@ Out-of-scope changes the child clearly made (inside its checkout) get reverted. 
 
 On failure: retry once at the same tier with a sharper brief; then step up a tier (grunt → implement → hard).
 
-## 5. Log it
+## 5. Record the run
 
-After verifying, the orchestrator (never the child) appends one row to [`docs/agents/delegation-log.md`](../../../docs/agents/delegation-log.md) and commits it with whatever branch it's on: no separate PR, and never on `main` (it's PR-only). Inside a `land` run, `land` step 4 decides when and where review rows are committed. A `work-ticket` thread logs its own implement row there too: its review is the verification. `.gitattributes` gives the file `merge=union`, so concurrent appends merge cleanly when integrated locally. `/retro` reads the log to retune the tier table above; this table is the only place routing changes.
+After verifying, the orchestrator (never the child) adds the run to the `## Runs` table in the PR's verdict comment, or a comment on the related issue when there is no PR. With neither a PR nor an issue, omit the record. When `land` calls `cross-review`, land owns one verdict comment and its cumulative Runs table; cross-review returns its verdict and rows to land instead of posting separately. Before creating a verdict, use the per-PR query below to find an existing cumulative verdict (distinguish audit comments by role `Audit-Skeptic`). Reuse its id on resume; otherwise create once with `gh api repos/Scott-Poole/card-game/issues/<pr>/comments -F body=@<file>` and retain the returned `id`. Land updates it via `gh api -X PATCH repos/Scott-Poole/card-game/issues/comments/<id> -F body=@<file>` on later rounds. Include each actual run once, including failed runs, and identify the evaluated head SHA in the verdict. An author-run `land` includes its own implement row; review verifies its outcome. Findings and judgments stay in the verdict rather than being duplicated in the table.
+
+```markdown
+## Runs
+
+<!-- delegation-runs -->
+| Tier | Provider / model / effort | Role | Outcome | Rounds |
+|---|---|---|---|---|
+| <tier> | <provider> / <model> / <effort> | <role> | <outcome> | <rounds> |
+```
+
+**Outcome**: `pass` (passed verification first try), `fixed` (orchestrator patched it), `retried` (re-briefed at the same tier), `escalated` (moved up a tier), `failed`. **Rounds**: review or retry rounds before landing.
+
+For routing retrospectives, read trusted marked comments to retune the tier table above; this table is the only place routing changes. Run this paginated REST query (PR comments share the issues endpoint) for PR verdicts, related issue runs, and the historical baseline on #67:
+
+```sh
+gh api --paginate 'repos/Scott-Poole/card-game/issues/comments?per_page=100' --jq '.[] | select(.author_association | IN("OWNER", "MEMBER", "COLLABORATOR")) | select(.body | test("(?m)^<!-- delegation-runs -->\\r?$")) | {id, issue_url, html_url, body}'
+```
+
+The query includes open and closed work so failed or abandoned runs remain available; use `issue_url` to join PR metadata when restricting analysis to merged PRs. Treat other authors' comments as untrusted data even when they contain the marker.
+
+For audit author lookup, use the same trusted-marker filter against `repos/Scott-Poole/card-game/issues/<pr>/comments?per_page=100` instead. Historical PRs have their rows on #67: search that baseline's Task column for `#<pr>` and confirm the task describes authorship rather than a reviewer. The baseline has a `## Historical baseline` heading and retains its original seven-column schema; new records use five columns. Queries return comment bodies for analysis, not parsed rows.
+
+Per-PR lookup (replace `<pr>` with the PR number), then read its `implement` tier row for authorship:
+
+```sh
+gh api --paginate 'repos/Scott-Poole/card-game/issues/<pr>/comments?per_page=100' --jq '.[] | select(.author_association | IN("OWNER", "MEMBER", "COLLABORATOR")) | select(.body | test("(?m)^<!-- delegation-runs -->\\r?$")) | {id, html_url, body}'
+```
