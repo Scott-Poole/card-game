@@ -34,7 +34,7 @@ export default function Lane({
   ownTotal: number;
   opponentTotal: number;
 }) {
-  const capacity = laneCapacity(location ? [location] : [], 0);
+  const capacity = laneCapacity(location?.effect);
   const lead =
     ownTotal > opponentTotal
       ? "own"

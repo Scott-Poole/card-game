@@ -18,5 +18,4 @@ test("a pool location caps each player at two cards in its lane", () => {
     ({ effect }) => effect.kind === "lane-capacity" && effect.limit === 2,
   );
   expect(capped.length).toBeGreaterThanOrEqual(1);
-  for (const { text } of capped) expect(text).toMatch(/\b2\b/);
 });

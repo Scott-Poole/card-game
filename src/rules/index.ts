@@ -46,14 +46,21 @@ export function isPowerPerCardAmount(amount: unknown): amount is 1 | 2 {
 export function isLaneCapacityLimit(limit: unknown): limit is 1 | 2 | 3 {
   return limit === 1 || limit === 2 || limit === 3;
 }
-/** How many cards each player may reveal in a lane: the location's
- * `lane-capacity` limit, else the default LANE_CAPACITY. */
-export function laneCapacity(
-  locations: readonly { readonly effect: LocationEffect }[],
-  lane: number,
-): number {
-  const effect = locations[lane]?.effect;
-  return effect?.kind === "lane-capacity" ? effect.limit : LANE_CAPACITY;
+/** How many cards each player may reveal in a lane with this effect (none:
+ * the default LANE_CAPACITY). */
+export function laneCapacity(effect: LocationEffect | undefined): number {
+  if (!effect) return LANE_CAPACITY;
+  switch (effect.kind) {
+    case "lane-capacity":
+      return effect.limit;
+    case "none":
+    case "power-per-card":
+      return LANE_CAPACITY;
+    default: {
+      const exhaustive: never = effect;
+      return exhaustive;
+    }
+  }
 }
 /** One player's lane total: printed power of their revealed cards plus what
  * the lane's location effect adds. */
@@ -145,11 +152,20 @@ export function checkStaging(
     cost += card.cost;
     const count = (counts[play.lane] ?? 0) + 1;
     counts[play.lane] = count;
-    if (count > laneCapacity(view.locations, play.lane))
+    if (count > laneCapacity(view.locations[play.lane]?.effect))
       return { ok: false, error: "full-lane" };
   }
   if (cost > view.energy) return { ok: false, error: "overspend" };
   return { ok: true };
+}
+
+/** True when the lane already holds as many revealed and staged cards as its
+ * location allows, so no further card can be staged there. */
+export function laneIsFull(view: StagingView, lane: number): boolean {
+  const held =
+    (view.own.lanes[lane]?.length ?? 0) +
+    view.own.staged.filter((play) => play.lane === lane).length;
+  return held >= laneCapacity(view.locations[lane]?.effect);
 }
 
 /** Every single play that can be appended to the current staging. */

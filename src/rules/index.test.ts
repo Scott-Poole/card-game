@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import {
   checkStaging,
   laneCapacity,
+  laneIsFull,
   laneTotal,
   laneTotals,
   legalPlays,
@@ -115,15 +116,9 @@ test("lane totals apply each lane's own location effect, defaulting to none", ()
 });
 
 test("lane capacity is the effect's limit, else the default of four", () => {
-  const locations = [
-    { effect: none },
-    { effect: capacity(2) },
-    { effect: capacity(3) },
-    { effect: perCard(1) },
-  ];
-  expect([0, 1, 2, 3, 4].map((lane) => laneCapacity(locations, lane))).toEqual([
-    4, 2, 3, 4, 4,
-  ]);
+  expect(
+    [none, capacity(2), capacity(3), perCard(1), undefined].map(laneCapacity),
+  ).toEqual([4, 2, 3, 4, 4]);
 });
 
 // A limit-2 lane (lane 1) beside an unlimited lane (lane 0); `placed` cards
@@ -167,6 +162,7 @@ test.each([
     expect(checkStaging(view, [...view.own.staged, next])).toEqual(
       ok ? { ok: true } : { ok: false, error: "full-lane" },
     );
+    expect(laneIsFull(view, 1)).toBe(placed + staged >= limit);
     expect(
       legalPlays(view).some(
         (play) => play.lane === 1 && play.cardId === next.cardId,
@@ -183,5 +179,6 @@ test("an unlimited lane keeps the default capacity beside a limited one", () => 
     ok: false,
     error: "full-lane",
   });
-  expect(laneCapacity(view.locations, 0)).toBe(4);
+  expect(laneIsFull(view, 0)).toBe(false);
+  expect(laneIsFull(view, 1)).toBe(false);
 });

@@ -16,7 +16,7 @@ import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
 import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
-import { laneCapacity, legalPlays, TURN_LIMIT } from "../rules/index.ts";
+import { laneIsFull, legalPlays, TURN_LIMIT } from "../rules/index.ts";
 import { css, cx } from "../../styled-system/css/index.js";
 import { panel, button } from "../../styled-system/recipes/index.js";
 import { useAppDispatch, useAppSelector } from "./hooks.ts";
@@ -67,11 +67,11 @@ function Game() {
   const available = view
     ? legalPlays({ ...view, own: { ...view.own, staged } })
     : [];
+  // Why a lane refuses a card; only meaningful while the player can still act.
   const laneFull = (lane: number) =>
     view !== null &&
-    (view.own.lanes[lane]?.length ?? 0) +
-      staged.filter((play) => play.lane === lane).length >=
-      laneCapacity(view.locations, lane);
+    !actionLocked &&
+    laneIsFull({ ...view, own: { ...view.own, staged } }, lane);
   const outcome = (winner: number | null) =>
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   const totals = view ? selectLaneTotals(view) : null;
@@ -289,6 +289,9 @@ function Game() {
                               )}
                               key={lane}
                               aria-label={`Stage ${card.name} in lane ${String(lane + 1)}`}
+                              aria-description={
+                                laneFull(lane) ? "Lane full" : undefined
+                              }
                               disabled={!canStage(card.id, lane)}
                               onClick={() => {
                                 stage(card.id, lane);

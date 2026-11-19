@@ -1,6 +1,6 @@
 import { testLocations } from "./locations.test-support.ts";
 import { assert, expect, test } from "vitest";
-import { laneCapacity, type LocationDefinition } from "../rules/index.ts";
+import { type LocationDefinition } from "../rules/index.ts";
 
 import {
   commit,
@@ -31,6 +31,13 @@ const mixedLocations = testLocations.map((location, index) => ({
   ...location,
   effect: effects[index] ?? location.effect,
 }));
+
+// The limit a lane may hold, read from the location's effect directly so the
+// invariant does not lean on the rules helper it checks.
+const limitOf = (locations: readonly LocationDefinition[], lane: number) => {
+  const effect = locations[lane]?.effect;
+  return effect?.kind === "lane-capacity" ? effect.limit : 4;
+};
 
 const players = [0, 1] as const;
 function unwrap<T>(result: Result<T>): T {
@@ -70,8 +77,7 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
         );
         assert.ok(
           player.lanes.every(
-            (lane, index) =>
-              lane.length <= laneCapacity(state.locations, index),
+            (lane, index) => lane.length <= limitOf(state.locations, index),
           ),
         );
         const cost = player.staged.reduce((sum, play) => {
@@ -112,7 +118,7 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
             "unknown-lane",
           );
           const openLane = state.players[id].lanes.findIndex(
-            (l, index) => l.length < laneCapacity(state.locations, index),
+            (l, index) => l.length < limitOf(state.locations, index),
           );
           const play = { cardId: card.id, lane: openLane };
           if (openLane >= 0)
@@ -122,14 +128,14 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
         if (
           expensive &&
           (state.players[id].lanes[0]?.length ?? 0) <
-            laneCapacity(state.locations, 0)
+            limitOf(state.locations, 0)
         )
           action(
             () => stage(state, id, [{ cardId: expensive.id, lane: 0 }]),
             "overspend",
           );
         const lane = pick(3);
-        const capacity = laneCapacity(state.locations, lane);
+        const capacity = limitOf(state.locations, lane);
         const overfill = hand.slice(
           0,
           capacity + 1 - (state.players[id].lanes[lane]?.length ?? 0),

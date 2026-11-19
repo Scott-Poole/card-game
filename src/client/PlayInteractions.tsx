@@ -76,6 +76,7 @@ export function PlayTarget({
         )}
         disabled={!enabled}
         aria-label={`Play selected card in lane ${String(lane + 1)}`}
+        aria-description={active && !enabled && full ? "Lane full" : undefined}
         onClick={onPlay}
       >
         {active && !enabled

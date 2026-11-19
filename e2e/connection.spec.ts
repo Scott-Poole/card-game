@@ -1907,6 +1907,10 @@ for (const width of [390, 1440]) {
     await expect(
       page.getByRole("button", { name: "Unstage Asteron", exact: true }),
     ).toBeVisible();
+    // The staged card fills the lane's last open slot, beside the revealed one.
+    await expect(
+      laneOne.getByRole("group", { name: "Your cards" }).getByRole("article"),
+    ).toHaveText([/Guard/, /Asteron/]);
     const stageThaleia = page.getByRole("button", {
       name: "Stage Thaleia in lane 1",
       exact: true,
