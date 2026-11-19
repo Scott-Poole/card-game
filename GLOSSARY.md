@@ -42,7 +42,7 @@ Each player's budget for the combined cost of their staged cards in a turn, star
 ## Lanes
 
 **Lane**:
-One of three shared board positions, each with room for up to four revealed cards per player.
+One of three shared board positions, each with room for up to four revealed cards per player (fewer where the lane's location is `lane-capacity`).
 
 **Lane total**:
 The sum of the power of one player's revealed cards in a lane, plus whatever the lane's location effect adds. Under `power-per-card`, each of that player's revealed cards in the lane adds the effect's `amount` (1 or 2).

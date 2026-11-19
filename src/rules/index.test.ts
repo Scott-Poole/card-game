@@ -181,4 +181,8 @@ test("an unlimited lane keeps the default capacity beside a limited one", () => 
   });
   expect(laneIsFull(view, 0)).toBe(false);
   expect(laneIsFull(view, 1)).toBe(false);
+  // Four staged cards fill the unlimited lane, a fifth is refused.
+  const filled = { ...view, own: { ...view.own, staged: four } };
+  expect(laneIsFull(filled, 0)).toBe(true);
+  expect(laneIsFull(filled, 1)).toBe(false);
 });

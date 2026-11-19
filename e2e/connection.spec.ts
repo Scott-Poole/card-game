@@ -1917,6 +1917,7 @@ for (const width of [390, 1440]) {
     });
     await expect(stageThaleia).toBeDisabled();
     await expect(stageThaleia).toHaveText("Lane 1 full");
+    await expect(stageThaleia).toHaveAttribute("aria-description", "Lane full");
     await expect(
       page.getByRole("button", {
         name: "Stage Thaleia in lane 2",
@@ -1930,6 +1931,7 @@ for (const width of [390, 1440]) {
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(playHere(1)).toBeDisabled();
     await expect(playHere(1)).toHaveText("Lane full");
+    await expect(playHere(1)).toHaveAttribute("aria-description", "Lane full");
     await expect(playHere(2)).toBeEnabled();
     await page.keyboard.press("Escape");
     // Drag: dropping on the full lane is refused and the card stays in hand.

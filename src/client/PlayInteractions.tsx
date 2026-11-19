@@ -44,7 +44,7 @@ export function PlayTarget({
 }: {
   lane: number;
   enabled: boolean;
-  /** The lane holds as many cards as its location allows. */
+  /** The lane is full and the player could still act: picks the "Lane full" reason. */
   full: boolean;
   active: boolean;
   onPlay: () => void;

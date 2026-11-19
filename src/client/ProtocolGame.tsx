@@ -67,10 +67,13 @@ function Game() {
   const available = view
     ? legalPlays({ ...view, own: { ...view.own, staged } })
     : [];
-  // Why a lane refuses a card; only meaningful while the player can still act.
+  // The "Lane full" reason applies until the turn is over: an in-flight stage
+  // (`pending`) still leaves the lane full.
+  const turnOver =
+    revealing || (view?.own.committed ?? false) || view?.phase === "ended";
   const laneFull = (lane: number) =>
     view !== null &&
-    !actionLocked &&
+    !turnOver &&
     laneIsFull({ ...view, own: { ...view.own, staged } }, lane);
   const outcome = (winner: number | null) =>
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
