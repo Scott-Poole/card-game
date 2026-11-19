@@ -11,6 +11,7 @@ import {
   type Result,
   type MatchState,
   type PlayerId,
+  moveOffBoard,
 } from "./index.js";
 
 const card = (id: string) => ({ id, name: id, cost: 1, power: 2 });
@@ -30,6 +31,11 @@ function player(id: PlayerId) {
     deck: [card(`deck-secret-${String(id)}`), card(`deck-tail-${String(id)}`)],
     staged: [{ cardId: `hand-secret-${String(id)}`, lane: id }],
     lanes: [[card(`board-${String(id)}`)], [], []],
+    zones: {
+      destroyed: [card(`destroyed-${String(id)}`)],
+      discarded: [card(`discarded-${String(id)}`)],
+      banished: [],
+    },
     committed: false,
   };
 }
@@ -54,6 +60,7 @@ test.each([0, 1] satisfies PlayerId[])(
         deckSize: 2,
         committed,
         lanes: state.players[opponent].lanes,
+        zones: state.players[opponent].zones,
       });
       expect(view.own.deckSize).toBe(2);
       const json = JSON.stringify(view);
@@ -129,6 +136,7 @@ test("views swap own and opponent while preserving shared match information", ()
     deckSize: b.opponent.deckSize,
     committed: b.opponent.committed,
     lanes: b.opponent.lanes,
+    zones: b.opponent.zones,
     hand: state.players[0].hand,
     staged: state.players[0].staged,
   });
@@ -136,6 +144,7 @@ test("views swap own and opponent while preserving shared match information", ()
     deckSize: a.opponent.deckSize,
     committed: a.opponent.committed,
     lanes: a.opponent.lanes,
+    zones: a.opponent.zones,
     hand: state.players[1].hand,
     staged: state.players[1].staged,
   });
@@ -186,4 +195,66 @@ test("both players see the same three match locations in lane order", () => {
   expect(a.locations).toHaveLength(3);
   expect(a.locations).toEqual(state.locations);
   expect(b.locations).toEqual(state.locations);
+});
+
+test("off-board zones are face up: each player sees both players' full lists", () => {
+  for (const id of [0, 1] satisfies PlayerId[]) {
+    const view = playerView(state, id);
+    const other = id === 0 ? 1 : 0;
+    expect(view.own.zones).toEqual(state.players[id].zones);
+    expect(view.opponent.zones).toEqual(state.players[other].zones);
+    expect(view.opponent.zones.destroyed).toEqual([
+      card(`destroyed-${String(other)}`),
+    ]);
+  }
+});
+
+test("a new match starts with every zone empty", () => {
+  const match = createMatch(7, [[card("a")], [card("b")]], testLocations);
+  for (const p of match.players)
+    expect(p.zones).toEqual({ destroyed: [], discarded: [], banished: [] });
+});
+
+test("moveOffBoard takes a card from the hand, deck or a lane into a zone", () => {
+  const moved = (
+    cardId: string,
+    zone: "destroyed" | "discarded" | "banished",
+  ) => moveOffBoard(state, 0, cardId, zone);
+  const fromHand = moved("hand-secret-0", "discarded");
+  expect(fromHand?.players[0].hand).toEqual([]);
+  expect(fromHand?.players[0].staged).toEqual([]);
+  expect(fromHand?.players[0].zones.discarded).toEqual([
+    card("discarded-0"),
+    card("hand-secret-0"),
+  ]);
+  const fromDeck = moved("deck-tail-0", "banished");
+  expect(fromDeck?.players[0].deck).toEqual([card("deck-secret-0")]);
+  expect(fromDeck?.players[0].zones.banished).toEqual([card("deck-tail-0")]);
+  const fromLane = moved("board-0", "destroyed");
+  expect(fromLane?.players[0].lanes[0]).toEqual([]);
+  expect(fromLane?.players[0].zones.destroyed).toEqual([
+    card("destroyed-0"),
+    card("board-0"),
+  ]);
+  // The opponent is untouched, and so is the original state.
+  expect(fromLane?.players[1]).toBe(state.players[1]);
+  expect(state.players[0].lanes[0]).toEqual([card("board-0")]);
+});
+
+test("moveOffBoard refuses a card the player does not have, or one already off the board", () => {
+  expect(moveOffBoard(state, 0, "board-1", "destroyed")).toBeNull();
+  expect(moveOffBoard(state, 0, "destroyed-0", "banished")).toBeNull();
+  expect(moveOffBoard(state, 0, "missing", "discarded")).toBeNull();
+});
+
+test("a moved card shows in both players' views, and its hand slot is gone", () => {
+  const next = moveOffBoard(state, 1, "hand-secret-1", "discarded");
+  if (!next) throw new Error("expected the move");
+  expect(playerView(next, 0).opponent.zones.discarded).toContainEqual(
+    card("hand-secret-1"),
+  );
+  expect(playerView(next, 0).opponent.handSize).toBe(0);
+  expect(playerView(next, 1).own.zones.discarded).toContainEqual(
+    card("hand-secret-1"),
+  );
 });

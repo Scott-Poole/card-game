@@ -116,12 +116,14 @@ const view = {
     deckSize: 9,
     committed: false,
     lanes: [[], [], []],
+    zones: { destroyed: [], discarded: [card], banished: [] },
   },
   opponent: {
     handSize: 3,
     deckSize: 9,
     committed: false,
     lanes: [[card], [], []],
+    zones: { destroyed: [card], discarded: [card, card], banished: [card] },
   },
   events: [
     { type: "card-revealed", player: 1, lane: 0, card },
@@ -321,6 +323,11 @@ it.each([
   });
 });
 
+function withoutZones(player: object) {
+  return Object.fromEntries(
+    Object.entries(player).filter(([key]) => key !== "zones"),
+  );
+}
 function parse(text: string): unknown {
   return JSON.parse(text);
 }
@@ -331,6 +338,12 @@ it.each([
     own: { staged: [], deckSize: 9, committed: false, lanes: [[], [], []] },
   },
   { ...view, opponent: { deckSize: 9, committed: false, lanes: [[], [], []] } },
+  { ...view, own: withoutZones(view.own) },
+  { ...view, opponent: withoutZones(view.opponent) },
+  {
+    ...view,
+    own: { ...view.own, zones: { destroyed: [], discarded: [] } },
+  },
   {
     ...view,
     own: { ...view.own, hand: [{ id: "a", name: "Aster", cost: 1 }] },
@@ -443,4 +456,41 @@ it.each([
     ok: false,
     error: "invalid-message",
   });
+});
+
+it.each([
+  [
+    "an unknown zone",
+    { destroyed: [], discarded: [], banished: [], limbo: [] },
+  ],
+  [
+    "a zone that is not a list",
+    { destroyed: card, discarded: [], banished: [] },
+  ],
+  [
+    "a malformed card in a zone",
+    { destroyed: [], discarded: [], banished: [{ id: "x" }] },
+  ],
+  [
+    "a zone longer than a deck",
+    {
+      destroyed: Array.from({ length: 13 }, () => card),
+      discarded: [],
+      banished: [],
+    },
+  ],
+  ["zones as a list", [[], [], []]],
+])("rejects %s in either player's zones", (_name, zones) => {
+  for (const side of ["own", "opponent"] as const)
+    expect(
+      decodeServerMessage({
+        type: "state",
+        view: { ...view, [side]: { ...view[side], zones } },
+      }),
+    ).toEqual({ ok: false, error: "invalid-message" });
+});
+
+it("decodes full zone lists for both players: every zone is face up", () => {
+  const decoded = decodeServerMessage({ type: "state", view });
+  expect(decoded).toEqual({ ok: true, message: { type: "state", view } });
 });

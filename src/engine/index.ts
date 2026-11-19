@@ -4,7 +4,7 @@ import {
   laneTotals,
   TURN_LIMIT,
 } from "../rules/index.ts";
-import type { LocationDefinition, StagingError } from "../rules/index.ts";
+import type { LocationDefinition, StagingError, Zone } from "../rules/index.ts";
 const LANE_IDS = Array.from({ length: LANE_COUNT }, (_, i) => i);
 const OPENING_HAND = 3;
 
@@ -19,10 +19,14 @@ export interface Play {
   readonly cardId: string;
   readonly lane: number;
 }
+/** A player's off-board zones, in the order cards arrived. Every card in one
+ * is face up: both players can inspect them at any time. */
+export type Zones = Readonly<Record<Zone, readonly CardDefinition[]>>;
 export interface PlayerState {
   readonly hand: readonly CardDefinition[];
   readonly deck: readonly CardDefinition[];
   readonly lanes: readonly (readonly CardDefinition[])[];
+  readonly zones: Zones;
   readonly staged: readonly Play[];
   readonly committed: boolean;
 }
@@ -110,6 +114,7 @@ export function createMatch(
       hand: cards.slice(0, OPENING_HAND),
       deck: cards.slice(OPENING_HAND),
       lanes: LANE_IDS.map(() => []),
+      zones: { destroyed: [], discarded: [], banished: [] },
       staged: [],
       committed: false,
     };
@@ -175,6 +180,32 @@ export function commit(state: MatchState, id: PlayerId): Result<MatchState> {
     ok: true,
     value: replace(state, id, { ...player, committed: true }),
   };
+}
+/** Moves one of `id`'s cards from their hand, deck or a lane into one of
+ * their off-board zones, dropping any staged play of it. Returns null when
+ * the player owns no such card in those places. No rule calls this yet: it is
+ * the seam abilities will use to destroy, discard and banish. */
+export function moveOffBoard(
+  state: MatchState,
+  id: PlayerId,
+  cardId: string,
+  zone: Zone,
+): MatchState | null {
+  const player = state.players[id];
+  const without = (cards: readonly CardDefinition[]) =>
+    cards.filter((c) => c.id !== cardId);
+  const card = [...player.hand, ...player.deck, ...player.lanes.flat()].find(
+    (c) => c.id === cardId,
+  );
+  if (!card) return null;
+  return replace(state, id, {
+    ...player,
+    hand: without(player.hand),
+    deck: without(player.deck),
+    lanes: player.lanes.map(without),
+    zones: { ...player.zones, [zone]: [...player.zones[zone], card] },
+    staged: player.staged.filter((p) => p.cardId !== cardId),
+  });
 }
 export type PlayerAction =
   | { readonly type: "stage"; readonly plays: readonly Play[] }
@@ -303,6 +334,7 @@ export function resolve(state: MatchState): Result<{
 export interface PublicPlayerView {
   readonly deckSize: number;
   readonly lanes: readonly (readonly CardDefinition[])[];
+  readonly zones: Zones;
   readonly committed: boolean;
 }
 interface PlayerViewFields {
@@ -329,6 +361,7 @@ export function playerView(state: MatchState, id: PlayerId): PlayerView {
     return {
       deckSize: player.deck.length,
       lanes: player.lanes,
+      zones: player.zones,
       committed: player.committed,
     };
   }

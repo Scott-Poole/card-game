@@ -6,9 +6,11 @@ import {
   isLocationEffectKind,
   isLaneCapacityLimit,
   isPowerPerCardAmount,
+  ZONES,
   MAX_LOCATION_NAME,
   MAX_LOCATION_TEXT,
   type LocationDefinition,
+  type Zone,
 } from "../rules/index.ts";
 // Each player can reveal their full deck, then turn-ended and match-ended.
 const MAX_EVENTS = 2 * DECK_SIZE + 2;
@@ -131,18 +133,23 @@ export type MatchEvent =
   | { readonly type: "match-ended"; readonly result: Score };
 /** A lane's match-fixed location: authored name and rule text, and its effect. */
 export type MatchLocation = LocationDefinition;
+/** A player's off-board zones. Every card is face up to both players, so
+ * the same full lists appear in `own` and `opponent`. */
+export type Zones = Readonly<Record<Zone, readonly Card[]>>;
 export interface OwnPlayer {
   readonly hand: readonly Card[];
   readonly staged: readonly Play[];
   readonly deckSize: number;
   readonly committed: boolean;
   readonly lanes: readonly (readonly Card[])[];
+  readonly zones: Zones;
 }
 export interface Opponent {
   readonly handSize: number;
   readonly deckSize: number;
   readonly committed: boolean;
   readonly lanes: readonly (readonly Card[])[];
+  readonly zones: Zones;
 }
 interface ViewFields {
   readonly player: PlayerId;
@@ -299,25 +306,34 @@ function isLocations(v: unknown): v is MatchLocation[] {
     new Set(v.map((location) => location.id)).size === LANE_COUNT
   );
 }
+function isZones(v: unknown): v is Zones {
+  return (
+    isRecord(v) &&
+    exact(v, ZONES) &&
+    ZONES.every((zone) => isList(v[zone], isCard, DECK_SIZE))
+  );
+}
 function isOwn(v: unknown): v is OwnPlayer {
   return (
     isRecord(v) &&
-    exact(v, ["hand", "staged", "deckSize", "committed", "lanes"]) &&
+    exact(v, ["hand", "staged", "deckSize", "committed", "lanes", "zones"]) &&
     isList(v.hand, isCard, DECK_SIZE) &&
     isList(v.staged, isPlay, DECK_SIZE) &&
     integer(v.deckSize, 0, DECK_SIZE) &&
     typeof v.committed === "boolean" &&
-    isLanes(v.lanes)
+    isLanes(v.lanes) &&
+    isZones(v.zones)
   );
 }
 function isOpponent(v: unknown): v is Opponent {
   return (
     isRecord(v) &&
-    exact(v, ["handSize", "deckSize", "committed", "lanes"]) &&
+    exact(v, ["handSize", "deckSize", "committed", "lanes", "zones"]) &&
     integer(v.handSize, 0, DECK_SIZE) &&
     integer(v.deckSize, 0, DECK_SIZE) &&
     typeof v.committed === "boolean" &&
-    isLanes(v.lanes)
+    isLanes(v.lanes) &&
+    isZones(v.zones)
   );
 }
 function isView(v: unknown): v is PlayerView {

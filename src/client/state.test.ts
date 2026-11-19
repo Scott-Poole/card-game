@@ -19,10 +19,17 @@ const view: PlayerView = {
     hand: [],
     deckSize: 8,
     lanes: [[], [], []],
+    zones: { destroyed: [], discarded: [], banished: [] },
     staged: [],
     committed: false,
   },
-  opponent: { handSize: 4, deckSize: 8, lanes: [[], [], []], committed: false },
+  opponent: {
+    handSize: 4,
+    deckSize: 8,
+    lanes: [[], [], []],
+    zones: { destroyed: [], discarded: [], banished: [] },
+    committed: false,
+  },
   events: [],
 };
 

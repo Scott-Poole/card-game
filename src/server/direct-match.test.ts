@@ -40,6 +40,7 @@ test("direct peers receive private views and can stage through host messages", (
       "deckSize",
       "handSize",
       "lanes",
+      "zones",
     ]);
     expect(JSON.stringify(p.views)).not.toContain('"deck":');
   }

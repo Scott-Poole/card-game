@@ -12,6 +12,7 @@ import {
   PlayTarget,
 } from "./PlayInteractions.tsx";
 import Card from "./Card.tsx";
+import PlayerSheet from "./PlayerSheet.tsx";
 import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
 import { boardStyles } from "./boardStyles.ts";
@@ -615,28 +616,11 @@ function Game() {
                 </p>
               </>
             ) : view ? (
-              <>
-                <p>Deck: {view[inspection.side].deckSize}</p>
-                <p>
-                  Hand:{" "}
-                  {inspection.side === "own"
-                    ? view.own.hand.length
-                    : view.opponent.handSize}
-                </p>
-                <div
-                  className={css({
-                    display: "flex",
-                    gap: "sm",
-                    flexWrap: "wrap",
-                  })}
-                >
-                  {["Destroyed", "Discarded", "Banished"].map((zone) => (
-                    <button key={zone} className={button()} disabled>
-                      {zone}
-                    </button>
-                  ))}
-                </div>
-              </>
+              <PlayerSheet
+                key={inspection.side}
+                view={view}
+                side={inspection.side}
+              />
             ) : null}
           </Inspect>
         )}

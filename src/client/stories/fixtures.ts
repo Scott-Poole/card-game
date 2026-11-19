@@ -68,8 +68,15 @@ export const opening: PlayerView = {
     deckSize: 8,
     committed: false,
     lanes: [[], [], []],
+    zones: { destroyed: [], discarded: [], banished: [] },
   },
-  opponent: { handSize: 4, deckSize: 8, committed: false, lanes: [[], [], []] },
+  opponent: {
+    handSize: 4,
+    deckSize: 8,
+    committed: false,
+    lanes: [[], [], []],
+    zones: { destroyed: [], discarded: [], banished: [] },
+  },
   events: [],
 };
 // The opponent leads these boards on power (lanes are level), so it reveals first.
