@@ -5,7 +5,7 @@
   "maxEscalated": 2,
   "staleHours": 8,
   "implement": {
-    "claudeShare": 0.6
+    "claudeShare": 0.5
   },
   "planning": {
     "enabled": true,

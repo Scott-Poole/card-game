@@ -23,11 +23,17 @@ Each label answers "whose turn is it": `ready-for-agent` an agent's, `in-progres
 
 Planners run beside implementers: one at a time, tracked by an open `planning` issue, rotating through `planning.categories` least recently run first. They skip the WIP and daily-claim caps (they only file tickets) but stop with everything else when tickets waiting on Scott hit `maxEscalated`.
 
-Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (every claim holds a slot while it lives), claims per UTC day, tickets automation has handed to Scott (`escalate`d ones only), hours without a sign of life before a claim is checked. The `planning` block holds the planner's own: on/off, runs per UTC day, tickets per run, and the category rotation. `implement.claudeShare` (0 to 1) is the fraction of tickets Claude implements; the rest go to Codex, and the cross-family review lands on the other subscription. No API reports usage, so Scott sets it by hand from the weekly meters at the start of each week: raise it when Codex is burning faster than Claude, lower it when the reverse. Tune them there (through a PR); `"enabled": false` stops dispatch and planning, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
+Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (every claim holds a slot while it lives), claims per UTC day, tickets automation has handed to Scott (`escalate`d ones only), hours without a sign of life before a claim is checked. The `planning` block holds the planner's own: on/off, runs per UTC day, tickets per run, and the category rotation. `implement.claudeShare` (0 to 1) is the fraction of tickets Claude implements while both providers are working; the rest go to Codex, and the cross-family review lands on the other subscription. No usage meter can be read reliably, so the tick finds out which provider refuses by launching on it (**Providers**), never from a number. Tune the caps and the share there (through a PR); `"enabled": false` stops dispatch and planning, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
 
 Steps 1–4 are a loop: after recording a launch, or resolving a **Check**, go back to step 1. Keep the list of tickets this run has claimed (`<claimed>` below, space-separated, empty at first) and pass it to every `next` and `plan-open`: GitHub's listings can lag a label write by more than the seconds between calls, so `queue.sh` counts those claims against the caps itself and never offers them again. The caps end the loop: every claim uses an in-progress slot and a daily claim, and once a planner is open, `next` returns `NOOP`. After the loop, go to **Audit**. Your reply covers the whole run: every ticket launched, the planner if one started, and the `NOOP` line that ended it.
 
 Completed parent specs stay open for Scott: `queue.sh parent-done <child>` swaps `ready-for-agent` for `ready-for-human` and comments once after all children close. Nothing waits on the spec. These unclaimed specs do not count toward `maxEscalated`, which counts claim history.
+
+## Providers
+
+Once per run, before step 1, learn which providers are refusing work. Neither Claude's nor Codex's meter can be trusted from any file (logs disagree with the real meter, and a provider that is out writes no new reading), so go by failures. `t3_thread_list` with `statuses: ["failed"]` and `limit: 20`; a provider (`claudeAgent` or `codex`, the thread's `providerInstanceId`) is **out** when its newest failed thread has an `itemCount` of 2 or less (it died on its first message) and an `updatedAt` within the last 2 hours. Older than that, the provider counts as working again, so the next launch on it is the probe: a limit that lifted early heals with no state to clear, and one that did not costs a single instant failure, which step 3 routes around. That heuristic also fires for a launch that failed for another reason; the price of the false positive is two hours without one provider.
+
+Keep the out set for the whole run. Both providers out: claim nothing, say so in the reply, and go to **Audit**.
 
 ## 1. Ask the queue
 
@@ -50,7 +56,8 @@ git show origin/main:.agents/skills/tick/queue.sh | bash -s -- resume-info <n>  
 `t3_thread_read` that thread (small `limit`; only its status matters), then:
 
 - **Active** (`running`, `queued`, `starting`, `preparing`, `waiting`): `... -- alive <n>`. The thread is working, so the claim stays and its clock restarts.
-- **Idle or ended** (`completed`, `idle`, `failed`, `interrupted`, `cancelled`) and `<nudges>` is under 3: wake it with `t3_thread_send`, "Resume: you still hold #<n>. Read the issue and its PR, finish the ticket per `work-ticket`, and merge or escalate.", then `... -- alive <n> nudged`. Threads that hit a usage limit or ended a turn waiting for a reply resume this way, keeping their branch, worktree and PR.
+- **Failed on a provider that is out** (`failed`, and the thread's provider is **out** per **Providers**, or `<nudges>` is 1 or more because a nudge already failed): do not wake it into the same refusal. Move it to the other provider, choosing the model from `delegate`'s implement tier: `t3_thread_configure` the thread to it, then send the resume message below and run `... -- alive <n> nudged`. If the configure is refused, launch a fresh thread as step 3's resume path does (branch `ticket/<n>-<slug>-r<CLAIMS>`, `baseRef` the pushed `origin/ticket/<n>-*` branch if any) and `note <n> "work-ticket thread: <link>"`. The other provider out too: change nothing, stop the run, and say so; a later tick tries again once the 2 hours pass.
+- **Idle or ended** (`completed`, `idle`, `failed`, `interrupted`, `cancelled`) and `<nudges>` is under 3: wake it with `t3_thread_send`, "Resume: you still hold #<n>. Read the issue and its PR, finish the ticket per `work-ticket`, and merge or escalate.", then `... -- alive <n> nudged`. Threads that ended a turn waiting for a reply resume this way, keeping their branch, worktree and PR.
 - **No link recorded** (`THREAD none`: the note after launch may have failed): look for the thread before giving up: `t3_thread_list` with `titleContains` `#<n> ` (the launch title) and the branch `ticket/<n>-*`; if found, treat it as the link above and `note <n> "work-ticket thread: <link>"` to repair the record.
 - **Missing** (the read or the title search *confirms* no thread exists): `... -- release <n> "thread gone"`. The ticket returns to `ready-for-agent` and a later launch resumes it (step 3).
 - **Woken three times already** and still idle: escalate for real, `... -- escalate <n> "<## Needs you comment>"`, saying the thread keeps stopping without finishing, with the last status and any PR link.
@@ -73,7 +80,7 @@ A refusal means someone else holds the ticket: record the refusal and go to **Au
 
 If step 2's `resume-info` printed `CLAIMS` above 0, the ticket has claim history and this is a **resume**, typically Scott handing it back. When `THREAD` is `none`, search for the thread by title first, as **Check** does (the launch note may never have been recorded). When it names or you find a thread that still exists, `t3_thread_send` it "Scott handed #<n> back: read the issue comments after the last `## Needs you` and continue per `work-ticket`" instead of launching, record it with `note <n> "resumed work-ticket thread: <link>"`, and loop. Otherwise launch fresh as below with branch `ticket/<n>-<slug>-r<CLAIMS>` and, if `origin/ticket/<n>-*` exists, that remote branch as `baseRef`; `work-ticket` continues from the existing work.
 
-Pick the model from the `delegate` skill's **implement** tier and copy its ids from `orchestrator_capabilities` (once per run; reuse them for later launches). The tier is split across two subscriptions so neither runs dry early: read `claudeShare` (`git show origin/main:.agents/skills/tick/config.json | jq .implement.claudeShare`), and launch Claude Sonnet 5.5 (effort `high`) when `<n> % 10 < claudeShare * 10`, otherwise Codex `gpt-6.1-sol` (effort `medium`). The ticket number decides, so the split needs no state and a re-run picks the same model. Scott retunes the share from the weekly usage meters (below). Then `t3_thread_launch`:
+Pick the model from the `delegate` skill's **implement** tier and copy its ids from `orchestrator_capabilities` (once per run; reuse them for later launches). A provider that is **out** (see **Providers**) is never the pick; the other one takes the ticket. With both working, the tier is split across the two subscriptions so neither runs dry early: read `claudeShare` (`git show origin/main:.agents/skills/tick/config.json | jq .implement.claudeShare`), and launch Claude Sonnet 5.5 (effort `high`) when `<n> % 10 < claudeShare * 10`, otherwise Codex `gpt-6.1-sol` (effort `medium`). The ticket number decides, so the split needs no state and a re-run picks the same model. Then `t3_thread_launch`:
 
 - `title`: `#<n> <title>`
 - `workspaceStrategy`: `{type: "worktree", baseRef: "origin/main", startFromOrigin: true, branch: "ticket/<n>-<slug>"}`, slug = 3–5 kebab-case words from the title
@@ -92,7 +99,13 @@ If the launch call errors, do not assume nothing was created (the thread may exi
 git show origin/main:.agents/skills/tick/queue.sh | bash -s -- note <n> "work-ticket thread: <link>"
 ```
 
-Retry a failed `note` once; if it still fails, say so in the reply (**Check** recovers the thread by its title later). This ticket is done when it carries `in-progress`, a claim comment, and the thread link. Read the launched thread once with `t3_thread_read`: if it does not exist, release the claim (`... -- release <n> "launch failed"`); a thread whose first run failed on a usage limit resumes itself, so keep that claim and let **Check** nudge it later. Go back to step 1.
+Retry a failed `note` once; if it still fails, say so in the reply (**Check** recovers the thread by its title later). This ticket is done when it carries `in-progress`, a claim comment, and the thread link. Read the launched thread once with `t3_thread_read`, after a few seconds (a refused launch fails within about one):
+
+- It does not exist: release the claim (`... -- release <n> "launch failed"`).
+- Its first run `failed` with the thread at 2 items or fewer: that provider refused (a usage limit; the limit is days long, so waiting does not help). Add it to this run's **out** set and launch again on the other provider with a new `clientRequestId` (`ticket-<n>-<CLAIMS>-b`), then `note` the new link instead (**Check** follows the recorded link, not the failed thread). The other provider already out: keep the claim, stop the run, and say so; **Check** moves the ticket once a provider works again.
+- Otherwise keep the claim. A refusal that lands after this read is caught by **Providers** on the next run and by **Check**.
+
+Go back to step 1.
 
 ## Plan
 
@@ -104,7 +117,7 @@ When step 1 printed `PLAN <category>`:
    git show origin/main:.agents/skills/tick/queue.sh | bash -s -- plan-open <category> <claimed>
    ```
 
-2. Pick the model from the `delegate` skill's **plan** tier, primary column, and `t3_thread_launch` it:
+2. Pick the model from the `delegate` skill's **plan** tier, primary column (its fallback when the primary's provider is **out**, and the same relaunch-on-refusal rule as step 4), and `t3_thread_launch` it:
 
    - `title`: `Plan: <category> (#<n>)`
    - `workspaceStrategy`: `{type: "worktree", baseRef: "origin/main", startFromOrigin: true, branch: "plan/<n>-<category>"}`
