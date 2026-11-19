@@ -30,6 +30,11 @@ function player(id: PlayerId) {
     deck: [card(`deck-secret-${String(id)}`), card(`deck-tail-${String(id)}`)],
     staged: [{ cardId: `hand-secret-${String(id)}`, lane: id }],
     lanes: [[card(`board-${String(id)}`)], [], []],
+    zones: {
+      destroyed: [card(`destroyed-${String(id)}`)],
+      discarded: [card(`discarded-${String(id)}`)],
+      banished: [],
+    },
     committed: false,
   };
 }
@@ -54,6 +59,7 @@ test.each([0, 1] satisfies PlayerId[])(
         deckSize: 2,
         committed,
         lanes: state.players[opponent].lanes,
+        zones: state.players[opponent].zones,
       });
       expect(view.own.deckSize).toBe(2);
       const json = JSON.stringify(view);
@@ -129,6 +135,7 @@ test("views swap own and opponent while preserving shared match information", ()
     deckSize: b.opponent.deckSize,
     committed: b.opponent.committed,
     lanes: b.opponent.lanes,
+    zones: b.opponent.zones,
     hand: state.players[0].hand,
     staged: state.players[0].staged,
   });
@@ -136,6 +143,7 @@ test("views swap own and opponent while preserving shared match information", ()
     deckSize: a.opponent.deckSize,
     committed: a.opponent.committed,
     lanes: a.opponent.lanes,
+    zones: a.opponent.zones,
     hand: state.players[1].hand,
     staged: state.players[1].staged,
   });
@@ -186,4 +194,22 @@ test("both players see the same three match locations in lane order", () => {
   expect(a.locations).toHaveLength(3);
   expect(a.locations).toEqual(state.locations);
   expect(b.locations).toEqual(state.locations);
+});
+
+test("off-board zones are face up: each player sees both players' full lists", () => {
+  for (const id of [0, 1] satisfies PlayerId[]) {
+    const view = playerView(state, id);
+    const other = id === 0 ? 1 : 0;
+    expect(view.own.zones).toEqual(state.players[id].zones);
+    expect(view.opponent.zones).toEqual(state.players[other].zones);
+    expect(view.opponent.zones.destroyed).toEqual([
+      card(`destroyed-${String(other)}`),
+    ]);
+  }
+});
+
+test("a new match starts with every zone empty", () => {
+  const match = createMatch(7, [[card("a")], [card("b")]], testLocations);
+  for (const p of match.players)
+    expect(p.zones).toEqual({ destroyed: [], discarded: [], banished: [] });
 });

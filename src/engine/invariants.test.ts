@@ -70,7 +70,12 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
       for (const id of players) {
         const player = state.players[id];
         assert.deepEqual(
-          [...player.hand, ...player.deck, ...player.lanes.flat()]
+          [
+            ...player.hand,
+            ...player.deck,
+            ...player.lanes.flat(),
+            ...Object.values(player.zones).flat(),
+          ]
             .map((c) => c.id)
             .sort(),
           decks[id].map((c) => c.id).sort(),

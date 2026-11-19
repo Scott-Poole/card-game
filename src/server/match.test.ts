@@ -144,6 +144,7 @@ test("six turns resolve, reject illegal actions privately, and never expose hidd
           "deckSize",
           "handSize",
           "lanes",
+          "zones",
         ]);
         expect(frame).not.toContain('"deck":');
         expect(frame).not.toContain('"rng":');

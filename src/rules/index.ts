@@ -6,6 +6,12 @@ export const TURN_LIMIT = 6;
 export const DECK_CARDS_PER_COST = 2;
 export const DECK_SIZE = TURN_LIMIT * DECK_CARDS_PER_COST;
 
+/** The off-board zones a card can leave play into, each public to both
+ * players: `destroyed` (removed from a lane), `discarded` (sent from hand)
+ * and `banished` (removed from the match for good, from anywhere). */
+export const ZONES = ["destroyed", "discarded", "banished"] as const;
+export type Zone = (typeof ZONES)[number];
+
 export const MAX_LOCATION_NAME = 40;
 export const MAX_LOCATION_TEXT = 160;
 

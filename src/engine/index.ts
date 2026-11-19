@@ -4,7 +4,7 @@ import {
   laneTotals,
   TURN_LIMIT,
 } from "../rules/index.ts";
-import type { LocationDefinition, StagingError } from "../rules/index.ts";
+import type { LocationDefinition, StagingError, Zone } from "../rules/index.ts";
 const LANE_IDS = Array.from({ length: LANE_COUNT }, (_, i) => i);
 const OPENING_HAND = 3;
 
@@ -19,10 +19,14 @@ export interface Play {
   readonly cardId: string;
   readonly lane: number;
 }
+/** A player's off-board zones, in the order cards arrived. Every card in one
+ * is face up: both players can inspect them at any time. */
+export type Zones = Readonly<Record<Zone, readonly CardDefinition[]>>;
 export interface PlayerState {
   readonly hand: readonly CardDefinition[];
   readonly deck: readonly CardDefinition[];
   readonly lanes: readonly (readonly CardDefinition[])[];
+  readonly zones: Zones;
   readonly staged: readonly Play[];
   readonly committed: boolean;
 }
@@ -110,6 +114,7 @@ export function createMatch(
       hand: cards.slice(0, OPENING_HAND),
       deck: cards.slice(OPENING_HAND),
       lanes: LANE_IDS.map(() => []),
+      zones: { destroyed: [], discarded: [], banished: [] },
       staged: [],
       committed: false,
     };
@@ -303,6 +308,7 @@ export function resolve(state: MatchState): Result<{
 export interface PublicPlayerView {
   readonly deckSize: number;
   readonly lanes: readonly (readonly CardDefinition[])[];
+  readonly zones: Zones;
   readonly committed: boolean;
 }
 interface PlayerViewFields {
@@ -329,6 +335,7 @@ export function playerView(state: MatchState, id: PlayerId): PlayerView {
     return {
       deckSize: player.deck.length,
       lanes: player.lanes,
+      zones: player.zones,
       committed: player.committed,
     };
   }

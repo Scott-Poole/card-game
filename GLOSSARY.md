@@ -67,6 +67,10 @@ The player's private collection of cards available to stage for play.
 The player's ordered supply of cards still available to draw into their hand. It starts as two cards per cost, from 1 to 6, drawn from the roster.
 _Avoid_: Roster
 
+**Zone**:
+One of a player's three off-board piles for cards that have left play: **destroyed** (removed from a lane), **discarded** (sent from hand) and **banished** (removed from the match for good, from anywhere). Every zone is face up: both players' full lists are in each view and can be opened from the player-info sheet at any time. Nothing sends a card to a zone yet: abilities will, and the name "banished" may still change.
+_Avoid_: Graveyard, pile (when referring to a particular zone)
+
 **Roster**:
 The authored collection of cards and their mythological figure, tradition and flavor text from which decks are drawn.
 _Avoid_: Deck
