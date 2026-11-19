@@ -15,7 +15,7 @@ const valid = Array.from(
         id: `figure-${String(index)}`,
         name: `Figure ${String(index)}, Keeper of Roads`,
         cost: Math.floor(index / 2) + 1,
-        power: Math.floor(index / 2) + 1,
+        power: 2 * (Math.floor(index / 2) + 1),
       },
       figure: `Figure ${String(index)}`,
       tradition: "greek",
@@ -52,14 +52,16 @@ test.each([
     { card: { ...first.card, cost: 1.5 } },
     [
       { code: "cost", index: 0 },
-      { code: "power", index: 0 },
       { code: "cost-coverage", cost: 1 },
     ],
   ],
   [
     "power",
     { card: { ...first.card, power: 4 } },
-    [{ code: "power", index: 0 }],
+    [
+      { code: "power", index: 0 },
+      { code: "tier-power", cost: 1 },
+    ],
   ],
   [
     "cost",
@@ -90,17 +92,26 @@ test.each([
   [
     "power",
     { card: { ...first.card, power: 0 } },
-    [{ code: "power", index: 0 }],
+    [
+      { code: "power", index: 0 },
+      { code: "tier-power", cost: 1 },
+    ],
   ],
   [
     "power",
     { card: { ...first.card, power: 1.5 } },
-    [{ code: "power", index: 0 }],
+    [
+      { code: "power", index: 0 },
+      { code: "tier-power", cost: 1 },
+    ],
   ],
   [
     "power",
     { card: { ...first.card, power: Infinity } },
-    [{ code: "power", index: 0 }],
+    [
+      { code: "power", index: 0 },
+      { code: "tier-power", cost: 1 },
+    ],
   ],
   ["tradition", { tradition: "norse" }, [{ code: "tradition", index: 0 }]],
   ["flavor", { flavor: "x".repeat(121) }, [{ code: "flavor", index: 0 }]],
@@ -203,7 +214,32 @@ test.each([2, 3, 4, 5, 6])("rejects power below cost %i", (cost) => {
         },
       },
     ]),
-  ).toEqual([{ code: "power", index: 12 }]);
+  ).toEqual([
+    { code: "power", index: 12 },
+    { code: "tier-power", cost },
+  ]);
+});
+
+test.each([
+  ["above the mean", [3, 3], [{ code: "tier-power", cost: 1 }]],
+  ["below the mean", [1, 1], [{ code: "tier-power", cost: 1 }]],
+  ["at the mean from unequal powers", [1, 3], []],
+])("tier power: a tier %s", (_label, powers, expected) => {
+  const entries = valid.map((entry, index) =>
+    index < 2
+      ? { ...entry, card: { ...entry.card, power: powers[index] ?? 0 } }
+      : entry,
+  );
+  expect(validateRoster(entries)).toEqual(expected);
+});
+
+test("tier power: a tier off the mean is reported at its own cost", () => {
+  const high = valid.map((entry) =>
+    entry.card.cost === 4
+      ? { ...entry, card: { ...entry.card, power: 9 } }
+      : entry,
+  );
+  expect(validateRoster(high)).toEqual([{ code: "tier-power", cost: 4 }]);
 });
 
 test.each(["", "-a", "a-", "a--b"])("rejects malformed id %s", (id) => {

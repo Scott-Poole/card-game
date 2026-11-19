@@ -1,5 +1,4 @@
 import { privateDeck } from "./match.ts";
-import { doubledRoster } from "./doubled-roster.test-support.ts";
 import { roster } from "./roster.ts";
 import { DECK_CARDS_PER_COST, DECK_SIZE } from "../rules/index.ts";
 import { afterEach, expect, test, vi } from "vitest";
@@ -210,6 +209,11 @@ test("a fifth card in a lane fails privately and a revised legal play succeeds",
     views = await states(a, b);
   }
   expect(views[0].own.lanes[0]).toHaveLength(4);
+  // Derived, not pinned: which cards the draw offers depends on roster order.
+  const lanePower = (views[0].own.lanes[0] ?? []).reduce(
+    (sum, c) => sum + c.power,
+    0,
+  );
   const card = views[0].own.hand.find((c) => c.cost <= 5);
   if (!card) throw new Error("missing fifth card");
   a.send({ type: "stage", plays: [{ cardId: card.id, lane: 0 }] });
@@ -222,7 +226,7 @@ test("a fifth card in a lane fails privately and a revised legal play succeeds",
   if (final.type !== "state") throw new Error("missing forfeit state");
   expect(final.view.result).toEqual({
     lanes: [0, null, null],
-    power: [18, 0],
+    power: [lanePower, 0],
     winner: 1,
   });
   expect(final.view.events).toEqual([
@@ -383,12 +387,12 @@ test("each player's private deck is a valid draw from the roster", async () => {
   for (const player of [0, 1] as const) {
     // The mocked entropy never swaps, so each cost's first two cards are drawn.
     const expected = [1, 2, 3, 4, 5, 6].flatMap((cost) =>
-      doubledRoster
+      roster
         .filter((entry) => entry.card.cost === cost)
         .slice(0, DECK_CARDS_PER_COST)
         .map((entry) => `${String(player)}:${entry.card.id}`),
     );
-    const deck = privateDeck(player, doubledRoster);
+    const deck = privateDeck(player, roster);
     expect(deck).toHaveLength(DECK_SIZE);
     expect(deck.map((card) => card.id).sort()).toEqual(expected.sort());
     expect(privateDeck(player)).toHaveLength(DECK_SIZE);
