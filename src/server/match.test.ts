@@ -209,6 +209,11 @@ test("a fifth card in a lane fails privately and a revised legal play succeeds",
     views = await states(a, b);
   }
   expect(views[0].own.lanes[0]).toHaveLength(4);
+  // Derived, not pinned: which cards the draw offers depends on roster order.
+  const lanePower = (views[0].own.lanes[0] ?? []).reduce(
+    (sum, c) => sum + c.power,
+    0,
+  );
   const card = views[0].own.hand.find((c) => c.cost <= 5);
   if (!card) throw new Error("missing fifth card");
   a.send({ type: "stage", plays: [{ cardId: card.id, lane: 0 }] });
@@ -221,7 +226,7 @@ test("a fifth card in a lane fails privately and a revised legal play succeeds",
   if (final.type !== "state") throw new Error("missing forfeit state");
   expect(final.view.result).toEqual({
     lanes: [0, null, null],
-    power: [18, 0],
+    power: [lanePower, 0],
     winner: 1,
   });
   expect(final.view.events).toEqual([
