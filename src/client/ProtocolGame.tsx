@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { animate, motion } from "motion/react";
 import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
-import { useRef, useState, useLayoutEffect, type ReactNode } from "react";
+import { useRef, useState, useLayoutEffect } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import {
   DragPreview,
