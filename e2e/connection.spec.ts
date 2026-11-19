@@ -2371,3 +2371,45 @@ test("player tags open player counts without moving the board", async ({
     }
   }
 });
+
+test("a full zone scrolls inside the player sheet on a short phone", async ({
+  page,
+  address,
+}) => {
+  const { staging } = await import("../src/client/stories/fixtures.ts");
+  const full = Array.from({ length: 12 }, (_, i) => ({
+    id: `full-${String(i)}`,
+    name: `Lost figure of the long road ${String(i)}`,
+    cost: 2,
+    power: 3,
+  }));
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.send(JSON.stringify({ type: "welcome" }));
+    socket.send(
+      JSON.stringify({
+        type: "state",
+        view: {
+          ...staging,
+          opponent: {
+            ...staging.opponent,
+            zones: { destroyed: full, discarded: [], banished: [] },
+          },
+        },
+      }),
+    );
+  });
+  await page.setViewportSize({ width: 390, height: 667 });
+  await page.goto(address);
+  await page.getByRole("button", { name: /^Opponent/ }).click();
+  const sheet = page.getByRole("dialog", { name: /^Opponent/ });
+  await sheet.getByRole("button", { name: "Destroyed (12)" }).click();
+  await expect(sheet.getByRole("listitem")).toHaveCount(12);
+  // Counts and zone buttons stay on screen; the rest scrolls to Close.
+  await expect(sheet.getByRole("heading", { level: 2 })).toBeInViewport();
+  await expect(
+    sheet.getByRole("button", { name: "Banished (0)" }),
+  ).toBeInViewport();
+  const close = sheet.getByRole("button", { name: "Close", exact: true });
+  await close.scrollIntoViewIfNeeded();
+  await expect(close).toBeInViewport();
+});

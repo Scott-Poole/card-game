@@ -43,6 +43,7 @@ export default function PlayerSheet({
       </div>
       {open !== null && (
         <section aria-label={`${ZONE_LABELS[open]} cards`}>
+          <h3>{ZONE_LABELS[open]}</h3>
           {cards.length === 0 ? (
             <p>No cards.</p>
           ) : (

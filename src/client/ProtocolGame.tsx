@@ -616,11 +616,7 @@ function Game() {
                 </p>
               </>
             ) : view ? (
-              <PlayerSheet
-                key={inspection.side}
-                view={view}
-                side={inspection.side}
-              />
+              <PlayerSheet view={view} side={inspection.side} />
             ) : null}
           </Inspect>
         )}

@@ -181,32 +181,6 @@ export function commit(state: MatchState, id: PlayerId): Result<MatchState> {
     value: replace(state, id, { ...player, committed: true }),
   };
 }
-/** Moves one of `id`'s cards from their hand, deck or a lane into one of
- * their off-board zones, dropping any staged play of it. Returns null when
- * the player owns no such card in those places. No rule calls this yet: it is
- * the seam abilities will use to destroy, discard and banish. */
-export function moveOffBoard(
-  state: MatchState,
-  id: PlayerId,
-  cardId: string,
-  zone: Zone,
-): MatchState | null {
-  const player = state.players[id];
-  const without = (cards: readonly CardDefinition[]) =>
-    cards.filter((c) => c.id !== cardId);
-  const card = [...player.hand, ...player.deck, ...player.lanes.flat()].find(
-    (c) => c.id === cardId,
-  );
-  if (!card) return null;
-  return replace(state, id, {
-    ...player,
-    hand: without(player.hand),
-    deck: without(player.deck),
-    lanes: player.lanes.map(without),
-    zones: { ...player.zones, [zone]: [...player.zones[zone], card] },
-    staged: player.staged.filter((p) => p.cardId !== cardId),
-  });
-}
 export type PlayerAction =
   | { readonly type: "stage"; readonly plays: readonly Play[] }
   | { readonly type: "commit" };

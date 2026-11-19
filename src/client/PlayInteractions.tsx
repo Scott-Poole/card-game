@@ -142,6 +142,9 @@ export function Inspect({
           color: "text",
           width: { base: "[100%]", md: "inspectPanel" },
           maxW: "content",
+          // A long card list scrolls inside the sheet instead of pushing its heading off screen.
+          maxH: "[90dvh]",
+          overflowY: "auto",
           zIndex: "overlay",
         }),
       )}
