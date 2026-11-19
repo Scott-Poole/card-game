@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ZONES, type Zone } from "../rules/index.ts";
 import type { PlayerView } from "../protocol/messages.ts";
 import { css } from "../../styled-system/css/index.js";
@@ -20,6 +20,7 @@ export default function PlayerSheet({
   side: "own" | "opponent";
 }) {
   const [open, setOpen] = useState<Zone | null>(null);
+  const heading = useId();
   const player = view[side];
   const hand = "hand" in player ? player.hand.length : player.handSize;
   const cards = open === null ? [] : player.zones[open];
@@ -42,8 +43,8 @@ export default function PlayerSheet({
         ))}
       </div>
       {open !== null && (
-        <section aria-label={`${ZONE_LABELS[open]} cards`}>
-          <h3>{ZONE_LABELS[open]}</h3>
+        <section aria-labelledby={heading}>
+          <h3 id={heading}>{ZONE_LABELS[open]}</h3>
           {cards.length === 0 ? (
             <p>No cards.</p>
           ) : (

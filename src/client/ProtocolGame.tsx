@@ -616,7 +616,12 @@ function Game() {
                 </p>
               </>
             ) : view ? (
-              <PlayerSheet view={view} side={inspection.side} />
+              <PlayerSheet
+                // Switching sides by keyboard keeps this sheet mounted: reset the open zone.
+                key={inspection.side}
+                view={view}
+                side={inspection.side}
+              />
             ) : null}
           </Inspect>
         )}

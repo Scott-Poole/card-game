@@ -2350,7 +2350,7 @@ test("player tags open player counts without moving the board", async ({
         });
         await expect(button).toBeEnabled();
         await button.click();
-        const cards = sheet.getByRole("region", { name: `${zone} cards` });
+        const cards = sheet.getByRole("region", { name: zone, exact: true });
         if (count === 0) {
           await expect(cards.getByText("No cards.")).toBeVisible();
         } else {
@@ -2372,7 +2372,7 @@ test("player tags open player counts without moving the board", async ({
   }
 });
 
-test("a full zone scrolls inside the player sheet on a short phone", async ({
+test("a full zone scrolls inside the player sheet on a small phone", async ({
   page,
   address,
 }) => {
@@ -2398,13 +2398,17 @@ test("a full zone scrolls inside the player sheet on a short phone", async ({
       }),
     );
   });
-  await page.setViewportSize({ width: 390, height: 667 });
+  await page.setViewportSize({ width: 320, height: 568 });
   await page.goto(address);
   await page.getByRole("button", { name: /^Opponent/ }).click();
   const sheet = page.getByRole("dialog", { name: /^Opponent/ });
   await sheet.getByRole("button", { name: "Destroyed (12)" }).click();
   await expect(sheet.getByRole("listitem")).toHaveCount(12);
-  // Counts and zone buttons stay on screen; the rest scrolls to Close.
+  // The list is taller than the viewport, so it must scroll inside the sheet
+  // with the heading and zone buttons still on screen at the top.
+  expect(await sheet.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
+    true,
+  );
   await expect(sheet.getByRole("heading", { level: 2 })).toBeInViewport();
   await expect(
     sheet.getByRole("button", { name: "Banished (0)" }),
