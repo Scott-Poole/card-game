@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { validateLocations } from "./locations.ts";
+import { assertLocationPool, validateLocations } from "./locations.ts";
 import { testLocations } from "./locations.test-support.ts";
 
 const valid = testLocations;
@@ -191,4 +191,28 @@ test.each(["", "-a", "a-", "a--b"])("rejects malformed id %s", (id) => {
   expect(validateLocations([{ ...first, id }, ...valid.slice(1)])).toEqual([
     { code: "id", index: 0 },
   ]);
+});
+
+test("assertLocationPool accepts a pool with a location per lane and unique ids", () => {
+  expect(() => {
+    assertLocationPool(valid);
+  }).not.toThrow();
+  expect(() => {
+    assertLocationPool(valid.slice(0, 3));
+  }).not.toThrow();
+});
+
+test("assertLocationPool rejects too few locations", () => {
+  expect(() => {
+    assertLocationPool(valid.slice(0, 2));
+  }).toThrow("location pool: locations need at least one per lane");
+  expect(() => {
+    assertLocationPool([]);
+  }).toThrow("location pool");
+});
+
+test("assertLocationPool rejects duplicate ids", () => {
+  expect(() => {
+    assertLocationPool([first, { ...first }, ...valid.slice(2)]);
+  }).toThrow("location pool: locations need a unique id per entry");
 });
