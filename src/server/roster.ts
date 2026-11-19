@@ -140,6 +140,138 @@ export const roster: readonly RosterEntry[] = [
     tradition: "roman",
     flavor: "His sickle leaves one golden stalk for the coming year.",
   },
+  {
+    card: {
+      id: "iris-rainstitcher",
+      name: "Iris, Stitcher of Rainbow Errands",
+      cost: 1,
+      power: 1,
+    },
+    figure: "Iris",
+    tradition: "greek",
+    flavor: "She carries messages in the seam where rain meets sun.",
+  },
+  {
+    card: {
+      id: "faunus-hollowpiper",
+      name: "Faunus, Piper of Hollow Stumps",
+      cost: 1,
+      power: 3,
+    },
+    figure: "Faunus",
+    tradition: "roman",
+    flavor: "His reed song coaxes mushrooms up and wolves into politeness.",
+  },
+  {
+    card: {
+      id: "orpheus-stringmender",
+      name: "Orpheus, Mender of Silent Strings",
+      cost: 2,
+      power: 5,
+    },
+    figure: "Orpheus",
+    tradition: "greek",
+    flavor: "One mended note can make the dark forget it was angry.",
+  },
+  {
+    card: {
+      id: "pomona-graftkeeper",
+      name: "Pomona, Keeper of Patient Grafts",
+      cost: 2,
+      power: 3,
+    },
+    figure: "Pomona",
+    tradition: "roman",
+    flavor: "She joins two stubborn branches and teaches them to share.",
+  },
+  {
+    card: {
+      id: "hecate-crossroadlamp",
+      name: "Hecate, Lamplighter of Crossroads",
+      cost: 3,
+      power: 5,
+    },
+    figure: "Hecate",
+    tradition: "greek",
+    flavor: "Her lamp shows each traveler the road they were afraid to name.",
+  },
+  {
+    card: {
+      id: "terminus-boundarystone",
+      name: "Terminus, Stone of Settled Borders",
+      cost: 3,
+      power: 7,
+    },
+    figure: "Terminus",
+    tradition: "roman",
+    flavor: "He has never moved, and neither has the argument he ended.",
+  },
+  {
+    card: {
+      id: "daedalus-waxwright",
+      name: "Daedalus, Wright of Borrowed Wings",
+      cost: 4,
+      power: 9,
+    },
+    figure: "Daedalus",
+    tradition: "greek",
+    flavor: "He builds every escape with one eye on the sun's temper.",
+  },
+  {
+    card: {
+      id: "fortuna-turnwheel",
+      name: "Fortuna, Turner of Idle Wheels",
+      cost: 4,
+      power: 7,
+    },
+    figure: "Fortuna",
+    tradition: "roman",
+    flavor: "She spins once for the proud and twice for the patient.",
+  },
+  {
+    card: {
+      id: "apollo-dawnlyrist",
+      name: "Apollo, Lyrist of Measured Dawns",
+      cost: 5,
+      power: 9,
+    },
+    figure: "Apollo",
+    tradition: "greek",
+    flavor: "Each dawn arrives on the beat he lets it keep.",
+  },
+  {
+    card: {
+      id: "aeneas-emberbearer",
+      name: "Aeneas, Bearer of Exiled Embers",
+      cost: 5,
+      power: 11,
+    },
+    figure: "Aeneas",
+    tradition: "roman",
+    flavor: "He crosses burning seas with a city folded inside his coat.",
+  },
+  {
+    card: {
+      id: "persephone-thresholdqueen",
+      name: "Persephone, Queen of Returning Thresholds",
+      cost: 6,
+      power: 11,
+    },
+    figure: "Persephone",
+    tradition: "greek",
+    flavor: "Spring is only the sound of her door opening twice a year.",
+  },
+  {
+    card: {
+      id: "bellona-drumcaller",
+      name: "Bellona, Caller of Distant Drums",
+      cost: 6,
+      power: 13,
+    },
+    figure: "Bellona",
+    tradition: "roman",
+    flavor: "Her drums begin in the next valley and finish in your chest.",
+  },
 ];
 
 /** Draws a deck: DECK_CARDS_PER_COST distinct cards at each cost from 1 to

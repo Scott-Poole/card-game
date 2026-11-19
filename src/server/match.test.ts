@@ -1,5 +1,4 @@
 import { privateDeck } from "./match.ts";
-import { doubledRoster } from "./doubled-roster.test-support.ts";
 import { roster } from "./roster.ts";
 import { DECK_CARDS_PER_COST, DECK_SIZE } from "../rules/index.ts";
 import { afterEach, expect, test, vi } from "vitest";
@@ -383,12 +382,12 @@ test("each player's private deck is a valid draw from the roster", async () => {
   for (const player of [0, 1] as const) {
     // The mocked entropy never swaps, so each cost's first two cards are drawn.
     const expected = [1, 2, 3, 4, 5, 6].flatMap((cost) =>
-      doubledRoster
+      roster
         .filter((entry) => entry.card.cost === cost)
         .slice(0, DECK_CARDS_PER_COST)
         .map((entry) => `${String(player)}:${entry.card.id}`),
     );
-    const deck = privateDeck(player, doubledRoster);
+    const deck = privateDeck(player, roster);
     expect(deck).toHaveLength(DECK_SIZE);
     expect(deck.map((card) => card.id).sort()).toEqual(expected.sort());
     expect(privateDeck(player)).toHaveLength(DECK_SIZE);
