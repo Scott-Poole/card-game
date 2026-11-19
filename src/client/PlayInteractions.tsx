@@ -37,12 +37,15 @@ export function HandCard({
 export function PlayTarget({
   lane,
   enabled,
+  full,
   active,
   onPlay,
   children,
 }: {
   lane: number;
   enabled: boolean;
+  /** The lane is full and the player could still act: picks the "Lane full" reason. */
+  full: boolean;
   active: boolean;
   onPlay: () => void;
   children: ReactNode;
@@ -73,9 +76,14 @@ export function PlayTarget({
         )}
         disabled={!enabled}
         aria-label={`Play selected card in lane ${String(lane + 1)}`}
+        aria-description={active && !enabled && full ? "Lane full" : undefined}
         onClick={onPlay}
       >
-        {active && !enabled ? "Unavailable" : "Play here"}
+        {active && !enabled
+          ? full
+            ? "Lane full"
+            : "Unavailable"
+          : "Play here"}
       </button>
     </div>
   );

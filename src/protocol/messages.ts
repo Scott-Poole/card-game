@@ -4,6 +4,7 @@ import {
   TURN_LIMIT,
   DECK_SIZE,
   isLocationEffectKind,
+  isLaneCapacityLimit,
   isPowerPerCardAmount,
   MAX_LOCATION_NAME,
   MAX_LOCATION_TEXT,
@@ -283,6 +284,8 @@ function isLocationEffect(v: unknown): v is MatchLocation["effect"] {
       return exact(v, ["kind"]);
     case "power-per-card":
       return exact(v, ["kind", "amount"]) && isPowerPerCardAmount(v.amount);
+    case "lane-capacity":
+      return exact(v, ["kind", "limit"]) && isLaneCapacityLimit(v.limit);
     default: {
       const exhaustive: never = v.kind;
       return exhaustive;

@@ -1,5 +1,6 @@
 import { testLocations } from "./locations.test-support.ts";
 import { assert, expect, test } from "vitest";
+import { type LocationDefinition } from "../rules/index.ts";
 
 import {
   commit,
@@ -16,6 +17,27 @@ import {
 
 // The engine tsconfig excludes platform globals; Vitest runs on Node.
 declare function structuredClone<T>(value: T): T;
+
+// Mixes every lane limit with unlimited lanes so seeds draw varied capacities.
+const effects: LocationDefinition["effect"][] = [
+  { kind: "lane-capacity", limit: 1 },
+  { kind: "lane-capacity", limit: 2 },
+  { kind: "lane-capacity", limit: 3 },
+  { kind: "lane-capacity", limit: 2 },
+  { kind: "none" },
+  { kind: "none" },
+];
+const mixedLocations = testLocations.map((location, index) => ({
+  ...location,
+  effect: effects[index] ?? location.effect,
+}));
+
+// The limit a lane may hold, read from the location's effect directly so the
+// invariant does not lean on the rules helper it checks.
+const limitOf = (locations: readonly LocationDefinition[], lane: number) => {
+  const effect = locations[lane]?.effect;
+  return effect?.kind === "lane-capacity" ? effect.limit : 4;
+};
 
 const players = [0, 1] as const;
 function unwrap<T>(result: Result<T>): T {
@@ -42,7 +64,7 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
         power: pick(13),
       }));
     const decks: [CardDefinition[], CardDefinition[]] = [deck(0), deck(1)];
-    let state = createMatch(seed, decks, testLocations);
+    let state = createMatch(seed, decks, mixedLocations);
     const check = () => {
       assert.equal(state.energy, state.turn);
       for (const id of players) {
@@ -53,7 +75,11 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
             .sort(),
           decks[id].map((c) => c.id).sort(),
         );
-        assert.ok(player.lanes.every((lane) => lane.length <= 4));
+        assert.ok(
+          player.lanes.every(
+            (lane, index) => lane.length <= limitOf(state.locations, index),
+          ),
+        );
         const cost = player.staged.reduce((sum, play) => {
           const card = player.hand.find((c) => c.id === play.cardId);
           assert.ok(card);
@@ -92,24 +118,32 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
             "unknown-lane",
           );
           const openLane = state.players[id].lanes.findIndex(
-            (l) => l.length < 4,
+            (l, index) => l.length < limitOf(state.locations, index),
           );
           const play = { cardId: card.id, lane: openLane };
           if (openLane >= 0)
             action(() => stage(state, id, [play, play]), "duplicate-card");
         }
         const expensive = hand.find((c) => c.cost > state.energy);
-        if (expensive && (state.players[id].lanes[0]?.length ?? 0) < 4)
+        if (
+          expensive &&
+          (state.players[id].lanes[0]?.length ?? 0) <
+            limitOf(state.locations, 0)
+        )
           action(
             () => stage(state, id, [{ cardId: expensive.id, lane: 0 }]),
             "overspend",
           );
         const lane = pick(3);
+        const capacity = limitOf(state.locations, lane);
         const overfill = hand.slice(
           0,
-          5 - (state.players[id].lanes[lane]?.length ?? 0),
+          capacity + 1 - (state.players[id].lanes[lane]?.length ?? 0),
         );
-        if (overfill.length + (state.players[id].lanes[lane]?.length ?? 0) > 4)
+        if (
+          overfill.length + (state.players[id].lanes[lane]?.length ?? 0) >
+          capacity
+        )
           action(
             () =>
               stage(

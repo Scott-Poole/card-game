@@ -20,11 +20,18 @@ export interface PowerPerCardEffect {
   readonly kind: "power-per-card";
   readonly amount: 1 | 2;
 }
-export type LocationEffect = NoLocationEffect | PowerPerCardEffect;
+/** Each player may reveal at most `limit` cards in the lane. */
+export interface LaneCapacityEffect {
+  readonly kind: "lane-capacity";
+  readonly limit: 1 | 2 | 3;
+}
+export type LocationEffect =
+  NoLocationEffect | PowerPerCardEffect | LaneCapacityEffect;
 export type LocationEffectKind = LocationEffect["kind"];
 const LOCATION_EFFECT_KINDS: Readonly<Record<LocationEffectKind, true>> = {
   none: true,
   "power-per-card": true,
+  "lane-capacity": true,
 };
 export function isLocationEffectKind(
   kind: unknown,
@@ -34,6 +41,26 @@ export function isLocationEffectKind(
 /** True for an amount a `power-per-card` effect may carry. */
 export function isPowerPerCardAmount(amount: unknown): amount is 1 | 2 {
   return amount === 1 || amount === 2;
+}
+/** True for a limit a `lane-capacity` effect may carry. */
+export function isLaneCapacityLimit(limit: unknown): limit is 1 | 2 | 3 {
+  return limit === 1 || limit === 2 || limit === 3;
+}
+/** How many cards each player may reveal in a lane with this effect (none:
+ * the default LANE_CAPACITY). */
+export function laneCapacity(effect: LocationEffect | undefined): number {
+  if (!effect) return LANE_CAPACITY;
+  switch (effect.kind) {
+    case "lane-capacity":
+      return effect.limit;
+    case "none":
+    case "power-per-card":
+      return LANE_CAPACITY;
+    default: {
+      const exhaustive: never = effect;
+      return exhaustive;
+    }
+  }
 }
 /** One player's lane total: printed power of their revealed cards plus what
  * the lane's location effect adds. */
@@ -47,6 +74,8 @@ export function laneTotal(
       return printed;
     case "power-per-card":
       return printed + effect.amount * cards.length;
+    case "lane-capacity":
+      return printed;
     default: {
       const exhaustive: never = effect;
       return exhaustive;
@@ -79,6 +108,8 @@ export interface Play {
 export interface StagingView {
   readonly phase: "planning" | "ended";
   readonly energy: number;
+  /** One per lane, in lane order; a lane without one has the default capacity. */
+  readonly locations: readonly { readonly effect: LocationEffect }[];
   readonly own: {
     readonly committed: boolean;
     readonly hand: readonly { readonly id: string; readonly cost: number }[];
@@ -121,10 +152,20 @@ export function checkStaging(
     cost += card.cost;
     const count = (counts[play.lane] ?? 0) + 1;
     counts[play.lane] = count;
-    if (count > LANE_CAPACITY) return { ok: false, error: "full-lane" };
+    if (count > laneCapacity(view.locations[play.lane]?.effect))
+      return { ok: false, error: "full-lane" };
   }
   if (cost > view.energy) return { ok: false, error: "overspend" };
   return { ok: true };
+}
+
+/** True when the lane already holds as many revealed and staged cards as its
+ * location allows, so no further card can be staged there. */
+export function laneIsFull(view: StagingView, lane: number): boolean {
+  const held =
+    (view.own.lanes[lane]?.length ?? 0) +
+    view.own.staged.filter((play) => play.lane === lane).length;
+  return held >= laneCapacity(view.locations[lane]?.effect);
 }
 
 /** Every single play that can be appended to the current staging. */

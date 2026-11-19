@@ -1,4 +1,5 @@
 import {
+  isLaneCapacityLimit,
   isLocationEffectKind,
   isPowerPerCardAmount,
   MAX_LOCATION_NAME,
@@ -27,7 +28,11 @@ export function validateLocations(
     readonly id: string;
     readonly name: string;
     readonly text: string;
-    readonly effect: { readonly kind: unknown; readonly amount?: unknown };
+    readonly effect: {
+      readonly kind: unknown;
+      readonly amount?: unknown;
+      readonly limit?: unknown;
+    };
   }[],
 ): readonly LocationIssue[] {
   const issues: LocationIssue[] = [];
@@ -49,17 +54,20 @@ export function validateLocations(
       add("name");
     if (!entry.text.trim() || entry.text.length > MAX_LOCATION_TEXT)
       add("text");
-    if (!isLocationEffectKind(entry.effect.kind)) add("effect");
-    else if (entry.effect.kind === "none") {
-      if ("amount" in entry.effect) add("effect");
-    } else if (!isPowerPerCardAmount(entry.effect.amount)) add("effect");
-    // Rule text must state the amount as a whole number, not inside another.
-    else if (
-      !new RegExp(
-        `(?<![\\d.])${String(entry.effect.amount)}(?!\\d|\\.\\d)`,
-      ).test(entry.text)
-    )
-      add("effect-text");
+    const { effect } = entry;
+    const stated = (n: number) =>
+      // Rule text must state the number as a whole number, not inside another.
+      new RegExp(`(?<![\\d.])${String(n)}(?!\\d|\\.\\d)`).test(entry.text);
+    if (!isLocationEffectKind(effect.kind)) add("effect");
+    else if (effect.kind === "none") {
+      if ("amount" in effect || "limit" in effect) add("effect");
+    } else if (effect.kind === "power-per-card") {
+      if (!isPowerPerCardAmount(effect.amount) || "limit" in effect)
+        add("effect");
+      else if (!stated(effect.amount)) add("effect-text");
+    } else if (!isLaneCapacityLimit(effect.limit) || "amount" in effect)
+      add("effect");
+    else if (!stated(effect.limit)) add("effect-text");
   });
   return issues;
 }
