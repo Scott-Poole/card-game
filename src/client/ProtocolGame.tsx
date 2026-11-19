@@ -15,6 +15,8 @@ import Card from "./Card.tsx";
 import PlayerSheet from "./PlayerSheet.tsx";
 import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
+import MatchResult from "./MatchResult.tsx";
+import { summarizeResult } from "./matchResult.ts";
 import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
 import { laneIsFull, legalPlays, TURN_LIMIT } from "../rules/index.ts";
@@ -79,13 +81,8 @@ function Game() {
     view !== null &&
     !turnOver &&
     laneIsFull({ ...view, own: { ...view.own, staged } }, lane);
-  const outcome = (winner: number | null) =>
-    winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   const totals = view ? selectLaneTotals(view) : null;
   const ended = !revealing && view?.phase === "ended";
-  // The current server emits only match-ended for a forfeit; normal endings include turn-ended.
-  const forfeited =
-    ended && view.events.length === 1 && view.events[0]?.type === "match-ended";
   const commitLabel = !view
     ? ""
     : ended
@@ -463,65 +460,14 @@ function Game() {
                   </ol>
                 </section>
                 {ended && (
-                  <section
-                    className={cx(
-                      panel(),
-                      css({
-                        my: "md",
-                        p: playing ? "sm" : { base: "compact", md: "md" },
-                        overflowWrap: "anywhere",
-                      }),
-                    )}
-                    aria-label="Match result"
+                  <MatchResult
+                    summary={summarizeResult(view)}
+                    compact={playing}
+                    onPlayAgain={() => {
+                      dispatch(matchSlice.actions.left());
+                    }}
                     ref={result}
-                    tabIndex={-1}
-                  >
-                    <h2>Match result</h2>
-                    <div role="group" aria-label="Winner">
-                      {outcome(view.result.winner)}
-                    </div>
-                    {forfeited && <p>Forfeit: opponent left the match</p>}
-                    {!forfeited && (
-                      <>
-                        <p>Lane scores on the final board:</p>
-                        <ul>
-                          {view.result.lanes.map((winner, lane) => (
-                            <li key={lane}>
-                              Lane {lane + 1}: {outcome(winner)}
-                            </li>
-                          ))}
-                        </ul>
-                        <p>
-                          Lanes won: You{" "}
-                          {
-                            view.result.lanes.filter(
-                              (winner) => winner === view.player,
-                            ).length
-                          }{" "}
-                          · Opponent{" "}
-                          {
-                            view.result.lanes.filter(
-                              (winner) =>
-                                winner !== null && winner !== view.player,
-                            ).length
-                          }
-                        </p>
-                        <p>
-                          Total power: You {view.result.power[view.player]} ·
-                          Opponent{" "}
-                          {view.result.power[view.player === 0 ? 1 : 0]}
-                        </p>
-                      </>
-                    )}
-                    <button
-                      className={button()}
-                      onClick={() => {
-                        dispatch(matchSlice.actions.left());
-                      }}
-                    >
-                      Play again
-                    </button>
-                  </section>
+                  />
                 )}
               </>
             )}
