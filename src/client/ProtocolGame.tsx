@@ -23,7 +23,7 @@ import { useAppDispatch, useAppSelector } from "./hooks.ts";
 import { selectConnection } from "./connectionSlice.ts";
 import { selectMatch } from "./matchSlice.ts";
 import { selectStaging } from "./stagingSlice.ts";
-import { send } from "./store.ts";
+import { playAgain, send } from "./store.ts";
 
 export default function ProtocolGame() {
   return (
@@ -478,7 +478,32 @@ function Game() {
                         </li>
                       ))}
                     </ul>
-                    <p>Total power: {view.result.power.join(" / ")}</p>
+                    <p>
+                      Lanes won: You{" "}
+                      {
+                        view.result.lanes.filter(
+                          (winner) => winner === view.player,
+                        ).length
+                      }{" "}
+                      · Opponent{" "}
+                      {
+                        view.result.lanes.filter(
+                          (winner) => winner !== null && winner !== view.player,
+                        ).length
+                      }
+                    </p>
+                    <p>
+                      Total power: You {view.result.power[view.player]} ·
+                      Opponent {view.result.power[view.player === 0 ? 1 : 0]}
+                    </p>
+                    <button
+                      className={button()}
+                      onClick={() => {
+                        dispatch(playAgain());
+                      }}
+                    >
+                      Play again
+                    </button>
                   </section>
                 )}
               </>

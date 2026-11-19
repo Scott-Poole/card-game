@@ -8,7 +8,7 @@ The repo is equally a testbed for Scott's agent workflow: how work is planned, r
 
 One pnpm-managed ESM TypeScript package. Source areas: `src/rules` (shared constants, staging legality and lane totals; imports nothing), `src/engine` (match resolution), `src/protocol` (wire messages and decoders), `src/server` (authoritative WebSocket host), and `src/client` (browser UI). Lint keeps engine and protocol independent of each other and server/client, restricts both to local imports, and forbids server↔client imports; only client may import styled-system.
 
-The React client routes Home/Waiting/Match/Result screens, manages session state with Redux Toolkit, styles with Panda CSS, supports drag/tap/keyboard card play, animates with Motion, and has Storybook stories. For player integrations and shared rule knowledge, read [ADR-0001: every player uses the protocol view](docs/adr/0001-players-use-the-protocol-view.md).
+The React client routes Home/Waiting/Match/Result screens, manages session state with Redux Toolkit, styles with Panda CSS, supports drag/tap/keyboard card play, animates with Motion, and has Storybook stories. A finished match keeps the board on screen; its Result panel shows the winner, lanes won, each side's total power, and a Play again button back to Home, and a Playwright test drives that whole flow with two phone-sized browsers. For player integrations and shared rule knowledge, read [ADR-0001: every player uses the protocol view](docs/adr/0001-players-use-the-protocol-view.md).
 
 Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 147 binary. Versions are pinned in `.nvmrc` and `package.json`.
 

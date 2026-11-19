@@ -18,6 +18,10 @@ export const matchSlice = createSlice({
     requestCleared(state) {
       state.pending = null;
     },
+    /** The player left a finished match; the next screen is Home. */
+    left() {
+      return initialState;
+    },
     viewReceived(state, { payload }: PayloadAction<PlayerView>) {
       return {
         view: payload,

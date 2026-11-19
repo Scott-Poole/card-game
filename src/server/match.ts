@@ -95,8 +95,13 @@ export function matchHost(
     },
     message(peer: Peer, message: ClientMessage) {
       run(() => {
-        const seat = seats.get(peer);
+        let seat = seats.get(peer);
         if (message.type === "join") {
+          // A finished match frees its seat, so the player can queue again.
+          if (seat?.match.state.phase === "ended") {
+            seats.delete(peer);
+            seat = undefined;
+          }
           if (seat || waiting === peer) {
             error(peer);
             return;
