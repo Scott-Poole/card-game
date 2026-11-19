@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { animate, motion } from "motion/react";
 import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
-import { useRef, useState, useLayoutEffect, type ReactNode } from "react";
+import { useRef, useState, useLayoutEffect } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import {
   DragPreview,
@@ -37,7 +37,10 @@ function Game() {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [inspection, setInspection] = useState<
-    { kind: "card"; card: CardData } | { kind: "lane"; number: number } | null
+    | { kind: "card"; card: CardData }
+    | { kind: "lane"; number: number }
+    | { kind: "player"; side: "own" | "opponent" }
+    | null
   >(null);
   const transition = useGameMotion();
   const drop = useRef<{ cardId: string; lane: number } | null>(null);
@@ -167,12 +170,15 @@ function Game() {
               <>
                 <header className="board-tags">
                   <PlayerTag
+                    label={`Opponent · Player ${String(view.player === 0 ? 2 : 1)}`}
                     revealsFirst={
                       view.revealFirst === (view.player === 0 ? 1 : 0)
                     }
-                  >
-                    Opponent · Player {view.player === 0 ? 2 : 1}
-                  </PlayerTag>
+                    onInspect={() => {
+                      setSelected(null);
+                      setInspection({ kind: "player", side: "opponent" });
+                    }}
+                  />
                   <div
                     className={css({ textAlign: "center", fontSize: "small" })}
                   >
@@ -184,9 +190,14 @@ function Game() {
                       of {view.own.lanes.length} lanes
                     </span>
                   </div>
-                  <PlayerTag revealsFirst={view.revealFirst === view.player}>
-                    You · Player {view.player + 1}
-                  </PlayerTag>
+                  <PlayerTag
+                    label={`You · Player ${String(view.player + 1)}`}
+                    revealsFirst={view.revealFirst === view.player}
+                    onInspect={() => {
+                      setSelected(null);
+                      setInspection({ kind: "player", side: "own" });
+                    }}
+                  />
                 </header>
                 <div className="board-notices">
                   <ConnectionIndicator status={status} />
@@ -571,8 +582,12 @@ function Game() {
             name={
               inspection.kind === "card"
                 ? inspection.card.name
-                : (view?.locations[inspection.number - 1]?.name ??
-                  `Lane ${String(inspection.number)}`)
+                : inspection.kind === "lane"
+                  ? (view?.locations[inspection.number - 1]?.name ??
+                    `Lane ${String(inspection.number)}`)
+                  : inspection.side === "own"
+                    ? `You · Player ${String((view?.player ?? 0) + 1)}`
+                    : `Opponent · Player ${String(view?.player === 0 ? 2 : 1)}`
             }
             onClose={(cancelSelection) => {
               if (cancelSelection) setSelected(null);
@@ -591,7 +606,7 @@ function Game() {
                     (play) => play.cardId === inspection.card.id,
                   ) && <p>Choose a lane to play this card.</p>}
               </>
-            ) : (
+            ) : inspection.kind === "lane" ? (
               <>
                 <p>Lane {inspection.number}</p>
                 <p>
@@ -599,39 +614,34 @@ function Game() {
                     "No location effect."}
                 </p>
               </>
-            )}
+            ) : view ? (
+              <>
+                <p>Deck: {view[inspection.side].deckSize}</p>
+                <p>
+                  Hand:{" "}
+                  {inspection.side === "own"
+                    ? view.own.hand.length
+                    : view.opponent.handSize}
+                </p>
+                <div
+                  className={css({
+                    display: "flex",
+                    gap: "sm",
+                    flexWrap: "wrap",
+                  })}
+                >
+                  {["Destroyed", "Discarded", "Banished"].map((zone) => (
+                    <button key={zone} className={button()} disabled>
+                      {zone}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
           </Inspect>
         )}
       </DragDropProvider>
     </CardMotionScope>
-  );
-}
-
-/** Lights up for the player whose cards reveal first this turn. */
-function PlayerTag({
-  revealsFirst,
-  children,
-}: {
-  revealsFirst: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <span
-      data-reveals-first={revealsFirst || undefined}
-      className={css({
-        px: "sm",
-        borderRadius: "control",
-        border: "[1px solid transparent]",
-        "&[data-reveals-first]": {
-          color: "text",
-          borderColor: "accent",
-          bg: "raised",
-        },
-      })}
-    >
-      {children}
-      {revealsFirst && " · Reveals first"}
-    </span>
   );
 }
 
@@ -657,5 +667,56 @@ function ConnectionIndicator({
     >
       {status}
     </p>
+  );
+}
+
+/** Opens the player-info sheet; lights up when this player's cards reveal first. */
+function PlayerTag({
+  label,
+  revealsFirst,
+  onInspect,
+}: {
+  label: string;
+  revealsFirst: boolean;
+  onInspect: () => void;
+}) {
+  return (
+    <button
+      data-reveals-first={revealsFirst || undefined}
+      className={cx(
+        button(),
+        css({
+          display: "flex",
+          alignItems: "center",
+          gap: "xs",
+          m: "none",
+          p: "xs",
+          fontSize: "small",
+          color: "text",
+          bg: "panel",
+          minW: "[0]",
+          lineHeight: "heading",
+          "&[data-reveals-first]": { borderColor: "accent", bg: "raised" },
+        }),
+      )}
+      aria-haspopup="dialog"
+      onClick={onInspect}
+    >
+      <span
+        aria-hidden="true"
+        className={css({
+          flexShrink: 0,
+          width: "laneBadge",
+          height: "laneBadge",
+          border: "panel",
+          borderRadius: "control",
+          bg: "raised",
+        })}
+      />
+      <span>
+        {label}
+        {revealsFirst && " · Reveals first"}
+      </span>
+    </button>
   );
 }
