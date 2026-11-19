@@ -31,9 +31,7 @@ Completed parent specs stay open for Scott: `queue.sh parent-done <child>` swaps
 
 ## Providers
 
-Once per run, before step 1, learn which providers are refusing work. Neither Claude's nor Codex's meter can be trusted from any file (logs disagree with the real meter, and a provider that is out writes no new reading), so go by failures. `t3_thread_list` with `statuses: ["failed"]` and `limit: 20`; a provider (`claudeAgent` or `codex`, the thread's `providerInstanceId`) is **out** when its newest failed thread has an `itemCount` of 2 or less (it died on its first message) and an `updatedAt` within the last 2 hours. Older than that, the provider counts as working again, so the next launch on it is the probe: a limit that lifted early heals with no state to clear, and one that did not costs a single instant failure, which step 3 routes around. That heuristic also fires for a launch that failed for another reason; the price of the false positive is two hours without one provider.
-
-Keep the out set for the whole run. Both providers out: claim nothing, say so in the reply, and go to **Audit**.
+Once per run, before step 1, work out which providers are **out**, using `delegate`'s definition (**A provider that refuses on usage**) with one `t3_thread_list` read of this project's threads (`limit: 30`, no status filter) and `providerOutHours` from [`config.json`](config.json). Keep the out set for the whole run; every launch below (tickets, planner, audit) skips an out provider. Name each out provider in the reply with its failing thread's link, so a failure that is not a usage limit (a renamed model, lapsed auth) shows up where Scott reads instead of idling a provider run after run. Both providers out: claim nothing, say so in the reply, and go to **Audit**.
 
 ## 1. Ask the queue
 
@@ -56,7 +54,7 @@ git show origin/main:.agents/skills/tick/queue.sh | bash -s -- resume-info <n>  
 `t3_thread_read` that thread (small `limit`; only its status matters), then:
 
 - **Active** (`running`, `queued`, `starting`, `preparing`, `waiting`): `... -- alive <n>`. The thread is working, so the claim stays and its clock restarts.
-- **Failed on a provider that is out** (`failed`, and the thread's provider is **out** per **Providers**, or `<nudges>` is 1 or more because a nudge already failed): do not wake it into the same refusal. Move it to the other provider, choosing the model from `delegate`'s implement tier: `t3_thread_configure` the thread to it, then send the resume message below and run `... -- alive <n> nudged`. If the configure is refused, launch a fresh thread as step 3's resume path does (branch `ticket/<n>-<slug>-r<CLAIMS>`, `baseRef` the pushed `origin/ticket/<n>-*` branch if any) and `note <n> "work-ticket thread: <link>"`. The other provider out too: change nothing, stop the run, and say so; a later tick tries again once the 2 hours pass.
+- **Failed on a provider that is out** (`failed`, and the thread's provider is **out** per **Providers**): do not wake it into the same refusal. Move it to the other provider, choosing the model from `delegate`'s implement tier: `t3_thread_configure` the thread to it, then send the resume message below and run `... -- alive <n> nudged`. If the configure is refused, launch a fresh thread as step 3's resume path does (branch `ticket/<n>-<slug>-r<CLAIMS>`, `baseRef` the pushed `origin/ticket/<n>-*` branch if any) and `note <n> "work-ticket thread: <link>"`. Either way, `note <n> "moved from <old provider> to <new provider>: usage refusal"`, so the audit knows which family finished the work (the last implement row decides authorship). The other provider out too: change nothing, stop the run, and say so; a later tick tries again once `providerOutHours` pass.
 - **Idle or ended** (`completed`, `idle`, `failed`, `interrupted`, `cancelled`) and `<nudges>` is under 3: wake it with `t3_thread_send`, "Resume: you still hold #<n>. Read the issue and its PR, finish the ticket per `work-ticket`, and merge or escalate.", then `... -- alive <n> nudged`. Threads that ended a turn waiting for a reply resume this way, keeping their branch, worktree and PR.
 - **No link recorded** (`THREAD none`: the note after launch may have failed): look for the thread before giving up: `t3_thread_list` with `titleContains` `#<n> ` (the launch title) and the branch `ticket/<n>-*`; if found, treat it as the link above and `note <n> "work-ticket thread: <link>"` to repair the record.
 - **Missing** (the read or the title search *confirms* no thread exists): `... -- release <n> "thread gone"`. The ticket returns to `ready-for-agent` and a later launch resumes it (step 3).
@@ -102,7 +100,7 @@ git show origin/main:.agents/skills/tick/queue.sh | bash -s -- note <n> "work-ti
 Retry a failed `note` once; if it still fails, say so in the reply (**Check** recovers the thread by its title later). This ticket is done when it carries `in-progress`, a claim comment, and the thread link. Read the launched thread once with `t3_thread_read`, after a few seconds (a refused launch fails within about one):
 
 - It does not exist: release the claim (`... -- release <n> "launch failed"`).
-- Its first run `failed` with the thread at 2 items or fewer: that provider refused (a usage limit; the limit is days long, so waiting does not help). Add it to this run's **out** set and launch again on the other provider with a new `clientRequestId` (`ticket-<n>-<CLAIMS>-b`), then `note` the new link instead (**Check** follows the recorded link, not the failed thread). The other provider already out: keep the claim, stop the run, and say so; **Check** moves the ticket once a provider works again.
+- Its first run `failed` with the thread at 2 items or fewer: that provider refused (a usage limit; the limit is days long, so waiting does not help). Add it to this run's **out** set and launch again on the other provider, on a fresh branch `ticket/<n>-<slug>-b` (the refused thread bound the first one; nothing was pushed) and with a new `clientRequestId` (`ticket-<n>-<CLAIMS>-b`), then `note` the new link instead (**Check** follows the recorded link, not the failed thread) and `note <n> "moved from <old provider> to <new provider>: usage refusal"`. The other provider already out: keep the claim, stop the run, and say so; **Check** moves the ticket once a provider works again.
 - Otherwise keep the claim. A refusal that lands after this read is caught by **Providers** on the next run and by **Check**.
 
 Go back to step 1.
@@ -117,7 +115,7 @@ When step 1 printed `PLAN <category>`:
    git show origin/main:.agents/skills/tick/queue.sh | bash -s -- plan-open <category> <claimed>
    ```
 
-2. Pick the model from the `delegate` skill's **plan** tier, primary column (its fallback when the primary's provider is **out**, and the same relaunch-on-refusal rule as step 4), and `t3_thread_launch` it:
+2. Pick the model from the `delegate` skill's **plan** tier, primary column (its fallback when the primary's provider is **out**), and `t3_thread_launch` it:
 
    - `title`: `Plan: <category> (#<n>)`
    - `workspaceStrategy`: `{type: "worktree", baseRef: "origin/main", startFromOrigin: true, branch: "plan/<n>-<category>"}`
@@ -126,7 +124,7 @@ When step 1 printed `PLAN <category>`:
 
      > Run a `<category>` planner for planning issue #&lt;n&gt; on `Scott-Poole/card-game`. Read `.agents/skills/plan/SKILL.md` in this checkout and follow it exactly; the tick has already opened the planning issue.
 
-   If the launch fails, `... | bash -s -- plan-abort <n> "<error>"` and go to **Audit**.
+   If the launch fails, `... | bash -s -- plan-abort <n> "<error>"` and go to **Audit**. A refusal is the exception: launch once more on the plan tier's fallback with branch `plan/<n>-<category>-b`, add the refused provider to the out set, and abort only if that launch fails too.
 
 3. Record the thread: `... | bash -s -- note <n> "planner thread: <link>"`.
 
@@ -138,7 +136,7 @@ After the claim loop ends for any reason (including NOOP, query or launch failur
 
 1. Refresh the landed script and config: `git fetch -q origin main`. If the fetch fails, end audit dispatch and report the error. Then run `git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-next`. `NONE` ends audit dispatch; a non-zero exit ends it with the error reported. On `AUDIT <pr>`, run `audit-claim <pr>`; a refusal or failure ends audit dispatch.
 2. Read the PR title and determine the family that authored its changes from its implement row in trusted PR verdict `## Runs` comments (use `delegate`'s query; historical runs are preserved on #67), the PR body, or the linked work-ticket thread (the shared GitHub login alone does not identify the model). If it cannot be established, record `author family unknown` and use the review tier’s third-family fallback, DeepSeek Flash, for this historical backlog. An unknown family alone never releases the claim or blocks dispatch. Include the uncertainty in the launch message so the auditor records it in the result.
-3. Load `delegate` and use the **review** tier primary for a known author family: Codex-authored → Claude Sonnet 5.5; Claude-authored → Codex `gpt-6.1-sol`, effort `medium`. Copy current ids from `orchestrator_capabilities`; `delegate` is authoritative if its routing table changes. If the primary is unavailable, try its review fallback before releasing (a Codex usage-limit failure goes straight to DeepSeek Flash, per `delegate`); never use the author’s family. Launch one top-level `t3_thread_launch`:
+3. Load `delegate` and use the **review** tier primary for a known author family: Codex-authored → Claude Sonnet 5.5; Claude-authored → Codex `gpt-6.1-sol`, effort `medium`. Copy current ids from `orchestrator_capabilities`; `delegate` is authoritative if its routing table changes. If the primary is unavailable or **out** (see **Providers**), try its review fallback before releasing (a Codex usage-limit failure goes straight to DeepSeek Flash, per `delegate`); never use the author’s family. Launch one top-level `t3_thread_launch`:
    - `title`: `Audit: #<pr> <title>`
    - `workspaceStrategy`: `{type: "worktree", baseRef: "origin/main", startFromOrigin: true}`
    - `modelSelection`: the chosen review model and options
