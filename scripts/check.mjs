@@ -23,6 +23,7 @@ const gates = [
   "test:boundaries",
   "test:skill-links",
   "test:working-markdown",
+  "build-storybook",
   "test:browser",
 ];
 for (const gate of gates) {
