@@ -25,7 +25,7 @@ Planners run beside implementers: one at a time, tracked by an open `planning` i
 
 Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (every claim holds a slot while it lives), claims per UTC day, tickets automation has handed to Scott (`escalate`d ones only), hours without a sign of life before a claim is checked. The `planning` block holds the planner's own: on/off, runs per UTC day, tickets per run, and the category rotation. `implement.claudeShare` (0 to 1) is the fraction of tickets Claude implements; the rest go to Codex, and the cross-family review lands on the other subscription. No API reports usage, so Scott sets it by hand from the weekly meters at the start of each week: raise it when Codex is burning faster than Claude, lower it when the reverse. Tune them there (through a PR); `"enabled": false` stops dispatch and planning, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
 
-Steps 1–4 are a loop: after recording a launch, or resolving a **Check**, go back to step 1. Keep the list of tickets this run has claimed (`<claimed>` below, space-separated, empty at first) and pass it to every `next` and `plan-open`: GitHub's listings can lag a label write by more than the seconds between calls, so `queue.sh` counts those claims against the caps itself and never offers them again. The caps end the loop: every claim uses an in-progress slot and a daily claim, and once a planner is open, `next` returns `NOOP`. After the loop, go to **Audit**. Your reply covers the whole run: every ticket launched, the planner if one started, and the `NOOP` line that ended it.
+Steps 1–4 are a loop: after recording a launch, or resolving a **Check**, go back to step 1. Keep the list of tickets this run has claimed (`<claimed>` below, space-separated, empty at first) and pass it to every `next` and `plan-open`: GitHub's listings can lag a label write by more than the seconds between calls, so `queue.sh` counts those claims against the caps itself and never offers them again. The caps end the loop: every claim uses an in-progress slot and a daily claim, and once a planner is open, `next` returns `NOOP`. The run ends when the loop ends, after the **Plan** step when `next` returns `PLAN`, or early on an error or refusal. Your reply covers the whole run: every ticket launched, the planner if one started, and why it ended: the `NOOP` line, the planner it started, or the error or refusal.
 
 Completed parent specs stay open for Scott: `queue.sh parent-done <child>` swaps `ready-for-agent` for `ready-for-human` and comments once after all children close. Nothing waits on the spec. These unclaimed specs do not count toward `maxEscalated`, which counts claim history.
 
@@ -37,7 +37,7 @@ Run the landed copy of the script, so a checkout on any branch obeys `main`:
 git fetch -q origin main && git show origin/main:.agents/skills/tick/queue.sh | bash -s -- next <claimed>
 ```
 
-It prints one line. A non-zero exit means a GitHub call failed partway: record its stderr and go to **Audit**, retrying nothing. `NOOP <reason>` → the run is over: go to **Audit**. `CHECK <n> <nudges> <title>` → go to **Check** below, then back to this step. `PLAN <category>` → go to **Plan** below. `LAUNCH <n> <title>` → continue.
+It prints one line. A non-zero exit means a GitHub call failed partway: record its stderr and end the run, retrying nothing. `NOOP <reason>` → the run is over. `CHECK <n> <nudges> <title>` → go to **Check** below, then back to this step. `PLAN <category>` → go to **Plan** below. `LAUNCH <n> <title>` → continue.
 
 ## Check
 
@@ -57,7 +57,7 @@ git show origin/main:.agents/skills/tick/queue.sh | bash -s -- resume-info <n>  
 
 A failed `t3_thread_send` to a thread you just read is a transport error, not proof the thread is gone: stop the run like a failed read and keep the claim (a later tick tries again). Release only on confirmed absence.
 
-If the read itself errors, stop the run: claim nothing more, mention the error in the reply, and go to **Audit**. (`next` would offer the same ticket again, so retrying here never ends.) `alive` and `release` change what `next` offers, so every other outcome terminates. `release` refuses a ticket whose thread escalated in the meantime; leave that one for Scott (a later `next` finishes an escalation whose claim removal failed, and drops the dead claim if Scott already handed the ticket back, so neither recurs as a CHECK). `<nudges>` counts only wakes since the current claim began, so a hand-back starts a fresh budget. `alive` also clears a `ready-for-human` the retired stale sweep left on a claimed ticket, recognised by that sweep's own comment (`the claim keeps its slot until you remove`); a `ready-for-human` without it belongs to an escalation, so `alive` leaves it and `release` refuses.
+If the read itself errors, stop the run: claim nothing more, and mention the error in the reply. (`next` would offer the same ticket again, so retrying here never ends.) `alive` and `release` change what `next` offers, so every other outcome terminates. `release` refuses a ticket whose thread escalated in the meantime; leave that one for Scott (a later `next` finishes an escalation whose claim removal failed, and drops the dead claim if Scott already handed the ticket back, so neither recurs as a CHECK). `<nudges>` counts only wakes since the current claim began, so a hand-back starts a fresh budget. `alive` also clears a `ready-for-human` the retired stale sweep left on a claimed ticket, recognised by that sweep's own comment (`the claim keeps its slot until you remove`); a `ready-for-human` without it belongs to an escalation, so `alive` leaves it and `release` refuses.
 
 ## 2. Claim
 
@@ -67,7 +67,7 @@ Read the ticket's history first, because claiming adds to it: `git show origin/m
 git show origin/main:.agents/skills/tick/queue.sh | bash -s -- claim <n>
 ```
 
-A refusal means someone else holds the ticket: record the refusal and go to **Audit**. Another tick is running, so leave the rest of the queue to it. On success, add `<n>` to `<claimed>`.
+A refusal means someone else holds the ticket: record the refusal and end the run. Another tick is running, so leave the rest of the queue to it. On success, add `<n>` to `<claimed>`.
 
 ## 3. Launch
 
@@ -84,7 +84,7 @@ Pick the model from the `delegate` skill's **implement** tier and copy its ids f
 
 A top-level thread, never a `delegate_task` child: children can't watch a PR, and work-ticket may need to wait on CI.
 
-If the launch call errors, do not assume nothing was created (the thread may exist while its response was lost): search for it as **Check** does (`t3_thread_list`, `titleContains` `#<n> `). Found: record its link (step 4) and carry on. Confirmed absent: release the claim (`... | bash -s -- release <n> "<error>"`) and go to **Audit**. Search unavailable: stop the run and keep the claim; the next **Check** finds the thread. Pass a stable `clientRequestId` (`ticket-<n>-<CLAIMS>`) when the launch tool takes one, so a retry cannot create a second thread.
+If the launch call errors, do not assume nothing was created (the thread may exist while its response was lost): search for it as **Check** does (`t3_thread_list`, `titleContains` `#<n> `). Found: record its link (step 4) and carry on. Confirmed absent: release the claim (`... | bash -s -- release <n> "<error>"`) and end the run. Search unavailable: stop the run and keep the claim; the next **Check** finds the thread. Pass a stable `clientRequestId` (`ticket-<n>-<CLAIMS>`) when the launch tool takes one, so a retry cannot create a second thread.
 
 ## 4. Record
 
@@ -98,7 +98,7 @@ Retry a failed `note` once; if it still fails, say so in the reply (**Check** re
 
 When step 1 printed `PLAN <category>`:
 
-1. Open the planning issue. It prints the issue number; a refusal means another planner is open, so reply with it and go to **Audit**.
+1. Open the planning issue. It prints the issue number; a refusal means another planner is open, so reply with it and end the run.
 
    ```sh
    git show origin/main:.agents/skills/tick/queue.sh | bash -s -- plan-open <category> <claimed>
@@ -113,23 +113,8 @@ When step 1 printed `PLAN <category>`:
 
      > Run a `<category>` planner for planning issue #&lt;n&gt; on `Scott-Poole/card-game`. Read `.agents/skills/plan/SKILL.md` in this checkout and follow it exactly; the tick has already opened the planning issue.
 
-   If the launch fails, `... | bash -s -- plan-abort <n> "<error>"` and go to **Audit**.
+   If the launch fails, `... | bash -s -- plan-abort <n> "<error>"` and end the run.
 
 3. Record the thread: `... | bash -s -- note <n> "planner thread: <link>"`.
 
-Done when the planning issue is open with the thread link. Then go to **Audit** (only one planner runs at a time).
-
-## Audit
-
-After the claim loop ends for any reason (including NOOP, query or launch failure, refusal, or a planner launch), dispatch at most **one audit per tick run**. This is independent of the ticket and planner caps; the existing global off switch still applies.
-
-1. Refresh the landed script and config: `git fetch -q origin main`. If the fetch fails, end audit dispatch and report the error. Then run `git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-next`. `NONE` ends audit dispatch; a non-zero exit ends it with the error reported. On `AUDIT <pr>`, run `audit-claim <pr>`; a refusal or failure ends audit dispatch.
-2. Read the PR title and determine the family that authored its changes from its implement row in trusted PR verdict `## Runs` comments (use `delegate`'s query; historical runs are preserved on #67), the PR body, or the linked work-ticket thread (the shared GitHub login alone does not identify the model). If it cannot be established, record `author family unknown` and use the review tier’s third-family fallback, DeepSeek Flash, for this historical backlog. An unknown family alone never releases the claim or blocks dispatch. Include the uncertainty in the launch message so the auditor records it in the result.
-3. Load `delegate` and use the **review** tier primary for a known author family: Codex-authored → Claude Sonnet 5.5; Claude-authored → Codex `gpt-6.1-sol`, effort `medium`. Copy current ids from `orchestrator_capabilities`; `delegate` is authoritative if its routing table changes. If the primary is unavailable, try its review fallback before releasing (a Codex usage-limit failure goes straight to DeepSeek Flash, per `delegate`); never use the author’s family. Launch one top-level `t3_thread_launch`:
-   - `title`: `Audit: #<pr> <title>`
-   - `workspaceStrategy`: `{type: "worktree", baseRef: "origin/main", startFromOrigin: true}`
-   - `modelSelection`: the chosen review model and options
-   - `message`: "Run the merge audit from `.agents/skills/land/SKILL.md` for PR #<pr>."
-4. On launch failure, run `audit-release <pr> "<error>"`. On success, comment the thread link on the PR using `note <pr> "audit thread: <link>"`.
-
-Reply with every ticket and planner launched, the loop's ending reason or error, and the audit PR and thread link if launched. Done when audit dispatch has either launched one thread or reported NONE, a refusal, or an error.
+Done when the planning issue is open with the thread link. Then end the run (only one planner runs at a time).
