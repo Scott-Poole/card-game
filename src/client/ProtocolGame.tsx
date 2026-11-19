@@ -469,16 +469,16 @@ function Game() {
                       {outcome(view.result.winner)}
                     </div>
                     {forfeited && <p>Forfeit: opponent left the match</p>}
-                    <p>Lane scores on the final board:</p>
-                    <ul>
-                      {view.result.lanes.map((winner, lane) => (
-                        <li key={lane}>
-                          Lane {lane + 1}: {outcome(winner)}
-                        </li>
-                      ))}
-                    </ul>
                     {!forfeited && (
                       <>
+                        <p>Lane scores on the final board:</p>
+                        <ul>
+                          {view.result.lanes.map((winner, lane) => (
+                            <li key={lane}>
+                              Lane {lane + 1}: {outcome(winner)}
+                            </li>
+                          ))}
+                        </ul>
                         <p>
                           Lanes won: You{" "}
                           {

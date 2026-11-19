@@ -454,6 +454,7 @@ test("closing a context mid-match gives the opponent a forfeit win", async ({
   await expect(a.getByLabel("Winner")).toHaveText("You win");
   await expect(a.getByText("Forfeit: opponent left the match")).toBeVisible();
   // Lane stats from an abandoned board would contradict the forced win.
+  await expect(a.getByText(/^Lane scores/)).toHaveCount(0);
   await expect(a.getByText(/^Lanes won:/)).toHaveCount(0);
   await expect(a.getByText(/^Total power:/)).toHaveCount(0);
 });
