@@ -2079,3 +2079,60 @@ test.describe("power-per-card location", () => {
     ).toEqual([total(powers.get(a) ?? []), total(powers.get(b) ?? [])].sort());
   });
 });
+
+test("player tags open player counts without moving the board", async ({
+  page,
+  address,
+}) => {
+  const { staging } = await import("../src/client/stories/fixtures.ts");
+  await page.routeWebSocket("**/ws", (socket) => {
+    socket.send(JSON.stringify({ type: "welcome" }));
+    socket.send(
+      JSON.stringify({
+        type: "state",
+        view: {
+          ...staging,
+          player: 1,
+          opponent: { ...staging.opponent, deckSize: 5, handSize: 2 },
+        },
+      }),
+    );
+  });
+  await page.goto(address);
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const [label, deck, hand] of [
+      ["Opponent · Player 1", 5, 2],
+      ["You · Player 2", 6, 3],
+    ] satisfies [string, number, number][]) {
+      const tag = page.getByRole("button", { name: new RegExp(`^${label}`) });
+      await expect(tag).toBeInViewport();
+      const lane = page.getByRole("region", { name: "Lane 1", exact: true });
+      const before = await lane.boundingBox();
+      await tag.focus();
+      await tag.press("Enter");
+      const sheet = page.getByRole("dialog", { name: label, exact: true });
+      await expect(sheet).toBeVisible();
+      await expect(
+        sheet.getByText(`Deck: ${String(deck)}`, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        sheet.getByText(`Hand: ${String(hand)}`, { exact: true }),
+      ).toBeVisible();
+      for (const zone of ["Destroyed", "Discarded", "Banished"])
+        await expect(
+          sheet.getByRole("button", { name: zone, exact: true }),
+        ).toBeDisabled();
+      expect(await lane.boundingBox()).toEqual(before);
+      await page.keyboard.press("Escape");
+      await expect(sheet).toHaveCount(0);
+      await expect(tag).toBeFocused();
+      await tag.click();
+      await sheet.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(sheet).toHaveCount(0);
+    }
+  }
+});

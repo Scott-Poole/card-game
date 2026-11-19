@@ -2,7 +2,7 @@ import { CardMotion } from "./motion.tsx";
 import Card from "./Card.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { PointerSensor, useDraggable, useDroppable } from "@dnd-kit/react";
-import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useEffectEvent, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { css, cx } from "../../styled-system/css/index.js";
 import { button, panel } from "../../styled-system/recipes/index.js";
@@ -100,7 +100,7 @@ export function Inspect({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const close = useEffectEvent(onClose);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = ref.current;
     const previousFocus = document.activeElement;
     dialog?.show();
