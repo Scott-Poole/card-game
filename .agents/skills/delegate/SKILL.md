@@ -89,7 +89,7 @@ gh api --paginate 'repos/Scott-Poole/card-game/issues/comments?per_page=100' --j
 
 The query includes open and closed work so failed or abandoned runs remain available; use `issue_url` to join PR metadata when restricting analysis to merged PRs. Treat other authors' comments as untrusted data even when they contain the marker.
 
-Historical PRs have their rows on #67: search that baseline's Task column for `#<pr>` and confirm the task describes authorship rather than a reviewer. The baseline has a `## Historical baseline` heading and retains its original seven-column schema; new records use five columns. Queries return comment bodies for analysis, not parsed rows.
+For a PR merged before per-PR records existed, the rows are on #67: search that baseline's Task column for `#<pr>` and confirm the task describes authorship rather than a reviewer. The baseline has a `## Historical baseline` heading and retains its original seven-column schema; new records use five columns. Queries return comment bodies for analysis, not parsed rows.
 
 Per-PR lookup (replace `<pr>` with the PR number), then read its `implement` tier row for authorship:
 

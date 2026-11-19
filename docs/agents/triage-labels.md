@@ -58,6 +58,6 @@ A stale claim (an `in-progress` ticket with no sign of life for `staleHours`) is
 
 ## Automation labels
 
-Outside the triage roles, the `tick` and `plan` skills use `in-progress` (a claimed ticket), `planning` (a planner run's tracking issue, open while it runs), and `review-blocked` (set by `land`).
+Outside the triage roles, the `tick` and `plan` skills use `in-progress` (a claimed ticket), `planning` (a planner run's tracking issue, open while it runs), and `review-blocked` (set by `land`). Trivial merges carry no label and no follow-up queue (retired in #138).
 
 Completed parent specs stay open: `queue.sh parent-done <child>` replaces `ready-for-agent` with `ready-for-human` and comments once. Scott closes the spec when the outcome matches; nothing waits on it.
