@@ -161,3 +161,30 @@ test.each(["SIGTERM", "SIGINT"] satisfies NodeJS.Signals[])(
   },
   10000,
 );
+
+test("a missing CLIENT_DIRECTORY fails fast without listening", async () => {
+  const directory = join(tmpdir(), "card-game-main-does-not-exist");
+  const server = launch("0", directory);
+  const { code, signal } = await server.closed;
+  expect(code).not.toBeNull();
+  expect(code).not.toBe(0);
+  expect(signal).toBeNull();
+  const { stdout, stderr } = server.output();
+  expect(stdout).toBe("");
+  expect(stderr).toContain(directory);
+  expect(stderr).toContain("pnpm build");
+});
+
+test("a CLIENT_DIRECTORY without index.html fails fast without listening", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "card-game-main-empty-"));
+  directories.push(directory);
+  const server = launch("0", directory);
+  const { code, signal } = await server.closed;
+  expect(code).not.toBeNull();
+  expect(code).not.toBe(0);
+  expect(signal).toBeNull();
+  const { stdout, stderr } = server.output();
+  expect(stdout).toBe("");
+  expect(stderr).toContain(directory);
+  expect(stderr).toContain("pnpm build");
+});
