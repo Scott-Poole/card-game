@@ -1,7 +1,8 @@
 import { matchHost } from "./match.ts";
 import { staticResponse } from "./static.ts";
 import { decodeClientMessage } from "../protocol/messages.ts";
-import { LANE_COUNT, type LocationDefinition } from "../rules/index.ts";
+import { assertLocationPool } from "../engine/locations.ts";
+import type { LocationDefinition } from "../rules/index.ts";
 import type { ServerMessage } from "../protocol/messages.ts";
 import { createRequire } from "node:module";
 import type * as UWebSockets from "uWebSockets.js";
@@ -37,13 +38,11 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
     );
   }
   const pool = options.locations;
-  if (
-    pool &&
-    (pool.length < LANE_COUNT ||
-      new Set(pool.map((location) => location.id)).size !== pool.length)
-  ) {
+  try {
+    if (pool) assertLocationPool(pool);
+  } catch (error) {
     return Promise.reject(
-      new Error("locations need a unique id per entry, at least one per lane"),
+      error instanceof Error ? error : new Error(String(error)),
     );
   }
   const matches = matchHost(undefined, pool);

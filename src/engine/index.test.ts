@@ -565,7 +565,9 @@ test("rejects a location pool with duplicate ids", () => {
   const duplicated = testLocations.map((location, index) =>
     index === 1 ? { ...location, id: testLocations[0]?.id ?? "" } : location,
   );
-  expect(() => createMatch(42, [deck(), deck()], duplicated)).toThrow("unique");
+  expect(() => createMatch(42, [deck(), deck()], duplicated)).toThrow(
+    "unique id",
+  );
 });
 
 test("rejects a location pool too small to fill the lanes", () => {

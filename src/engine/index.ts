@@ -5,6 +5,7 @@ import {
   TURN_LIMIT,
 } from "../rules/index.ts";
 import type { LocationDefinition, StagingError, Zone } from "../rules/index.ts";
+import { assertLocationPool } from "./locations.ts";
 const LANE_IDS = Array.from({ length: LANE_COUNT }, (_, i) => i);
 const OPENING_HAND = 3;
 
@@ -96,10 +97,7 @@ export function createMatch(
   decks: readonly [readonly CardDefinition[], readonly CardDefinition[]],
   pool: readonly LocationDefinition[],
 ): MatchState {
-  if (pool.length < LANE_COUNT)
-    throw new Error("location pool needs a location for every lane");
-  if (new Set(pool.map((location) => location.id)).size !== pool.length)
-    throw new Error("location pool ids must be unique");
+  assertLocationPool(pool);
   let rng = seed >>> 0;
   function sample(bound: number): number {
     rng = random(rng);

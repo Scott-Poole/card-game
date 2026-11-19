@@ -1,5 +1,6 @@
 import {
   isLaneCapacityLimit,
+  LANE_COUNT,
   isLocationEffectKind,
   isPowerPerCardAmount,
   MAX_LOCATION_NAME,
@@ -7,6 +8,17 @@ import {
 } from "../rules/index.ts";
 
 export const MIN_LOCATION_POOL = 6;
+
+/** The runtime rule every match relies on: a location for every lane, each
+ * with its own id. Throws; `validateLocations` is the stricter authoring check. */
+export function assertLocationPool(
+  pool: readonly { readonly id: string }[],
+): void {
+  if (pool.length < LANE_COUNT)
+    throw new Error("location pool: locations need at least one per lane");
+  if (new Set(pool.map((location) => location.id)).size !== pool.length)
+    throw new Error("location pool: locations need a unique id per entry");
+}
 
 export type LocationIssue =
   | { readonly code: "pool-size" }
