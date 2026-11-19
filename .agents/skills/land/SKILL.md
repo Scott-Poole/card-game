@@ -3,12 +3,12 @@ name: land
 description: >-
   Take an open PR to merged, or to Scott: classify its risk, review as the class demands, then
   merge or escalate. Use when a PR is ready, when asked to land, merge, or ship a PR, for the
-  PR-review automation, or for a merge audit.
+  PR-review automation.
 ---
 
 # Land
 
-Owned by this repo. Scott's policy: **trivial** PRs merge without review and get audited later; **significant** PRs merge on agent consensus after a cross-family review; Scott hears only about **direction** decisions nobody can settle logically. Agents decide every merge that fits the policy without asking.
+Owned by this repo. Scott's policy: **trivial** PRs merge without review and problems are fixed as they surface; **significant** PRs merge on agent consensus after a cross-family review; Scott hears only about **direction** decisions nobody can settle logically. Agents decide every merge that fits the policy without asking.
 
 `main` is protected on GitHub: PR required, no force push or deletion, linear history, squash merges only. Each PR lands as one commit whose title is the PR title and whose body is the PR body, so the PR title must be a conventional commit (`<type>(<scope>): <description>`). The run may be unattended, so every step works from an explicit **pin**: the PR's head SHA you evaluated. Anything learned about one SHA says nothing about another.
 
@@ -76,7 +76,7 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
    gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=squash -f sha=$PIN
    ```
    (`gh pr merge` can hit the Projects-classic GraphQL bug noted in `AGENTS.md`; REST avoids it.)
-4. **Clean up**: if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git fetch origin main` (never pull in Scott's primary checkout; it is his to update), and delete the local `<headRefName>` if no worktree still uses it. A squash leaves the branch's commits off `main`'s history, so `git branch -d` refuses and the guardrail blocks `-D`: leave the local branch; GitHub already deleted the remote one, and `git fetch --prune` drops the tracking ref. Trivial merges also get the `merged-unreviewed` label.
+4. **Clean up**: if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git fetch origin main` (never pull in Scott's primary checkout; it is his to update), and delete the local `<headRefName>` if no worktree still uses it. A squash leaves the branch's commits off `main`'s history, so `git branch -d` refuses and the guardrail blocks `-D`: leave the local branch; GitHub already deleted the remote one, and `git fetch --prune` drops the tracking ref.
 
 Done when `origin/main` contains the squash commit and step 4.4 is done.
 
@@ -87,17 +87,3 @@ Add the `ready-for-human` label and post one comment headed `## Needs you`, fram
 ## Every outcome
 
 Create the class and verdict comment once, then PATCH that same comment on later outcomes or resume; use `delegate`'s per-PR lookup and create/update commands. Include the cumulative `## Runs` table (step 4.1) in that verdict comment, including on review-blocked, escalated, or abandoned exits. Record completed and failed runs even when merging is impossible.
-
-## Merge audit
-
-Audit the single PR named by the tick. Its claim is already `audit-in-progress`. Read the PR and its merged diff (`gh pr diff <n>`), then apply the [cross-review Skeptic lens](../cross-review/LENSES.md) yourself. This thread is the reviewer chosen by the tick: the other family when authorship is known, or the third-family fallback for unknown historical authorship. Include `author family unknown` in the result when the tick reported that uncertainty; do not claim verified cross-family coverage in that case. No further reviewer is needed.
-
-Write the complete multiline result, marker, and run table to `/tmp/audit-result-<pr>.md`. A real problem becomes a GitHub issue linking the PR. Record the findings (or explicitly no findings), any issue links, and a `## Runs` table per `delegate` with role `Audit-Skeptic`, in a PR comment through the landed queue script:
-
-```sh
-git show origin/main:.agents/skills/tick/queue.sh | bash -s -- audit-done <n> "$(cat /tmp/audit-result-<pr>.md)"
-```
-
-If `audit-done` refuses because the claim was swept or replaced, preserve the findings with a plain `gh pr comment <n> --body-file <file>` and leave the current labels alone.
-
-If the audit cannot complete, first preserve its result and run table with `gh pr comment <n> --body-file /tmp/audit-result-<pr>.md`, then use `audit-release <n> "<why>"` instead so another tick can retry. Done when `audit-done` records the result and removes the claim, or a refused completion is recorded directly without changing labels. The PR comment is the audit record.

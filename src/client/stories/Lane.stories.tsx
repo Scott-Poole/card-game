@@ -60,3 +60,21 @@ export const NamedLocation: Story = {
     },
   },
 };
+export const CapacityLimited: Story = {
+  args: {
+    ...laneArgs(staging, 1),
+    location: {
+      id: "cave-of-the-sibyl",
+      name: "Cave of the Sibyl",
+      text: "Each player may reveal at most 2 cards here.",
+      effect: { kind: "lane-capacity", limit: 2 },
+    },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: "Slots past the limit render locked on both sides of the lane.",
+      },
+    },
+  },
+};

@@ -150,6 +150,20 @@ it.each([
       ],
     },
   })),
+  ...[1, 2, 3].map((limit) => ({
+    type: "state",
+    view: {
+      ...view,
+      locations: [
+        {
+          ...locations[0],
+          text: `At most ${String(limit)} cards each.`,
+          effect: { kind: "lane-capacity", limit },
+        },
+        ...locations.slice(1),
+      ],
+    },
+  })),
 ])("decodes $type", (message) => {
   expect(decodeServerMessage(JSON.stringify(message))).toEqual({
     ok: true,
@@ -268,6 +282,13 @@ it.each([
     ["string", { kind: "power-per-card", amount: "1" }],
     ["missing", { kind: "power-per-card" }],
     ["extra key", { kind: "power-per-card", amount: 1, extra: true }],
+    ["capacity zero", { kind: "lane-capacity", limit: 0 }],
+    ["capacity four", { kind: "lane-capacity", limit: 4 }],
+    ["capacity non-integer", { kind: "lane-capacity", limit: 2.5 }],
+    ["capacity string", { kind: "lane-capacity", limit: "2" }],
+    ["capacity missing limit", { kind: "lane-capacity" }],
+    ["capacity amount instead", { kind: "lane-capacity", amount: 2 }],
+    ["capacity extra key", { kind: "lane-capacity", limit: 2, extra: true }],
   ].map(([, effect]) => ({
     ...view,
     locations: [{ ...locations[0], effect }, ...locations.slice(1)],

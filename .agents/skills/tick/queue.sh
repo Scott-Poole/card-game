@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # The deterministic half of the tick skill: every GitHub query and label write.
 #
-#   queue.sh audit-next         sweep stale audits, print AUDIT <pr> or NONE
-#   queue.sh audit-claim <pr>   merged-unreviewed -> audit-in-progress, comment claim
-#   queue.sh audit-done <pr> <summary> remove audit claim, comment result
-#   queue.sh audit-release <pr> <why> restore merged-unreviewed after launch failure
 #   queue.sh next [n...]        apply caps, print one action line; n... are the tickets this
 #                               run already claimed
 #   queue.sh parent-done <child> mark its completed parent ready-for-human, leaving it open
@@ -141,68 +137,6 @@ transition() {
 		log "#$n labels after transition are [$labels]; wanted +$add -$remove"
 		return 1
 	fi
-}
-
-# PRs share the issues label API. Paginate and sort by merge time (not PR number).
-audit_prs() {
-	gh api --paginate "$API/issues?state=closed&labels=$1&per_page=100" --jq '.[] | select(.pull_request != null) | .number'
-}
-
-cmd_audit_next() {
-	local cfg now stale n prs detail at candidates=""
-	cfg=$(config)
-	if [[ $(jq -r '.enabled' <<<"$cfg") != true ]]; then
-		echo NONE
-		return
-	fi
-	stale=$(jq -r '.staleHours' <<<"$cfg")
-	now=$(date -u +%s)
-	prs=$(audit_prs audit-in-progress)
-	for n in $prs; do
-		at=$(gh api --paginate "$API/issues/$n/events?per_page=100" --jq '.[] | select(.event == "labeled" and .label.name == "audit-in-progress") | .created_at')
-		at=$(jq -Rs 'split("\n") | map(select(length > 0) | fromdateiso8601) | max // 0' <<<"$at")
-		if ((now - at > stale * 3600)); then
-			transition "$n" merged-unreviewed audit-in-progress
-			log "stale audit: #$n -> merged-unreviewed"
-		fi
-	done
-	prs=$(audit_prs merged-unreviewed)
-	for n in $prs; do
-		detail=$(gh api "$API/pulls/$n" --jq '{number, merged_at, labels: [.labels[].name]}')
-		candidates+="$detail"$'\n'
-	done
-	n=$(jq -sr '[.[] | select(.merged_at != null and (.labels | index("audit-in-progress") | not))] | sort_by(.merged_at, .number) | first.number // empty' <<<"$candidates")
-	if [[ -n $n ]]; then echo "AUDIT $n"; else echo NONE; fi
-}
-
-cmd_audit_claim() {
-	local n=$1 labels detail
-	detail=$(gh api "$API/pulls/$n" --jq '.merged_at // empty')
-	labels=" $(labels_of "$n") "
-	if [[ -z $detail || $labels != *" merged-unreviewed "* || $labels == *" audit-in-progress "* ]]; then
-		log "refusing to audit #$n: not a queued merged PR"
-		return 1
-	fi
-	if ! transition "$n" audit-in-progress merged-unreviewed; then
-		transition "$n" merged-unreviewed audit-in-progress
-		return 1
-	fi
-	if ! comment "$n" "tick: audit claimed $(date -u +%Y-%m-%dT%H:%MZ)"; then
-		transition "$n" merged-unreviewed audit-in-progress
-		return 1
-	fi
-}
-
-cmd_audit_finish() {
-	local n=$1 summary=$2 add=$3 detail
-	detail=$(gh api "$API/pulls/$n" --jq '.merged_at != null and any(.labels[]; .name == "audit-in-progress")')
-	if [[ $detail != true ]]; then
-		log "refusing to finish audit #$n: not a claimed merged PR"
-		return 1
-	fi
-	comment "$n" "$summary"
-	transition "$n" "$add" audit-in-progress
-	if [[ -z $add ]]; then transition "$n" "" merged-unreviewed; fi
 }
 
 cmd_next() {
@@ -662,10 +596,6 @@ cmd_escalate() {
 }
 
 case ${1:-} in
-audit-next) cmd_audit_next ;;
-audit-claim) cmd_audit_claim "${2:?PR number}" ;;
-audit-done) cmd_audit_finish "${2:?PR number}" "${3:?summary}" "" ;;
-audit-release) cmd_audit_finish "${2:?PR number}" "tick: audit released: ${3:?reason}" merged-unreviewed ;;
 next) shift; cmd_next "$@" ;;
 parent-done) cmd_parent_done "${2:?child issue number}" ;;
 claim) cmd_claim "${2:?issue number}" ;;
@@ -678,7 +608,7 @@ plan-open) shift; cmd_plan_open "${1:?category}" "${@:2}" ;;
 plan-done) cmd_plan_close "${2:?issue number}" "${3:?summary}" completed ;;
 plan-abort) cmd_plan_close "${2:?issue number}" "${3:?reason}" not_planned ;;
 *)
-	log "usage: queue.sh audit-next | audit-claim <pr> | audit-done <pr> <summary> | audit-release <pr> <why> | parent-done <child> | next [n...] | claim <n> | release <n> <why> | alive <n> [nudged] | resume-info <n> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
+	log "usage: queue.sh parent-done <child> | next [n...] | claim <n> | release <n> <why> | alive <n> [nudged] | resume-info <n> | escalate <n> <comment> | note <n> <text> | plan-open <category> [n...] | plan-done <n> <summary> | plan-abort <n> <why>"
 	exit 2
 	;;
 esac

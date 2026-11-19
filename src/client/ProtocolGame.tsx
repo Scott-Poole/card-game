@@ -16,7 +16,7 @@ import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
 import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
-import { legalPlays, TURN_LIMIT } from "../rules/index.ts";
+import { laneIsFull, legalPlays, TURN_LIMIT } from "../rules/index.ts";
 import { css, cx } from "../../styled-system/css/index.js";
 import { panel, button } from "../../styled-system/recipes/index.js";
 import { useAppDispatch, useAppSelector } from "./hooks.ts";
@@ -67,6 +67,14 @@ function Game() {
   const available = view
     ? legalPlays({ ...view, own: { ...view.own, staged } })
     : [];
+  // The "Lane full" reason applies until the turn is over: an in-flight stage
+  // (`pending`) still leaves the lane full.
+  const turnOver =
+    revealing || (view?.own.committed ?? false) || view?.phase === "ended";
+  const laneFull = (lane: number) =>
+    view !== null &&
+    !turnOver &&
+    laneIsFull({ ...view, own: { ...view.own, staged } }, lane);
   const outcome = (winner: number | null) =>
     winner === null ? "Draw" : winner === view?.player ? "You win" : "You lose";
   const totals = view ? selectLaneTotals(view) : null;
@@ -217,6 +225,7 @@ function Game() {
                       playTarget={(children) => (
                         <PlayTarget
                           lane={lane}
+                          full={laneFull(lane)}
                           active={dragging !== null || selected !== null}
                           enabled={
                             !settling && canStage(dragging ?? selected, lane)
@@ -283,12 +292,16 @@ function Game() {
                               )}
                               key={lane}
                               aria-label={`Stage ${card.name} in lane ${String(lane + 1)}`}
+                              aria-description={
+                                laneFull(lane) ? "Lane full" : undefined
+                              }
                               disabled={!canStage(card.id, lane)}
                               onClick={() => {
                                 stage(card.id, lane);
                               }}
                             >
                               Lane {lane + 1}
+                              {laneFull(lane) && " full"}
                             </button>
                           ))}
                         </Card>

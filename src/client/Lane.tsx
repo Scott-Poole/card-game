@@ -1,6 +1,6 @@
 import { CardMotion } from "./motion.tsx";
 import type { Card as CardData, MatchLocation } from "../protocol/messages.ts";
-import { LANE_CAPACITY } from "../rules/index.ts";
+import { LANE_CAPACITY, laneCapacity } from "../rules/index.ts";
 import { panel } from "../../styled-system/recipes/index.js";
 import { css, cx } from "../../styled-system/css/index.js";
 import type { ReactNode } from "react";
@@ -34,6 +34,7 @@ export default function Lane({
   ownTotal: number;
   opponentTotal: number;
 }) {
+  const capacity = laneCapacity(location?.effect);
   const lead =
     ownTotal > opponentTotal
       ? "own"
@@ -84,6 +85,7 @@ export default function Lane({
           revealingCard={revealingCard}
           inspectCard={inspectCard}
           label="Opponent cards"
+          capacity={capacity}
           cards={opponent}
           staged={[]}
         />
@@ -176,6 +178,7 @@ export default function Lane({
             inspectCard={inspectCard}
             registerSlot={registerSlot}
             label="Your cards"
+            capacity={capacity}
             cards={own}
             staged={staged}
           />,
@@ -186,6 +189,7 @@ export default function Lane({
           inspectCard={inspectCard}
           registerSlot={registerSlot}
           label="Your cards"
+          capacity={capacity}
           cards={own}
           staged={staged}
         />
@@ -199,6 +203,7 @@ function Slots({
   registerSlot,
   label,
   inspectCard,
+  capacity,
   cards,
   staged,
 }: {
@@ -207,6 +212,8 @@ function Slots({
   revealingCard?: string | undefined;
   label: string;
   inspectCard?: ((card: CardData) => void) | undefined;
+  /** Slots from this index on are locked by the lane's location. */
+  capacity: number;
   cards: readonly CardData[];
   staged: readonly CardData[];
 }) {
@@ -224,6 +231,28 @@ function Slots({
       })}
     >
       {Array.from({ length: LANE_CAPACITY }, (_, slot) => {
+        if (slot >= capacity)
+          return (
+            <div
+              key={`locked-${String(slot)}`}
+              ref={(element) => registerSlot?.(slot, element)}
+              className={css({
+                display: "grid",
+                placeItems: "center",
+                border: "[1px dashed]",
+                borderColor: "border",
+                borderRadius: "control",
+                bg: "transparent",
+                color: "muted",
+                fontSize: "small",
+                minW: "[0]",
+                minH: "[0]",
+                overflow: "hidden",
+              })}
+            >
+              Locked
+            </div>
+          );
         const revealed = cards[slot];
         const data = revealed ?? staged[slot - cards.length];
         return (

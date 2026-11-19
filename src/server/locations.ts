@@ -47,6 +47,12 @@ export const locations: readonly LocationDefinition[] = [
     effect: { kind: "power-per-card", amount: 2 },
   },
   {
+    id: "cave-of-the-sibyl",
+    name: "Cave of the Sibyl",
+    text: "Each player may reveal at most 2 cards here.",
+    effect: { kind: "lane-capacity", limit: 2 },
+  },
+  {
     id: "tiber-ford",
     name: "Ford of the Tiber",
     text: NO_EFFECT,
