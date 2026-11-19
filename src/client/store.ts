@@ -85,11 +85,6 @@ function restoreStaging() {
     staging.replaced(store.getState().match.view?.own.staged ?? []),
   );
 }
-/** Leaves a finished match for Home; joining a new one is the player's next action. */
-export const playAgain = (): AppThunk => (dispatch) => {
-  dispatch(match.left());
-  dispatch(staging.replaced([]));
-};
 export const send =
   (message: ClientMessage): AppThunk =>
   (dispatch, getState) => {

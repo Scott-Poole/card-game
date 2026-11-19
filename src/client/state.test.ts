@@ -145,7 +145,7 @@ it("a confirmed stage clears the pending request; waiting or rejection can clear
   match = matchSlice.reducer(match, matchActions.requestCleared());
   expect(selectMatch({ match }).pending).toBeNull();
 });
-it("leaving a finished match returns to Home with nothing staged", () => {
+it("leaving a finished match returns to Home", () => {
   const ended: PlayerView = {
     ...view,
     phase: "ended",

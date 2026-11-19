@@ -453,6 +453,9 @@ test("closing a context mid-match gives the opponent a forfeit win", async ({
   await expect(a.getByRole("heading", { name: "Match result" })).toBeVisible();
   await expect(a.getByLabel("Winner")).toHaveText("You win");
   await expect(a.getByText("Forfeit: opponent left the match")).toBeVisible();
+  // Lane stats from an abandoned board would contradict the forced win.
+  await expect(a.getByText(/^Lanes won:/)).toHaveCount(0);
+  await expect(a.getByText(/^Total power:/)).toHaveCount(0);
 });
 
 test("opponent updates do not unlock an unacknowledged stage", async ({
@@ -717,7 +720,35 @@ test("player flow on a phone: join, drag and tap plays, reveal, Result, Play aga
   expect(power[0]).toEqual([power[1]?.[1], power[1]?.[0]]);
   const won = await Promise.all([a, b].map(lanesWon));
   expect(won[0]).toEqual([won[1]?.[1], won[1]?.[0]]);
-  // The lane list agrees with the lanes-won counts and the winner.
+  // Totals are the viewer's own, not swapped: they match the per-lane totals
+  // the board shows, and the winner follows lanes won, then total power.
+  for (const [index, page] of [a, b].entries()) {
+    const shown = await page
+      .getByRole("region", { name: /^Lane \d$/ })
+      .getByText(/^Opponent total: \d+ · Your total: \d+$/)
+      .allTextContents();
+    const sum = (side: "Your" | "Opponent") =>
+      shown.reduce(
+        (total, text) =>
+          total +
+          Number(new RegExp(`${side} total: (\\d+)`).exec(text)?.[1] ?? NaN),
+        0,
+      );
+    expect(power[index]).toEqual([sum("Your"), sum("Opponent")]);
+    const [mine, theirs] = won[index] ?? [0, 0];
+    const [myPower, theirPower] = power[index] ?? [0, 0];
+    expect(winners[index]).toBe(
+      mine !== theirs
+        ? mine > theirs
+          ? "You win"
+          : "You lose"
+        : myPower === theirPower
+          ? "Draw"
+          : myPower > theirPower
+            ? "You win"
+            : "You lose",
+    );
+  }
   const lanes = await a
     .getByRole("region", { name: "Match result" })
     .getByRole("listitem")
@@ -729,21 +760,25 @@ test("player flow on a phone: join, drag and tap plays, reveal, Result, Play aga
     won[0]?.[1] ?? -1,
   );
 
-  // Play again returns both players to Home, and they can join a new match.
-  for (const page of [a, b]) {
-    await page.getByRole("button", { name: "Play again", exact: true }).click();
-    await expect(page).toHaveURL(address + "/");
-    await expect(
-      page.getByRole("heading", { name: "Home", exact: true }),
-    ).toBeVisible();
-  }
-  for (const page of [a, b])
-    await page.getByRole("button", { name: "Play", exact: true }).click();
+  // Play again returns a player to Home and they can queue while the other
+  // player is still reading their Result; the opponent then joins from there.
+  await a.getByRole("button", { name: "Play again", exact: true }).click();
+  await expect(a).toHaveURL(address + "/");
+  await expect(
+    a.getByRole("heading", { name: "Home", exact: true }),
+  ).toBeVisible();
+  await a.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(a.getByText("Waiting for an opponent…")).toBeVisible();
+  await expect(b).toHaveURL(address + "/result");
+  await b.getByRole("button", { name: "Play again", exact: true }).click();
+  await expect(b).toHaveURL(address + "/");
+  await b.getByRole("button", { name: "Play", exact: true }).click();
   for (const page of [a, b])
     await expect(
       page.getByRole("button", { name: "End turn 1/6" }),
     ).toBeVisible();
   await expect(a).toHaveURL(address + "/match");
+  await expect(b).toHaveURL(address + "/match");
 });
 
 test("Play joins and moves to Waiting; a state message moves to Match and Result", async ({
