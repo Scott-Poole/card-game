@@ -95,8 +95,15 @@ export function matchHost(
     },
     message(peer: Peer, message: ClientMessage) {
       run(() => {
-        const seat = seats.get(peer);
+        let seat = seats.get(peer);
         if (message.type === "join") {
+          // A finished match frees its seat, so the player can queue again.
+          // Safe because an ended match never broadcasts: every action on it
+          // is rejected, so its leftover record in the other seat stays inert.
+          if (seat?.match.state.phase === "ended") {
+            seats.delete(peer);
+            seat = undefined;
+          }
           if (seat || waiting === peer) {
             error(peer);
             return;

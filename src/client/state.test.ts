@@ -145,3 +145,21 @@ it("a confirmed stage clears the pending request; waiting or rejection can clear
   match = matchSlice.reducer(match, matchActions.requestCleared());
   expect(selectMatch({ match }).pending).toBeNull();
 });
+it("leaving a finished match returns to Home", () => {
+  const ended: PlayerView = {
+    ...view,
+    phase: "ended",
+    result: { lanes: [0, 1, null], power: [3, 4], winner: 1 },
+  };
+  const match = matchSlice.reducer(
+    matchSlice.reducer(undefined, matchActions.viewReceived(ended)),
+    matchActions.left(),
+  );
+  expect(selectMatch({ match })).toEqual({ view: null, pending: null });
+  expect(
+    selectScreen({
+      match,
+      connection: { status: "connected", notice: null, waiting: false },
+    }),
+  ).toBe("/");
+});

@@ -19,6 +19,25 @@ async function expectConnected(page: Page, action: string) {
     page.getByRole("status").filter({ hasText: /connect|error/ }),
   ).toHaveCount(0);
 }
+// The Result panel's totals as [yours, opponent's], and its lanes-won counts.
+async function resultTotals(page: Page) {
+  const text = await page
+    .getByRole("region", { name: "Match result" })
+    .getByText(/^Total power:/)
+    .innerText();
+  const found = /^Total power: You (\d+) · Opponent (\d+)$/.exec(text);
+  if (!found) throw new Error(`Unexpected totals: ${text}`);
+  return [Number(found[1]), Number(found[2])] as const;
+}
+async function lanesWon(page: Page) {
+  const text = await page
+    .getByRole("region", { name: "Match result" })
+    .getByText(/^Lanes won:/)
+    .innerText();
+  const found = /^Lanes won: You (\d) · Opponent (\d)$/.exec(text);
+  if (!found) throw new Error(`Unexpected lanes won: ${text}`);
+  return [Number(found[1]), Number(found[2])] as const;
+}
 const energy = (page: Page) =>
   page.getByRole("meter", { name: "Energy remaining" });
 const test = base.extend<{
@@ -283,15 +302,10 @@ test("two players finish six turns with consistent results", async ({
           .replace("Opponent wins", "You lose"),
       ),
     ).toEqual(results[1]);
-    const power = await Promise.all(
-      pages.map((page) =>
-        page
-          .getByRole("region", { name: "Match result" })
-          .getByText(/^Total power:/)
-          .innerText(),
-      ),
-    );
-    expect(power[0]).toBe(power[1]);
+    const power = await Promise.all(pages.map(resultTotals));
+    expect(power[0]).toEqual([power[1]?.[1], power[1]?.[0]]);
+    const won = await Promise.all(pages.map(lanesWon));
+    expect(won[0]).toEqual([won[1]?.[1], won[1]?.[0]]);
     expect(outcomes.sort()).toEqual(
       outcomes[0] === "Draw" ? ["Draw", "Draw"] : ["You lose", "You win"],
     );
@@ -439,6 +453,10 @@ test("closing a context mid-match gives the opponent a forfeit win", async ({
   await expect(a.getByRole("heading", { name: "Match result" })).toBeVisible();
   await expect(a.getByLabel("Winner")).toHaveText("You win");
   await expect(a.getByText("Forfeit: opponent left the match")).toBeVisible();
+  // Lane stats from an abandoned board would contradict the forced win.
+  await expect(a.getByText(/^Lane scores/)).toHaveCount(0);
+  await expect(a.getByText(/^Lanes won:/)).toHaveCount(0);
+  await expect(a.getByText(/^Total power:/)).toHaveCount(0);
 });
 
 test("opponent updates do not unlock an unacknowledged stage", async ({
@@ -589,6 +607,179 @@ test("undecodable server frame closes the client socket", async ({
   await page.goto(address);
   await expect(page.getByRole("status")).toHaveText("error");
   await expect.poll(() => closed).toBe(true);
+});
+
+test("player flow on a phone: join, drag and tap plays, reveal, Result, Play again, rematch", async ({
+  pair: [a, b],
+  address,
+}) => {
+  test.setTimeout(60_000);
+  const phone = { width: 390, height: 844 };
+  await Promise.all([a, b].map((page) => page.setViewportSize(phone)));
+  const playable = (page: Page) =>
+    page
+      .getByRole("region", { name: "Hand", exact: true })
+      .getByRole("article")
+      .filter({
+        has: page
+          .getByRole("button", { name: /Stage .* in lane 1$/ })
+          .and(page.locator(":enabled")),
+      })
+      .first();
+  // Empty commits are legal, so wait for the turn on which both hands can play.
+  let turn = 1;
+  for (; ; turn++) {
+    if (turn > 6) throw new Error("No turn where both players can play");
+    for (const page of [a, b])
+      await expect(
+        page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
+      ).toBeVisible();
+    if ((await playable(a).count()) && (await playable(b).count())) break;
+    await commitButton(a).click();
+    await commitButton(b).click();
+  }
+  // Dev-only placeholders never ship in the production build.
+  await expect(a.getByText("Retreat")).toHaveCount(0);
+
+  // Player one drags a card into lane 1.
+  const dragged = await playable(a).getAttribute("aria-label");
+  const source = await playable(a)
+    .getByRole("img", { name: "Art placeholder" })
+    .boundingBox();
+  const target = await a
+    .getByRole("region", { name: "Lane 1", exact: true })
+    .getByRole("group", { name: "Your cards" })
+    .boundingBox();
+  if (!source || !target) throw new Error("Missing drag endpoints");
+  await a.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await a.mouse.down();
+  await a.mouse.move(
+    source.x + source.width / 2 + 15,
+    source.y + source.height / 2,
+    { steps: 5 },
+  );
+  await a.mouse.move(
+    target.x + target.width / 2,
+    target.y + target.height / 2,
+    { steps: 20 },
+  );
+  await a.mouse.up();
+  await expect(
+    a.getByRole("button", { name: `Unstage ${dragged ?? ""}`, exact: true }),
+  ).toBeVisible();
+
+  // Player two taps a card, then taps lane 1 in the inspection sheet.
+  const tapped = await playable(b).getAttribute("aria-label");
+  await playable(b).getByRole("img", { name: "Art placeholder" }).click();
+  await b
+    .getByRole("button", { name: "Play selected card in lane 1", exact: true })
+    .click();
+  await expect(
+    b.getByRole("button", { name: `Unstage ${tapped ?? ""}`, exact: true }),
+  ).toBeVisible();
+
+  await commitButton(a).click();
+  await commitButton(b).click();
+  // Each side sees the other's card once the reveal plays.
+  await expect(
+    a
+      .getByRole("region", { name: "Lane 1", exact: true })
+      .getByRole("group", { name: "Opponent cards" })
+      .getByRole("article", { name: tapped ?? "", exact: true }),
+  ).toBeVisible();
+  await expect(
+    b
+      .getByRole("region", { name: "Lane 1", exact: true })
+      .getByRole("group", { name: "Opponent cards" })
+      .getByRole("article", { name: dragged ?? "", exact: true }),
+  ).toBeVisible();
+
+  for (turn += 1; turn <= 6; turn++) {
+    for (const page of [a, b]) {
+      await expect(
+        page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
+      ).toBeVisible();
+      await commitButton(page).click();
+    }
+  }
+  for (const page of [a, b]) {
+    await expect(page).toHaveURL(address + "/result");
+    await page
+      .getByRole("button", { name: "View result", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Match result", exact: true }),
+    ).toBeInViewport();
+  }
+  const winners = await Promise.all(
+    [a, b].map((page) => page.getByLabel("Winner").innerText()),
+  );
+  expect([...winners].sort()).toEqual(
+    winners[0] === "Draw" ? ["Draw", "Draw"] : ["You lose", "You win"],
+  );
+  const power = await Promise.all([a, b].map(resultTotals));
+  expect(power[0]).toEqual([power[1]?.[1], power[1]?.[0]]);
+  const won = await Promise.all([a, b].map(lanesWon));
+  expect(won[0]).toEqual([won[1]?.[1], won[1]?.[0]]);
+  // Totals are the viewer's own, not swapped: they match the per-lane totals
+  // the board shows, and the winner follows lanes won, then total power.
+  for (const [index, page] of [a, b].entries()) {
+    const shown = await page
+      .getByRole("region", { name: /^Lane \d$/ })
+      .getByText(/^Opponent total: \d+ · Your total: \d+$/)
+      .allTextContents();
+    const sum = (side: "Your" | "Opponent") =>
+      shown.reduce(
+        (total, text) =>
+          total +
+          Number(new RegExp(`${side} total: (\\d+)`).exec(text)?.[1] ?? NaN),
+        0,
+      );
+    expect(power[index]).toEqual([sum("Your"), sum("Opponent")]);
+    const [mine, theirs] = won[index] ?? [0, 0];
+    const [myPower, theirPower] = power[index] ?? [0, 0];
+    expect(winners[index]).toBe(
+      mine !== theirs
+        ? mine > theirs
+          ? "You win"
+          : "You lose"
+        : myPower === theirPower
+          ? "Draw"
+          : myPower > theirPower
+            ? "You win"
+            : "You lose",
+    );
+  }
+  const lanes = await a
+    .getByRole("region", { name: "Match result" })
+    .getByRole("listitem")
+    .allTextContents();
+  expect(lanes.filter((text) => text.endsWith("You win"))).toHaveLength(
+    won[0]?.[0] ?? -1,
+  );
+  expect(lanes.filter((text) => text.endsWith("You lose"))).toHaveLength(
+    won[0]?.[1] ?? -1,
+  );
+
+  // Play again returns a player to Home and they can queue while the other
+  // player is still reading their Result; the opponent then joins from there.
+  await a.getByRole("button", { name: "Play again", exact: true }).click();
+  await expect(a).toHaveURL(address + "/");
+  await expect(
+    a.getByRole("heading", { name: "Home", exact: true }),
+  ).toBeVisible();
+  await a.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(a.getByText("Waiting for an opponent…")).toBeVisible();
+  await expect(b).toHaveURL(address + "/result");
+  await b.getByRole("button", { name: "Play again", exact: true }).click();
+  await expect(b).toHaveURL(address + "/");
+  await b.getByRole("button", { name: "Play", exact: true }).click();
+  for (const page of [a, b])
+    await expect(
+      page.getByRole("button", { name: "End turn 1/6" }),
+    ).toBeVisible();
+  await expect(a).toHaveURL(address + "/match");
+  await expect(b).toHaveURL(address + "/match");
 });
 
 test("Play joins and moves to Waiting; a state message moves to Match and Result", async ({
@@ -2061,22 +2252,11 @@ test.describe("power-per-card location", () => {
     expect(
       (powers.get(a)?.length ?? 0) + (powers.get(b)?.length ?? 0),
     ).toBeGreaterThan(0);
-    const finals = await Promise.all(
-      [a, b].map((page) =>
-        page
-          .getByRole("region", { name: "Match result" })
-          .getByText(/^Total power:/)
-          .innerText(),
-      ),
+    const finals = await Promise.all([a, b].map(resultTotals));
+    expect(finals[0]).toEqual([finals[1]?.[1], finals[1]?.[0]]);
+    expect([...(finals[0] ?? [])].sort()).toEqual(
+      [total(powers.get(a) ?? []), total(powers.get(b) ?? [])].sort(),
     );
-    expect(finals[0]).toBe(finals[1]);
-    expect(
-      (finals[0] ?? "")
-        .replace("Total power: ", "")
-        .split(" / ")
-        .map(Number)
-        .sort(),
-    ).toEqual([total(powers.get(a) ?? []), total(powers.get(b) ?? [])].sort());
   });
 });
 

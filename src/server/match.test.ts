@@ -383,6 +383,30 @@ test("a fifth client queues after a forfeit and a sixth pairs while another matc
   for (const peer of [b, c, d, e, f]) peer.socket.close();
 });
 
+test("a player whose match has ended can join again; a live match still rejects join", async () => {
+  const { a, b } = await pair();
+  a.send({ type: "join" });
+  expect(await a.next()).toEqual({ type: "error", error: "invalid-message" });
+  b.send({ type: "join" });
+  expect(await b.next()).toEqual({ type: "error", error: "invalid-message" });
+  for (let turn = 0; turn < 6; turn++) {
+    a.send({ type: "commit" });
+    await states(a, b);
+    b.send({ type: "commit" });
+    await states(a, b);
+  }
+  a.send({ type: "join" });
+  expect(await a.next()).toEqual({ type: "waiting" });
+  b.send({ type: "join" });
+  const fresh = await states(a, b);
+  expect(fresh.map((view) => [view.turn, view.phase])).toEqual([
+    [1, "planning"],
+    [1, "planning"],
+  ]);
+  a.socket.close();
+  b.socket.close();
+});
+
 test("each player's private deck is a valid draw from the roster", async () => {
   for (const player of [0, 1] as const) {
     // The mocked entropy never swaps, so each cost's first two cards are drawn.

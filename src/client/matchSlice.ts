@@ -18,6 +18,13 @@ export const matchSlice = createSlice({
     requestCleared(state) {
       state.pending = null;
     },
+    /**
+     * The player left a finished match; the next screen is Home. Staging is
+     * left alone: the next waiting or state frame resets it from the view.
+     */
+    left() {
+      return initialState;
+    },
     viewReceived(state, { payload }: PayloadAction<PlayerView>) {
       return {
         view: payload,
