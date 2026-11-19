@@ -168,13 +168,16 @@ test("the twelve original cards are unchanged", () => {
 test("the new cards spread power around each cost's mean", () => {
   const added = roster.filter((entry) => !originalIds.has(entry.card.id));
   expect(added).toHaveLength(12);
-  for (const cost of [1, 2, 3, 4, 5, 6])
-    expect(
-      added
-        .filter((entry) => entry.card.cost === cost)
-        .map((entry) => entry.card.power)
-        .sort((x, y) => x - y),
-    ).toEqual([2 * cost - 1, 2 * cost + 1]);
+  for (const cost of [1, 2, 3, 4, 5, 6]) {
+    const pair = added.filter((entry) => entry.card.cost === cost);
+    expect(pair.map((entry) => entry.tradition).sort()).toEqual([
+      "greek",
+      "roman",
+    ]);
+    expect(pair.map((entry) => entry.card.power).sort((x, y) => x - y)).toEqual(
+      [2 * cost - 1, 2 * cost + 1],
+    );
+  }
 });
 
 // Deterministic index source with a different sequence per seed.

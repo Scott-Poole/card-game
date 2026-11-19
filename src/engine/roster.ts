@@ -85,7 +85,7 @@ export function validateRoster(
     if (tier.length < DECK_CARDS_PER_COST)
       issues.push({ code: "cost-coverage", cost });
     const total = tier.reduce((sum, entry) => sum + entry.card.power, 0);
-    if (tier.length > 0 && total !== 2 * cost * tier.length)
+    if (total !== 2 * cost * tier.length)
       issues.push({ code: "tier-power", cost });
   }
   return issues;
