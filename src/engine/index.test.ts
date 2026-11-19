@@ -140,6 +140,36 @@ test("lane capacity counts placed and newly staged cards", () => {
   ).toEqual({ ok: false, error: "full-lane" });
 });
 
+test("lane-capacity rejects a card past the limit, counting revealed cards", () => {
+  const base = createMatch(42, [deck(), deck()], testLocations);
+  const [first, ...rest] = base.locations;
+  if (!first) throw new Error("Missing location");
+  let state: MatchState = {
+    ...base,
+    locations: [
+      {
+        ...first,
+        text: "Each player may reveal at most 2 cards here.",
+        effect: { kind: "lane-capacity", limit: 2 },
+      },
+      ...rest,
+    ],
+  };
+  const stageIn = (s: MatchState, id: 0 | 1, lane: number, count: number) =>
+    stage(
+      s,
+      id,
+      s.players[id].hand.slice(0, count).map((c) => ({ cardId: c.id, lane })),
+    );
+  // Cost-0 cards: only the lane limit constrains staging. Seat 0 reveals one.
+  state = turn(state, play(state, 0, 0)).state;
+  expect(stageIn(state, 0, 0, 2)).toEqual({ ok: false, error: "full-lane" });
+  expect(stageIn(state, 0, 0, 1).ok).toBe(true);
+  expect(stageIn(state, 0, 1, 3).ok).toBe(true);
+  expect(stageIn(state, 1, 0, 2).ok).toBe(true);
+  expect(stageIn(state, 1, 0, 3)).toEqual({ ok: false, error: "full-lane" });
+});
+
 test.each([
   { a: [0, 1], b: [2, 2], ap: 1, bp: 9, first: 0 },
   { a: [0, 0], b: [1, 1], ap: 1, bp: 9, first: 1 },

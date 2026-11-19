@@ -12,3 +12,11 @@ test("at least two pool locations boost power per card by different amounts", ()
   );
   expect(new Set(amounts).size).toBeGreaterThanOrEqual(2);
 });
+
+test("a pool location caps each player at two cards in its lane", () => {
+  const capped = locations.filter(
+    ({ effect }) => effect.kind === "lane-capacity" && effect.limit === 2,
+  );
+  expect(capped.length).toBeGreaterThanOrEqual(1);
+  for (const { text } of capped) expect(text).toMatch(/\b2\b/);
+});

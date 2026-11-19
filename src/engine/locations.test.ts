@@ -85,6 +85,52 @@ test.each([
     [{ code: "effect", index: 0 }],
   ],
   [
+    "capacity limit zero",
+    { text: "At most 0.", effect: { kind: "lane-capacity", limit: 0 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "capacity limit four",
+    { text: "At most 4.", effect: { kind: "lane-capacity", limit: 4 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "capacity limit non-integer",
+    { text: "At most 2.5.", effect: { kind: "lane-capacity", limit: 2.5 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "capacity limit missing",
+    { text: "At most 2.", effect: { kind: "lane-capacity" } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "capacity carrying an amount instead of a limit",
+    { text: "At most 2.", effect: { kind: "lane-capacity", amount: 2 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "a none effect carrying a limit",
+    { effect: { kind: "none", limit: 2 } },
+    [{ code: "effect", index: 0 }],
+  ],
+  [
+    "capacity text without the limit",
+    {
+      text: "Few cards fit here.",
+      effect: { kind: "lane-capacity", limit: 2 },
+    },
+    [{ code: "effect-text", index: 0 }],
+  ],
+  [
+    "capacity text stating 12 for limit 2",
+    {
+      text: "Up to 12 cards fit.",
+      effect: { kind: "lane-capacity", limit: 2 },
+    },
+    [{ code: "effect-text", index: 0 }],
+  ],
+  [
     "effect-text without the amount",
     {
       text: "Each card here adds power.",
@@ -108,6 +154,22 @@ test.each([1, 2])(
           ...first,
           text: `Each card you reveal here adds ${String(amount)} power.`,
           effect: { kind: "power-per-card", amount },
+        },
+        ...valid.slice(1),
+      ]),
+    ).toEqual([]);
+  },
+);
+
+test.each([1, 2, 3])(
+  "accepts lane-capacity limit %i stated in the text",
+  (limit) => {
+    expect(
+      validateLocations([
+        {
+          ...first,
+          text: `Each player may reveal at most ${String(limit)} cards here.`,
+          effect: { kind: "lane-capacity", limit },
         },
         ...valid.slice(1),
       ]),
