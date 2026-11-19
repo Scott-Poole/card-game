@@ -37,12 +37,15 @@ export function HandCard({
 export function PlayTarget({
   lane,
   enabled,
+  full,
   active,
   onPlay,
   children,
 }: {
   lane: number;
   enabled: boolean;
+  /** The lane holds as many cards as its location allows. */
+  full: boolean;
   active: boolean;
   onPlay: () => void;
   children: ReactNode;
@@ -75,7 +78,11 @@ export function PlayTarget({
         aria-label={`Play selected card in lane ${String(lane + 1)}`}
         onClick={onPlay}
       >
-        {active && !enabled ? "Unavailable" : "Play here"}
+        {active && !enabled
+          ? full
+            ? "Lane full"
+            : "Unavailable"
+          : "Play here"}
       </button>
     </div>
   );

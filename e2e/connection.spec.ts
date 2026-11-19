@@ -1257,10 +1257,10 @@ for (const width of [390, 1440]) {
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
     await page.goto(address);
     await expect(page).toHaveURL(/\/match$/);
-    for (const [name, lane] of [
-      ["Test herald", 1],
-      ["Test sentinel", 2],
-    ] satisfies [string, number][]) {
+    for (const [name, lane, reason] of [
+      ["Test herald", 1, "Lane full"],
+      ["Test sentinel", 2, "Unavailable"],
+    ] satisfies [string, number, string][]) {
       const hand = page.getByRole("region", { name: "Hand", exact: true });
       const card = hand.getByRole("article", { name, exact: true });
       await card.click({ trial: true });
@@ -1294,7 +1294,7 @@ for (const width of [390, 1440]) {
           name: `Play selected card in lane ${String(lane)}`,
           exact: true,
         }),
-      ).toHaveText("Unavailable");
+      ).toHaveText(reason);
       await page.mouse.up();
       await expect(page.getByRole("button", { name: /Unstage/ })).toHaveCount(
         0,
@@ -1816,6 +1816,155 @@ test("unaffordable hand card stays inspectable and cannot be staged", async ({
     a.getByRole("region", { name: "Staged cards" }).getByRole("listitem"),
   ).toHaveCount(0);
 });
+
+for (const width of [390, 1440]) {
+  test(`a lane-capacity lane locks its slots and refuses a card past the limit at ${String(width)}`, async ({
+    page,
+    address,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const capped = {
+      id: "cave-of-the-sibyl",
+      name: "Cave of the Sibyl",
+      text: "Each player may reveal at most 2 cards here.",
+      effect: { kind: "lane-capacity", limit: 2 },
+    };
+    const view = {
+      player: 0,
+      turn: 2,
+      energy: 6,
+      revealFirst: 0,
+      locations: [capped, ...locations.slice(1)],
+      phase: "planning",
+      result: null,
+      own: {
+        hand: ["Asteron", "Thaleia", "Kallias"].map((name) => ({
+          id: name.toLowerCase(),
+          name,
+          cost: 1,
+          power: 2,
+        })),
+        staged: [],
+        deckSize: 8,
+        committed: false,
+        // One card already revealed in the limited lane counts toward its limit.
+        lanes: [[{ id: "guard", name: "Guard", cost: 1, power: 2 }], [], []],
+      },
+      opponent: {
+        handSize: 3,
+        deckSize: 9,
+        committed: false,
+        lanes: [[], [], []],
+      },
+      events: [],
+    };
+    await page.routeWebSocket("**/ws", (socket) => {
+      socket.send(JSON.stringify({ type: "welcome" }));
+      socket.onMessage((raw) => {
+        const message: unknown = JSON.parse(String(raw));
+        if (typeof message !== "object" || message === null) return;
+        const staged =
+          "plays" in message && Array.isArray(message.plays)
+            ? message.plays
+            : [];
+        socket.send(
+          JSON.stringify({
+            type: "state",
+            view: { ...view, own: { ...view.own, staged } },
+          }),
+        );
+      });
+    });
+    await page.goto(address);
+    await page.getByRole("button", { name: "Find match", exact: true }).click();
+    const laneOne = page.getByRole("region", { name: "Lane 1", exact: true });
+    const laneTwo = page.getByRole("region", { name: "Lane 2", exact: true });
+    // Slots past the limit are visibly locked on both sides; other lanes are not.
+    await expect(
+      laneOne.getByRole("group", { name: "Your cards" }).getByText("Locked"),
+    ).toHaveCount(2);
+    await expect(
+      laneOne
+        .getByRole("group", { name: "Opponent cards" })
+        .getByText("Locked"),
+    ).toHaveCount(2);
+    await expect(laneTwo.getByText("Locked")).toHaveCount(0);
+    const playHere = (lane: number) =>
+      page.getByRole("button", {
+        name: `Play selected card in lane ${String(lane)}`,
+        exact: true,
+      });
+    // Keyboard: the revealed card plus one staged card reach the limit.
+    await expect(
+      page.getByRole("button", {
+        name: "Stage Asteron in lane 1",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await page
+      .getByRole("button", { name: "Stage Asteron in lane 1", exact: true })
+      .press("Enter");
+    await expect(
+      page.getByRole("button", { name: "Unstage Asteron", exact: true }),
+    ).toBeVisible();
+    const stageThaleia = page.getByRole("button", {
+      name: "Stage Thaleia in lane 1",
+      exact: true,
+    });
+    await expect(stageThaleia).toBeDisabled();
+    await expect(stageThaleia).toHaveText("Lane 1 full");
+    await expect(
+      page.getByRole("button", {
+        name: "Stage Thaleia in lane 2",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    // Tap-then-lane: with a card selected the full lane refuses and says why.
+    await page
+      .getByRole("button", { name: "Inspect Thaleia", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(playHere(1)).toBeDisabled();
+    await expect(playHere(1)).toHaveText("Lane full");
+    await expect(playHere(2)).toBeEnabled();
+    await page.keyboard.press("Escape");
+    // Drag: dropping on the full lane is refused and the card stays in hand.
+    const card = page
+      .getByRole("region", { name: "Hand", exact: true })
+      .getByRole("article", { name: "Thaleia", exact: true });
+    const source = await card
+      .getByRole("img", { name: "Art placeholder" })
+      .boundingBox();
+    const target = await laneOne
+      .getByRole("group", { name: "Your cards" })
+      .boundingBox();
+    if (!source || !target) throw new Error("Missing drag endpoints");
+    await page.mouse.move(
+      source.x + source.width / 2,
+      source.y + source.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      source.x + source.width / 2 + 15,
+      source.y + source.height / 2,
+      { steps: 5 },
+    );
+    await page.mouse.move(
+      target.x + target.width / 2,
+      target.y + target.height / 2,
+      { steps: 20 },
+    );
+    await expect(playHere(1)).toHaveText("Lane full");
+    await page.mouse.up();
+    await expect(page.getByRole("button", { name: /^Unstage/ })).toHaveCount(1);
+    await expect(card).toBeVisible();
+    // Unstaging reopens the slot.
+    await page
+      .getByRole("button", { name: "Unstage Asteron", exact: true })
+      .click();
+    await expect(stageThaleia).toBeEnabled();
+  });
+}
 
 test.describe("power-per-card location", () => {
   test.use({ locationPool: "boosted" });
