@@ -31,10 +31,10 @@ export default function RevealLog({
         </button>
       )}
       {revealing && <p>Escape skips reveal</p>}
-      {revealing && <p role="status">{revealStatusText(step)}</p>}
+      {revealing && <p role="status">{revealStatusText(step, events)}</p>}
       <ol>
         {(revealing ? [] : events).map((event, index) => (
-          <li key={index}>{logEventText(event)}</li>
+          <li key={index}>{logEventText(event, events)}</li>
         ))}
       </ol>
     </BoardPanel>

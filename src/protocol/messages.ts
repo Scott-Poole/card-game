@@ -1,4 +1,8 @@
 import {
+  type Ability,
+  type EffectKind,
+  isEffectKind,
+  isBoostSelfAmount,
   LANE_COUNT,
   LANE_CAPACITY,
   TURN_LIMIT,
@@ -15,7 +19,7 @@ import {
   type Zone,
 } from "../rules/index.ts";
 // Each player can reveal their full deck, then turn-ended and match-ended.
-const MAX_EVENTS = 2 * DECK_SIZE + 2;
+const MAX_EVENTS = 4 * DECK_SIZE + 2;
 
 export type ServerMessage =
   | { type: "welcome" }
@@ -113,6 +117,7 @@ export interface Card {
   readonly name: string;
   readonly cost: number;
   readonly power: number;
+  readonly ability?: Ability;
 }
 export type { Play, PlayerId };
 export interface Score {
@@ -126,6 +131,13 @@ export type MatchEvent =
       readonly player: PlayerId;
       readonly lane: number;
       readonly card: Card;
+    }
+  | {
+      readonly type: "power-changed";
+      readonly player: PlayerId;
+      readonly lane: number;
+      readonly cardId: string;
+      readonly power: number;
     }
   | { readonly type: "turn-ended"; readonly turn: number }
   | { readonly type: "match-ended"; readonly result: Score };
@@ -212,10 +224,31 @@ function isPlayer(v: unknown): v is PlayerId {
 function isWinner(v: unknown): v is PlayerId | null {
   return v === null || isPlayer(v);
 }
+const effectValidators: Readonly<
+  Record<EffectKind, (effect: Record<string, unknown>) => boolean>
+> = {
+  "boost-self": (effect) =>
+    exact(effect, ["kind", "amount"]) && isBoostSelfAmount(effect.amount),
+};
+function isAbility(v: unknown): v is Ability {
+  return (
+    isRecord(v) &&
+    exact(v, ["text", "effect"]) &&
+    typeof v.text === "string" &&
+    v.text.trim() !== "" &&
+    v.text.length <= MAX_LOCATION_TEXT &&
+    isRecord(v.effect) &&
+    isEffectKind(v.effect.kind) &&
+    effectValidators[v.effect.kind](v.effect)
+  );
+}
 function isCard(v: unknown): v is Card {
   return (
     isRecord(v) &&
-    exact(v, ["id", "name", "cost", "power"]) &&
+    (Object.hasOwn(v, "ability")
+      ? exact(v, ["id", "name", "cost", "power", "ability"]) &&
+        isAbility(v.ability)
+      : exact(v, ["id", "name", "cost", "power"])) &&
     typeof v.id === "string" &&
     typeof v.name === "string" &&
     integer(v.cost) &&
@@ -250,6 +283,14 @@ function isEvent(v: unknown): v is MatchEvent {
         isPlayer(v.player) &&
         integer(v.lane, 0, LANE_COUNT - 1) &&
         isCard(v.card)
+      );
+    case "power-changed":
+      return (
+        exact(v, ["type", "player", "lane", "cardId", "power"]) &&
+        isPlayer(v.player) &&
+        integer(v.lane, 0, LANE_COUNT - 1) &&
+        typeof v.cardId === "string" &&
+        integer(v.power)
       );
     case "turn-ended":
       return exact(v, ["type", "turn"]) && integer(v.turn, 1, TURN_LIMIT);

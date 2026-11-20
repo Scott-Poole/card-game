@@ -267,8 +267,14 @@ test("both players' raw frames contain only revealed opponent card ids", async (
   await states(a, b);
   b.send({ type: "commit" });
   views = await states(a, b);
-  expect(views[0].opponent.lanes[1]).toContainEqual(second);
-  expect(views[1].opponent.lanes[0]).toContainEqual(first);
+  expect(views[0].opponent.lanes[1]).toContainEqual({
+    ...second,
+    power: second.power + (second.ability?.effect.amount ?? 0),
+  });
+  expect(views[1].opponent.lanes[0]).toContainEqual({
+    ...first,
+    power: first.power + (first.ability?.effect.amount ?? 0),
+  });
   a.socket.close();
   b.socket.close();
 });

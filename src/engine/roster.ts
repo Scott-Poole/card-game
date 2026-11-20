@@ -1,4 +1,11 @@
-import { DECK_CARDS_PER_COST, TURN_LIMIT } from "../rules/index.ts";
+import {
+  DECK_CARDS_PER_COST,
+  TURN_LIMIT,
+  MAX_LOCATION_TEXT,
+  isBoostSelfAmount,
+  isEffectKind,
+  type EffectKind,
+} from "../rules/index.ts";
 import type { CardDefinition } from "./index.ts";
 
 export interface RosterEntry {
@@ -22,9 +29,18 @@ export type RosterIssue =
         | "tradition"
         | "figure"
         | "name-figure"
-        | "flavor";
+        | "flavor"
+        | "ability-text"
+        | "effect-text"
+        | "effect";
       readonly index: number;
     };
+
+const amountValidators: Readonly<
+  Record<EffectKind, (amount: unknown) => boolean>
+> = {
+  "boost-self": isBoostSelfAmount,
+};
 
 /**
  * Validates authored content, without changing the roster or throwing.
@@ -40,7 +56,13 @@ export type RosterIssue =
  * meaningful without tilting the energy curve.
  */
 export function validateRoster(
-  entries: readonly (Omit<RosterEntry, "tradition"> & {
+  entries: readonly (Omit<RosterEntry, "tradition" | "card"> & {
+    readonly card: Omit<CardDefinition, "ability"> & {
+      readonly ability?: {
+        readonly text: string;
+        readonly effect?: { readonly kind: unknown; readonly amount?: unknown };
+      };
+    };
     readonly tradition: string;
   })[],
 ): readonly RosterIssue[] {
@@ -69,6 +91,23 @@ export function validateRoster(
       card.power > 3 * card.cost
     )
       add("power");
+    if (card.ability) {
+      const { text, effect } = card.ability;
+      if (!text.trim() || text.length > MAX_LOCATION_TEXT) add("ability-text");
+      if (
+        !effect ||
+        !isEffectKind(effect.kind) ||
+        !amountValidators[effect.kind](effect.amount)
+      )
+        add("effect");
+      else if (
+        typeof effect.amount === "number" &&
+        !new RegExp(`(?<![\\d.])${String(effect.amount)}(?!\\d|\\.\\d)`).test(
+          text,
+        )
+      )
+        add("effect-text");
+    }
     if (entry.tradition !== "greek" && entry.tradition !== "roman")
       add("tradition");
     const figure = entry.figure.trim();

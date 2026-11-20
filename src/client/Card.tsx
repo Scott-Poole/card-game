@@ -78,6 +78,20 @@ export default function Card(props: CardProps) {
               props.data.name
             )}
           </strong>
+          {props.data.ability && (
+            <span
+              data-part="ability"
+              className={css({
+                fontSize: props.size === "lane" ? "[10px]" : "small",
+                lineHeight: "[1]",
+                lineClamp: props.size === "lane" ? 1 : 2,
+                flexShrink: 0,
+                overflowWrap: "anywhere",
+              })}
+            >
+              {props.data.ability.text}
+            </span>
+          )}
         </>
       )}
       {props.children}

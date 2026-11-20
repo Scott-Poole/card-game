@@ -96,7 +96,7 @@ A choice of a card from the player's hand and the lane where it is to be reveale
 _Avoid_: Card (when referring to the choice of card and lane)
 
 **Reveal order**:
-Which player's staged cards are revealed first in a turn, known from the start of planning and shown in each player's view. The player leading the board reveals first: more lanes won, then higher total power. A tied board, including turn 1, is broken by a flip seeded by the match seed, drawn again on each tied turn. It orders only cards that are revealed: a player who stages nothing reveals nothing, first or not. It changes only event order and display; whether it affects ability timing is left to the abilities design.
+Which player's staged cards are revealed first in a turn, known from the start of planning and shown in each player's view. The player leading the board reveals first: more lanes won, then higher total power. A tied board, including turn 1, is broken by a flip seeded by the match seed, drawn again on each tied turn. It orders only cards that are revealed: a player who stages nothing reveals nothing, first or not. Abilities resolve in reveal order, one card at a time, each straight after its own reveal and before the next card flips.
 _Avoid_: Initiative, priority
 
 **Stage**:
@@ -112,4 +112,10 @@ To place a staged card into its chosen lane as a public card during turn resolut
 _Avoid_: Stage
 
 **MatchEvent**:
-A report of a card being revealed, a turn ending or a match ending.
+A report of a card being revealed, its power changing, a turn ending or a match ending.
+
+**Ability**:
+Optional card rule text and an effect that resolves when the card is revealed.
+
+**Effect**:
+A closed rule operation authored as data. The ability effect `boost-self` raises its own card’s current power by 1 to 3; location effects apply to lanes.

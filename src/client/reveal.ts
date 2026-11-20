@@ -34,6 +34,23 @@ export function sequenceReveal(
             : { ...view, opponent: { ...view.opponent, lanes } };
         break;
       }
+      case "power-changed": {
+        const side = event.player === view.player ? "own" : "opponent";
+        const lanes = view[side].lanes.map((cards, lane) =>
+          lane === event.lane
+            ? cards.map((card) =>
+                card.id === event.cardId
+                  ? { ...card, power: event.power }
+                  : card,
+              )
+            : cards,
+        );
+        view =
+          side === "own"
+            ? { ...view, own: { ...view.own, lanes } }
+            : { ...view, opponent: { ...view.opponent, lanes } };
+        break;
+      }
       case "turn-ended":
         view = {
           ...view,
