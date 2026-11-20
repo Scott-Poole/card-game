@@ -1,6 +1,6 @@
 import { useReveal } from "./useReveal.ts";
 import { flushSync } from "react-dom";
-import { animate, motion } from "motion/react";
+import { animate } from "motion/react";
 import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
 import type { Card as CardData } from "../protocol/messages.ts";
 import { useRef, useState, useLayoutEffect } from "react";
@@ -15,7 +15,9 @@ import Card from "./Card.tsx";
 import PlayerSheet from "./PlayerSheet.tsx";
 import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
+import BoardPanel from "./BoardPanel.tsx";
 import MatchResult from "./MatchResult.tsx";
+import RevealLog from "./RevealLog.tsx";
 import { summarizeResult } from "./matchResult.ts";
 import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
@@ -26,7 +28,7 @@ import {
   TURN_LIMIT,
 } from "../rules/index.ts";
 import { css, cx } from "../../styled-system/css/index.js";
-import { panel, button } from "../../styled-system/recipes/index.js";
+import { button } from "../../styled-system/recipes/index.js";
 import { useAppDispatch, useAppSelector } from "./hooks.ts";
 import { selectConnection } from "./connectionSlice.ts";
 import { matchSlice, selectMatch } from "./matchSlice.ts";
@@ -267,17 +269,10 @@ function Game() {
                     />
                   ))}
                 </div>
-                <motion.section
+                <BoardPanel
                   layoutScroll
-                  className={cx(
-                    "board-hand",
-                    panel(),
-                    css({
-                      my: "md",
-                      p: playing ? "sm" : { base: "compact", md: "md" },
-                      overflowWrap: "anywhere",
-                    }),
-                  )}
+                  className="board-hand"
+                  playing={playing}
                   ref={hand}
                   tabIndex={-1}
                   aria-label="Hand"
@@ -322,17 +317,10 @@ function Game() {
                         </Card>
                       </HandCard>
                     ))}
-                </motion.section>
-                <section
-                  className={cx(
-                    "board-staged",
-                    panel(),
-                    css({
-                      my: "md",
-                      p: playing ? "sm" : { base: "compact", md: "md" },
-                      overflowWrap: "anywhere",
-                    }),
-                  )}
+                </BoardPanel>
+                <BoardPanel
+                  className="board-staged"
+                  playing={playing}
                   aria-label="Staged cards"
                 >
                   <h2>Staged cards</h2>
@@ -367,7 +355,7 @@ function Game() {
                       </li>
                     ))}
                   </ul>
-                </section>
+                </BoardPanel>
                 <div
                   className={cx(
                     "board-actions",
@@ -420,48 +408,13 @@ function Game() {
                     {commitLabel}
                   </button>
                 </div>
-                <section
-                  className={cx(
-                    "board-reveal",
-                    panel(),
-                    css({
-                      my: "md",
-                      p: playing ? "sm" : { base: "compact", md: "md" },
-                      overflowWrap: "anywhere",
-                    }),
-                  )}
-                  aria-label="Previous reveal"
-                >
-                  <h2>Previous reveal</h2>
-                  {revealing && (
-                    <button autoFocus className={button()} onClick={skip}>
-                      Skip reveal
-                    </button>
-                  )}
-                  {revealing && <p>Escape skips reveal</p>}
-                  {revealing && (
-                    <p role="status">
-                      {step?.event.type === "card-revealed"
-                        ? `Revealed ${step.event.card.name}`
-                        : step?.event.type === "turn-ended"
-                          ? "Turn ended"
-                          : step?.event.type === "match-ended"
-                            ? "Match ended"
-                            : "Revealing turn…"}
-                    </p>
-                  )}
-                  <ol>
-                    {(revealing ? [] : view.events).map((event, index) => (
-                      <li key={index}>
-                        {event.type === "card-revealed"
-                          ? `Player ${String(event.player + 1)}: ${event.card.name} in lane ${String(event.lane + 1)}`
-                          : event.type === "turn-ended"
-                            ? `Turn ${String(event.turn)} ended`
-                            : "Match ended"}
-                      </li>
-                    ))}
-                  </ol>
-                </section>
+                <RevealLog
+                  playing={playing}
+                  revealing={revealing}
+                  step={step?.event}
+                  events={view.events}
+                  onSkip={skip}
+                />
                 {ended && (
                   <MatchResult
                     summary={summarizeResult(view)}
