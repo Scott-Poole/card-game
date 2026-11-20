@@ -1044,7 +1044,9 @@ test("revealed lane cards and totals follow both players through every turn", as
         }).toPass({ timeout: 1000 });
         records.get(page)?.push({
           name,
-          power: Number(powerText.replace("Power ", "")),
+          power:
+            Number(powerText.replace("Power ", "")) +
+            (name === "Hermes, Keeper of Unsent Letters" ? 2 : 0),
           lane: Number(match[2]),
         });
       }

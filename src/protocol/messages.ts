@@ -1,5 +1,8 @@
 import {
   type Ability,
+  type EffectKind,
+  isEffectKind,
+  isBoostSelfAmount,
   LANE_COUNT,
   LANE_CAPACITY,
   TURN_LIMIT,
@@ -221,6 +224,12 @@ function isPlayer(v: unknown): v is PlayerId {
 function isWinner(v: unknown): v is PlayerId | null {
   return v === null || isPlayer(v);
 }
+const effectValidators: Readonly<
+  Record<EffectKind, (effect: Record<string, unknown>) => boolean>
+> = {
+  "boost-self": (effect) =>
+    exact(effect, ["kind", "amount"]) && isBoostSelfAmount(effect.amount),
+};
 function isAbility(v: unknown): v is Ability {
   return (
     isRecord(v) &&
@@ -229,9 +238,8 @@ function isAbility(v: unknown): v is Ability {
     v.text.trim() !== "" &&
     v.text.length <= MAX_LOCATION_TEXT &&
     isRecord(v.effect) &&
-    exact(v.effect, ["kind", "amount"]) &&
-    v.effect.kind === "boost-self" &&
-    integer(v.effect.amount, 1, 3)
+    isEffectKind(v.effect.kind) &&
+    effectValidators[v.effect.kind](v.effect)
   );
 }
 function isCard(v: unknown): v is Card {

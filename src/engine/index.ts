@@ -275,7 +275,11 @@ export function resolve(state: MatchState): Result<{
       const lane = lanes[play.lane];
       // stage validates both lookups; committed plays cannot change through this API.
       if (card && lane) {
-        const revealed: LaneCard = { ...card, printed: card };
+        const revealed: LaneCard = {
+          ...card,
+          printed: card,
+          power: boostedPower(card.power, card.ability?.effect),
+        };
         lane.push(revealed);
         events.push({
           type: "card-revealed",
@@ -284,8 +288,7 @@ export function resolve(state: MatchState): Result<{
           card,
         });
         if (card.ability) {
-          const power = boostedPower(card.power, card.ability.effect);
-          lane[lane.length - 1] = { ...revealed, power };
+          const power = revealed.power;
           events.push({
             type: "power-changed",
             player: id,

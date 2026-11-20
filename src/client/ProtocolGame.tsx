@@ -487,7 +487,10 @@ function Game() {
                 <p>
                   Cost {inspection.card.cost} · Power {inspection.card.power}
                 </p>
-                <p>{inspection.card.ability?.text ?? "No ability."}</p>
+                <p>
+                  {inspection.card.ability?.text ??
+                    "No ability description available."}
+                </p>
                 {selected === inspection.card.id &&
                   !locked &&
                   available.some(
