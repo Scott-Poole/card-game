@@ -57,7 +57,7 @@ export default tseslint.config(
   },
   {
     files: ["src/rules/**/*.ts"],
-    ignores: ["src/rules/**/*.test.ts"],
+    ignores: ["src/rules/**/*.{test,spec}.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -113,7 +113,7 @@ export default tseslint.config(
     },
   })),
   {
-    files: ["src/rules/**/*.test.ts"],
+    files: ["src/rules/**/*.{test,spec}.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -137,7 +137,7 @@ export default tseslint.config(
     },
   },
   ...["engine", "protocol"].map((area) => ({
-    files: [`src/${area}/**/*.test.{ts,tsx}`],
+    files: [`src/${area}/**/*.{test,spec}.{ts,tsx}`],
     rules: {
       "no-restricted-imports": [
         "error",
