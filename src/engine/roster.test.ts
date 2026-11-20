@@ -250,3 +250,59 @@ test.each(["", "-a", "a-", "a--b"])("rejects malformed id %s", (id) => {
     ]),
   ).toEqual([{ code: "id", index: 0 }]);
 });
+
+test.each(["", "Gain power.", "Gain 12 power."])(
+  "rejects ability text %s",
+  (text) => {
+    const entries = valid.map((entry, index) =>
+      index === 0
+        ? {
+            ...entry,
+            card: {
+              ...entry.card,
+              ability: {
+                text,
+                effect: { kind: "boost-self" as const, amount: 2 },
+              },
+            },
+          }
+        : entry,
+    );
+    expect(validateRoster(entries)).toContainEqual({
+      code: text === "" ? "ability-text" : "effect-text",
+      index: 0,
+    });
+  },
+);
+
+test.each([0, 4, 1.5, undefined])(
+  "reports malformed ability amount %s",
+  (amount) => {
+    expect(
+      validateRoster([
+        {
+          ...first,
+          card: {
+            ...first.card,
+            ability: {
+              text: "Gather 2 power.",
+              effect: { kind: "boost-self", amount },
+            },
+          },
+        },
+      ]),
+    ).toContainEqual({ code: "effect", index: 0 });
+  },
+);
+test("reports a missing ability effect and overlong text", () => {
+  expect(
+    validateRoster([
+      { ...first, card: { ...first.card, ability: { text: "x".repeat(161) } } },
+    ]),
+  ).toEqual(
+    expect.arrayContaining([
+      { code: "effect", index: 0 },
+      { code: "ability-text", index: 0 },
+    ]),
+  );
+});

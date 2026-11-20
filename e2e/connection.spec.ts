@@ -1044,7 +1044,9 @@ test("revealed lane cards and totals follow both players through every turn", as
         }).toPass({ timeout: 1000 });
         records.get(page)?.push({
           name,
-          power: Number(powerText.replace("Power ", "")),
+          power:
+            Number(powerText.replace("Power ", "")) +
+            (name === "Hermes, Keeper of Unsent Letters" ? 2 : 0),
           lane: Number(match[2]),
         });
       }
@@ -2234,7 +2236,11 @@ test.describe("power-per-card location", () => {
             ).replace("Power ", ""),
           );
           await play.press("Enter");
-          powers.get(page)?.push(power);
+          powers
+            .get(page)
+            ?.push(
+              power + (name === "Hermes, Keeper of Unsent Letters" ? 2 : 0),
+            );
         }
         await commitButton(page).click();
       }
@@ -2417,3 +2423,72 @@ test("a full zone scrolls inside the player sheet on a small phone", async ({
   await close.scrollIntoViewIfNeeded();
   await expect(close).toBeInViewport();
 });
+
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 360, height: 640 },
+]) {
+  test(`ability previews fit full lanes at ${String(viewport.width)}px`, async ({
+    page,
+    address,
+  }) => {
+    const { revealed, herald } =
+      await import("../src/client/stories/fixtures.ts");
+    const cards = (prefix: string) =>
+      Array.from({ length: 4 }, (_, index) => ({
+        ...herald,
+        id: `${prefix}-${String(index)}`,
+        power: 3,
+        ability: {
+          text: "On reveal, gather 2 power.",
+          effect: { kind: "boost-self" as const, amount: 2 as const },
+        },
+      }));
+    const view = {
+      ...revealed,
+      own: { ...revealed.own, lanes: [cards("own"), [], []] },
+      opponent: { ...revealed.opponent, lanes: [cards("other"), [], []] },
+    };
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.routeWebSocket("**/ws", (socket) => {
+      socket.send(JSON.stringify({ type: "welcome" }));
+      socket.send(JSON.stringify({ type: "state", view }));
+    });
+    await page.goto(address);
+    const lane = page.getByRole("region", { name: "Lane 1", exact: true });
+    await expect(lane.getByRole("article")).toHaveCount(8);
+    await expect(async () => {
+      const section = await lane.boundingBox();
+      const header = await lane.locator("header").boundingBox();
+      const opponent = await lane
+        .getByRole("group", { name: "Opponent cards" })
+        .boundingBox();
+      const own = await lane
+        .getByRole("group", { name: "Your cards" })
+        .boundingBox();
+      if (!section || !header || !opponent || !own)
+        throw Error("Missing lane geometry");
+      expect(opponent.y + opponent.height).toBeLessThanOrEqual(header.y + 1);
+      expect(own.y).toBeGreaterThanOrEqual(header.y + header.height - 1);
+      expect(own.y + own.height).toBeLessThanOrEqual(
+        section.y + section.height + 1,
+      );
+      for (const card of await lane.getByRole("article").all()) {
+        const bounds = await card.boundingBox();
+        const text = await card.locator('[data-part="ability"]').boundingBox();
+        if (!bounds || !text) throw Error("Missing ability geometry");
+        expect(text.y + text.height).toBeLessThanOrEqual(
+          bounds.y + bounds.height,
+        );
+      }
+    }).toPass();
+    await lane
+      .getByRole("button", { name: `Inspect ${herald.name}`, exact: true })
+      .first()
+      .click();
+    await expect(page.getByRole("dialog")).toContainText(
+      "On reveal, gather 2 power.",
+    );
+  });
+}

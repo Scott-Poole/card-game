@@ -494,3 +494,51 @@ it("decodes full zone lists for both players: every zone is face up", () => {
   const decoded = decodeServerMessage({ type: "state", view });
   expect(decoded).toEqual({ ok: true, message: { type: "state", view } });
 });
+
+it.each([
+  [{ text: "Gain 2 power.", effect: { kind: "boost-self", amount: 2 } }, true],
+  [{ text: "Gain power.", effect: { kind: "unknown", amount: 2 } }, false],
+  [{ text: "Gain power.", effect: { kind: "boost-self", amount: 0 } }, false],
+  [{ text: "Gain power.", effect: { kind: "boost-self", amount: 4 } }, false],
+  [
+    {
+      text: "Gain power.",
+      effect: { kind: "boost-self", amount: 2, extra: 1 },
+    },
+    false,
+  ],
+  [{ effect: { kind: "boost-self", amount: 2 } }, false],
+  [{ text: " ", effect: { kind: "boost-self", amount: 2 } }, false],
+  [
+    { text: "Gain 2.", effect: { kind: "boost-self", amount: 2 }, extra: 1 },
+    false,
+  ],
+])("strict ability decoding %#", (ability, ok) => {
+  const message = {
+    type: "state",
+    view: {
+      ...view,
+      own: {
+        ...view.own,
+        hand: [{ id: "a", name: "A", cost: 1, power: 1, ability }],
+      },
+    },
+  };
+  for (const input of [message, JSON.stringify(message)])
+    expect(decodeServerMessage(input).ok).toBe(ok);
+  expect(decodeClientMessage(message).ok).toBe(false);
+});
+it.each([true, false])("power-changed event decoding valid=%s", (valid) => {
+  const event = {
+    type: "power-changed",
+    player: 0,
+    lane: 0,
+    cardId: "a",
+    power: 3,
+    ...(valid ? {} : { extra: 1 }),
+  };
+  const message = { type: "state", view: { ...view, events: [event] } };
+  for (const input of [message, JSON.stringify(message)])
+    expect(decodeServerMessage(input).ok).toBe(valid);
+  expect(decodeClientMessage(message).ok).toBe(false);
+});

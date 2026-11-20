@@ -11,7 +11,11 @@ const originals = [
       id: "hermes-letterkeeper",
       name: "Hermes, Keeper of Unsent Letters",
       cost: 1,
-      power: 2,
+      power: 1,
+      ability: {
+        text: "On reveal, gather 2 power.",
+        effect: { kind: "boost-self", amount: 2 },
+      },
     },
     figure: "Hermes",
     tradition: "greek",
@@ -22,7 +26,7 @@ const originals = [
       id: "janus-dawnhinge",
       name: "Janus, Hinge of Morning",
       cost: 1,
-      power: 2,
+      power: 3,
     },
     figure: "Janus",
     tradition: "roman",
@@ -158,7 +162,7 @@ test("ships twenty-four valid mythic figures, four per cost and two per traditio
 
 const originalIds = new Set(originals.map((entry) => entry.card.id));
 
-test("the twelve original cards are unchanged", () => {
+test("the original roster identities and authored stats match", () => {
   for (const original of originals)
     expect(roster.find((entry) => entry.card.id === original.card.id)).toEqual(
       original,

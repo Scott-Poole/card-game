@@ -30,7 +30,16 @@ function player(id: PlayerId) {
     hand: [card(`hand-secret-${String(id)}`)],
     deck: [card(`deck-secret-${String(id)}`), card(`deck-tail-${String(id)}`)],
     staged: [{ cardId: `hand-secret-${String(id)}`, lane: id }],
-    lanes: [[card(`board-${String(id)}`)], [], []],
+    lanes: [
+      [
+        {
+          ...card(`board-${String(id)}`),
+          printed: card(`board-${String(id)}`),
+        },
+      ],
+      [],
+      [],
+    ],
     zones: {
       destroyed: [card(`destroyed-${String(id)}`)],
       discarded: [card(`discarded-${String(id)}`)],
@@ -54,12 +63,12 @@ test.each([0, 1] satisfies PlayerId[])(
       const view = playerView(current, id);
       expect(view.own.hand).toEqual(state.players[id].hand);
       expect(view.own.staged).toEqual(state.players[id].staged);
-      expect(view.own.lanes).toEqual(state.players[id].lanes);
+      expect(view.own.lanes).toEqual([[card(`board-${String(id)}`)], [], []]);
       expect(view.opponent).toEqual({
         handSize: 1,
         deckSize: 2,
         committed,
-        lanes: state.players[opponent].lanes,
+        lanes: [[card(`board-${String(opponent)}`)], [], []],
         zones: state.players[opponent].zones,
       });
       expect(view.own.deckSize).toBe(2);
