@@ -2236,7 +2236,11 @@ test.describe("power-per-card location", () => {
             ).replace("Power ", ""),
           );
           await play.press("Enter");
-          powers.get(page)?.push(power);
+          powers
+            .get(page)
+            ?.push(
+              power + (name === "Hermes, Keeper of Unsent Letters" ? 2 : 0),
+            );
         }
         await commitButton(page).click();
       }
