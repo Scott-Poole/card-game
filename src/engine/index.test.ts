@@ -816,3 +816,155 @@ test.each([0, 1] as const)(
     expect(prior.players[id].lanes[0]?.map((c) => c.power)).toEqual([3, 4]);
   },
 );
+
+test.each([1, 2] as const)(
+  "weakening amount %i floors enemies and preserves scoring totals",
+  (amount) => {
+    const cards: readonly CardDefinition[] = [
+      { id: "zero", name: "Zero", cost: 0, power: 0 },
+      { id: "low", name: "Low", cost: 0, power: 1 },
+      { id: "high", name: "High", cost: 0, power: 3 },
+      {
+        id: "weak",
+        name: "Mist",
+        cost: 0,
+        power: 3,
+        ability: {
+          text: "Drain power.",
+          effect: { kind: "weaken-lane-enemies", amount },
+        },
+      },
+    ];
+    for (const owner of [0, 1] as const) {
+      let state = turn(createMatch(42, [cards, cards], testLocations)).state;
+      state = turn(
+        state,
+        [
+          { cardId: "zero", lane: 0 },
+          { cardId: "low", lane: 0 },
+          { cardId: "high", lane: 0 },
+        ],
+        [
+          { cardId: "zero", lane: 0 },
+          { cardId: "low", lane: 0 },
+          { cardId: "high", lane: 0 },
+        ],
+      ).state;
+      const prior = state;
+      const result = turn(
+        state,
+        owner === 0 ? [{ cardId: "weak", lane: 0 }] : [],
+        owner === 1 ? [{ cardId: "weak", lane: 0 }] : [],
+      );
+      const enemy = opponentOf(owner);
+      expect(result.state.players[enemy].lanes[0]?.map((c) => c.power)).toEqual(
+        amount === 1 ? [0, 0, 2] : [0, 0, 1],
+      );
+      expect(result.state.players[owner].lanes[0]?.map((c) => c.power)).toEqual(
+        [0, 1, 3, 3],
+      );
+      expect(prior.players[enemy].lanes[0]?.map((c) => c.power)).toEqual([
+        0, 1, 3,
+      ]);
+      expect(result.events.filter((e) => e.type === "power-changed")).toEqual([
+        {
+          type: "power-changed",
+          player: enemy,
+          lane: 0,
+          cardId: "low",
+          power: 0,
+        },
+        {
+          type: "power-changed",
+          player: enemy,
+          lane: 0,
+          cardId: "high",
+          power: amount === 1 ? 2 : 1,
+        },
+      ]);
+      state = result.state;
+      while (state.phase !== "ended") state = turn(state).state;
+      expect(state.result.winner).toBe(owner);
+      expect(state.result.power).toEqual(
+        owner === 0 ? [7, amount === 1 ? 2 : 1] : [amount === 1 ? 2 : 1, 7],
+      );
+    }
+  },
+);
+
+test.each([0, 1] as const)(
+  "weakener in seat %i sees only earlier enemy reveals",
+  (owner) => {
+    const weak: CardDefinition = {
+      id: "weak",
+      name: "Mist",
+      cost: 0,
+      power: 0,
+      ability: {
+        text: "Drain 2 power.",
+        effect: { kind: "weaken-lane-enemies", amount: 2 },
+      },
+    };
+    const ally: CardDefinition = {
+      id: "ally",
+      name: "Ally",
+      cost: 0,
+      power: 2,
+    };
+    const enemy: CardDefinition = {
+      id: "enemy",
+      name: "Enemy",
+      cost: 0,
+      power: 3,
+    };
+    const initial = createMatch(
+      42,
+      [
+        [weak, ally, enemy],
+        [weak, ally, enemy],
+      ],
+      testLocations,
+    );
+    const first = playerView(initial, owner).revealFirst;
+    const ownerPlays = [
+      { cardId: "ally", lane: 0 },
+      { cardId: "weak", lane: 0 },
+    ];
+    const enemyPlays = [
+      { cardId: "enemy", lane: 0 },
+      { cardId: "ally", lane: 1 },
+    ];
+    const result = turn(
+      initial,
+      owner === 0 ? ownerPlays : enemyPlays,
+      owner === 1 ? ownerPlays : enemyPlays,
+    );
+    const weakened = first !== owner;
+    expect(result.state.players[opponentOf(owner)].lanes[0]?.[0]?.power).toBe(
+      weakened ? 1 : 3,
+    );
+    expect(result.state.players[opponentOf(owner)].lanes[1]?.[0]?.power).toBe(
+      2,
+    );
+    expect(result.events.filter((e) => e.type === "power-changed")).toEqual(
+      weakened
+        ? [
+            {
+              type: "power-changed",
+              player: opponentOf(owner),
+              lane: 0,
+              cardId: "enemy",
+              power: 1,
+            },
+          ]
+        : [],
+    );
+    let state = result.state;
+    while (state.phase !== "ended") state = turn(state).state;
+    expect(state.result.lanes[0]).toBe(weakened ? owner : opponentOf(owner));
+    expect(state.result.winner).toBe(opponentOf(owner));
+    expect(state.result.power).toEqual(
+      owner === 0 ? [2, weakened ? 3 : 5] : [weakened ? 3 : 5, 2],
+    );
+  },
+);

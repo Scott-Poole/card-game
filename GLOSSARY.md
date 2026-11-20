@@ -96,7 +96,7 @@ A choice of a card from the player's hand and the lane where it is to be reveale
 _Avoid_: Card (when referring to the choice of card and lane)
 
 **Reveal order**:
-Which player's staged cards are revealed first in a turn, known from the start of planning and shown in each player's view. The player leading the board reveals first: more lanes won, then higher total power. A tied board, including turn 1, is broken by a flip seeded by the match seed, drawn again on each tied turn. It orders only cards that are revealed: a player who stages nothing reveals nothing, first or not. Abilities resolve in reveal order, one card at a time, each straight after its own reveal and before the next card flips.
+Which player's staged cards are revealed first in a turn, known from the start of planning and shown in each player's view. The player leading the board reveals first: more lanes won, then higher total power. A tied board, including turn 1, is broken by a flip seeded by the match seed, drawn again on each tied turn. It orders only cards that are revealed: a player who stages nothing reveals nothing, first or not. Abilities resolve in reveal order, one card at a time, each straight after its own reveal and before the next card flips. For example, `weaken-lane-enemies` lowers only enemy cards already revealed in its lane: revealing second can answer the leader's cards, while revealing first leaves later enemy reveals untouched.
 _Avoid_: Initiative, priority
 
 **Stage**:
@@ -118,4 +118,4 @@ A report of a card being revealed, its power changing, a turn ending or a match 
 Optional card rule text and an effect that resolves when the card is revealed.
 
 **Effect**:
-A closed rule operation authored as data. The ability effect `boost-self` raises its own card’s current power by 1 to 3; location effects apply to lanes.
+A closed rule operation authored as data. Ability effects raise the revealing card’s power (`boost-self`, 1 to 3), raise each other ally already revealed in its lane (`boost-lane-allies`, 1 to 2), or lower each enemy already revealed there (`weaken-lane-enemies`, 1 to 2, floored at 0); location effects apply to lanes.

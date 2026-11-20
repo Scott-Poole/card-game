@@ -3,6 +3,7 @@ import {
   type EffectKind,
   isEffectKind,
   isBoostSelfAmount,
+  isWeakenLaneEnemiesAmount,
   isBoostLaneAlliesAmount,
   LANE_COUNT,
   LANE_CAPACITY,
@@ -230,6 +231,9 @@ const effectValidators: Readonly<
 > = {
   "boost-lane-allies": (effect) =>
     exact(effect, ["kind", "amount"]) && isBoostLaneAlliesAmount(effect.amount),
+  "weaken-lane-enemies": (effect) =>
+    exact(effect, ["kind", "amount"]) &&
+    isWeakenLaneEnemiesAmount(effect.amount),
   "boost-self": (effect) =>
     exact(effect, ["kind", "amount"]) && isBoostSelfAmount(effect.amount),
 };
