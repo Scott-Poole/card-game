@@ -10,9 +10,14 @@ import type * as UWebSockets from "uWebSockets.js";
 // uWebSockets.js v20.71.0's ESM wrapper imports a file the release doesn't ship
 // (uNetworking/uWebSockets.js#1356, fixed on master, unreleased). Load the CommonJS
 // entry instead. Once a release includes the fix, switch back to a plain import.
-const { App, us_socket_local_port } = createRequire(import.meta.url)(
-  "uWebSockets.js",
-) as typeof UWebSockets;
+// uWebSockets.js binds with SO_REUSEPORT by default, so a second server on the same port
+// would start silently and the kernel would split players between the two. The typings
+// declare the exclusive flag on a ListenOptions enum, but the CommonJS entry exports it
+// as a plain constant instead.
+const { App, us_socket_local_port, LIBUS_LISTEN_EXCLUSIVE_PORT } =
+  createRequire(import.meta.url)("uWebSockets.js") as typeof UWebSockets & {
+    LIBUS_LISTEN_EXCLUSIVE_PORT: UWebSockets.ListenOptions;
+  };
 
 export interface ServerOptions {
   port: number;
@@ -94,7 +99,7 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
     else response.end(file.body);
   });
   return new Promise((resolve, reject) => {
-    app.listen(options.port, (socket) => {
+    app.listen(options.port, LIBUS_LISTEN_EXCLUSIVE_PORT, (socket) => {
       if (!socket) {
         reject(new Error(`Unable to listen on port ${String(options.port)}`));
         return;
