@@ -52,6 +52,14 @@ try {
   await rm(directory, { recursive: true, force: true });
 }
 
+// Pin the rule itself, so narrowing it cannot quietly shrink what the cases below cover.
+for (const name of ["typecheck", "lint", "format:check", "test", "test:any"]) {
+  assert.equal(isGateScript(name), true, `${name} must be a gate`);
+}
+for (const name of ["build", "fix", "check", "storybook", "format"]) {
+  assert.equal(isGateScript(name), false, `${name} is not a gate script`);
+}
+
 // In-process cases on synthetic scripts, so they hold whatever the repo's own are.
 const gateScripts = Object.fromEntries(gates.map((gate) => [gate, "true"]));
 const none = [];
