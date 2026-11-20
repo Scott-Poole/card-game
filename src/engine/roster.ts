@@ -2,6 +2,7 @@ import {
   DECK_CARDS_PER_COST,
   TURN_LIMIT,
   MAX_LOCATION_TEXT,
+  isBoostSelfAmount,
 } from "../rules/index.ts";
 import type { CardDefinition } from "./index.ts";
 
@@ -86,12 +87,7 @@ export function validateRoster(
         case "none":
           break;
         case "boost-self":
-          if (
-            !Number.isInteger(effect.amount) ||
-            effect.amount < 1 ||
-            effect.amount > 3
-          )
-            add("effect");
+          if (!isBoostSelfAmount(effect.amount)) add("effect");
           else if (
             !new RegExp(
               `(?<![\\d.])${String(effect.amount)}(?!\\d|\\.\\d)`,

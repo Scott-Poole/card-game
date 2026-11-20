@@ -634,7 +634,7 @@ test("power-per-card flips a lane winner, the reveal order and the match winner 
   expect(boostedMatch.revealFirst).toBe(1);
 });
 
-test.each([1, 2, 3])(
+test.each([1, 2, 3] as const)(
   "self boost resolves once by %i immediately after reveal",
   (amount) => {
     const card: CardDefinition = {

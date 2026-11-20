@@ -68,7 +68,7 @@ export function laneCapacity(effect: LocationEffect | undefined): number {
     }
   }
 }
-/** One player's lane total: printed power of their revealed cards plus what
+/** One player's lane total: current power of their revealed cards plus what
  * the lane's location effect adds. */
 export function laneTotal(
   cards: readonly { readonly power: number }[],
@@ -196,9 +196,18 @@ export interface Ability {
   readonly text: string;
   readonly effect: Effect;
 }
-export interface Effect {
+export interface BoostSelfEffect {
   readonly kind: "boost-self";
-  readonly amount: number;
+  readonly amount: 1 | 2 | 3;
+}
+export type Effect = BoostSelfEffect;
+export type EffectKind = Effect["kind"];
+const EFFECT_KINDS: Readonly<Record<EffectKind, true>> = { "boost-self": true };
+export function isEffectKind(kind: unknown): kind is EffectKind {
+  return typeof kind === "string" && Object.hasOwn(EFFECT_KINDS, kind);
+}
+export function isBoostSelfAmount(amount: unknown): amount is 1 | 2 | 3 {
+  return amount === 1 || amount === 2 || amount === 3;
 }
 export function boostedPower(
   power: number,
