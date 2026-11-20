@@ -2,10 +2,8 @@ import {
   checkStaging,
   LANE_COUNT,
   laneTotals,
-  TURN_LIMIT,
-} from "../rules/index.ts";
-import {
   opponentOf,
+  TURN_LIMIT,
   type LocationDefinition,
   type Play,
   type PlayerId,

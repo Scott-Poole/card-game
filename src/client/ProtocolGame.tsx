@@ -537,7 +537,7 @@ function Game() {
                     `Lane ${String(inspection.number)}`)
                   : inspection.side === "own"
                     ? `You · Player ${String((view?.player ?? 0) + 1)}`
-                    : `Opponent · Player ${String(opponentOf(view?.player ?? 0) + 1)}`
+                    : `Opponent · Player ${String(view ? opponentOf(view.player) + 1 : 1)}`
             }
             onClose={(cancelSelection) => {
               if (cancelSelection) setSelected(null);
