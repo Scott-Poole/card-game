@@ -150,3 +150,41 @@ test.each([
     expect(response.body).toBe("");
   },
 );
+
+test.each(
+  (["POST", "PUT", "DELETE", "PATCH"] as const).flatMap((method) =>
+    (["/", "/app.js"] as const).map((path) => [method, path] as const),
+  ),
+)(
+  "%s %s is 405 with an Allow header and no file contents",
+  async (method, path) => {
+    const response = await new Promise<{
+      status: number | undefined;
+      allow: string | undefined;
+      body: string;
+    }>((resolve, reject) => {
+      const req = httpRequest(
+        { hostname: "localhost", port: server.port, path, method },
+        (res) => {
+          let body = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk: string) => {
+            body += chunk;
+          });
+          res.on("end", () => {
+            resolve({
+              status: res.statusCode,
+              allow: res.headers.allow,
+              body,
+            });
+          });
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+    expect(response.status).toBe(405);
+    expect(response.allow).toBe("GET, HEAD");
+    expect(response.body).not.toContain(path === "/" ? "index.html" : "app.js");
+  },
+);
