@@ -70,7 +70,7 @@ The engine's representation of a card's identity, name, cost and power, used for
 The player's private collection of cards available to stage for play, starting with three cards drawn from their deck. At the start of each later turn, the player draws one more card if their deck is not empty.
 
 **Deck**:
-The player's ordered supply of cards still available to draw into their hand. It starts as two cards per cost, from 1 to 6, drawn from the roster; it supplies the opening hand and later turns’ draws, with any cards not drawn by the end of the match remaining in the deck.
+The player's ordered supply of cards still available to draw into their hand. Before the opening hand is drawn, it contains two cards per cost, from 1 to 6, drawn from the roster; it supplies the opening hand and the draws on later turns, with any cards not drawn by the end of the match remaining in the deck.
 _Avoid_: Roster
 
 **Zone**:
