@@ -8,7 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 
 // The test runners must not skip tests silently. Prove each guard in the repo's real
 // configs against throwaway fixtures: a committed `test.only` must fail Playwright
@@ -80,9 +80,15 @@ try {
 
   // Vitest: every test-file shape under src/ must be collected.
   const srcDir = join(fixtureRoot, "src");
-  await mkdir(srcDir);
-  const shapes = ["a.test.ts", "b.test.tsx", "c.spec.ts", "d.spec.tsx"];
+  // Nested like the real tree, so a path-scoped exclude or narrowed glob is caught too.
+  const shapes = [
+    "client/a.test.ts",
+    "client/b.test.tsx",
+    "engine/c.spec.ts",
+    "server/d.spec.tsx",
+  ];
   for (const name of shapes) {
+    await mkdir(dirname(join(srcDir, name)), { recursive: true });
     await writeFile(
       join(srcDir, name),
       'import { test } from "vitest";\ntest("collected", () => {});\n',
@@ -106,7 +112,7 @@ try {
   let collected;
   try {
     collected = JSON.parse(await readFile(report, "utf8")).testResults.map(
-      (file) => basename(file.name),
+      (file) => relative(srcDir, file.name),
     );
   } catch {
     throw new Error(
