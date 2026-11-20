@@ -6,6 +6,7 @@ import {
   laneTotal,
   laneTotals,
   legalPlays,
+  opponentOf,
 } from "./index.ts";
 import type { LocationEffect } from "./index.ts";
 
@@ -185,4 +186,9 @@ test("an unlimited lane keeps the default capacity beside a limited one", () => 
   const filled = { ...view, own: { ...view.own, staged: four } };
   expect(laneIsFull(filled, 0)).toBe(true);
   expect(laneIsFull(filled, 1)).toBe(false);
+});
+
+test("opponentOf returns the other player", () => {
+  expect(opponentOf(0)).toBe(1);
+  expect(opponentOf(1)).toBe(0);
 });

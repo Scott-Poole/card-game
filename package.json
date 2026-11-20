@@ -19,6 +19,7 @@
     "test:queue": "GIT_AUTHOR_NAME=queue-test GIT_AUTHOR_EMAIL=queue-test@example.invalid GIT_COMMITTER_NAME=queue-test GIT_COMMITTER_EMAIL=queue-test@example.invalid bash .agents/skills/tick/test/test-queue.sh",
     "test:read-main": "bash .agents/skills/read-main/test/test-read-main.sh",
     "check": "node scripts/check.mjs",
+    "test:gates": "node scripts/test-gates.mjs",
     "test:boundaries": "node scripts/test-boundaries.mjs",
     "test:runners": "node scripts/test-runners.mjs",
     "test:skill-links": "node scripts/test-skill-links-regression.mjs && node scripts/test-skill-links.mjs",

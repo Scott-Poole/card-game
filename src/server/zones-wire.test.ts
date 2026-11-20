@@ -1,3 +1,4 @@
+import { opponentOf } from "../rules/index.ts";
 import { expect, it } from "vitest";
 import {
   createMatch,
@@ -42,7 +43,7 @@ it("full zone lists survive projection, JSON and the strict decoder for both pla
     expect(decoded).toEqual({ ok: true, message: { type: "state", view } });
     if (!decoded.ok || decoded.message.type !== "state")
       throw new Error("expected a decoded state");
-    const other = id === 0 ? 1 : 0;
+    const other = opponentOf(id);
     expect(decoded.message.view.own.zones).toEqual(state.players[id].zones);
     expect(decoded.message.view.opponent.zones).toEqual(
       state.players[other].zones,

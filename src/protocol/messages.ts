@@ -10,6 +10,8 @@ import {
   MAX_LOCATION_NAME,
   MAX_LOCATION_TEXT,
   type LocationDefinition,
+  type Play,
+  type PlayerId,
   type Zone,
 } from "../rules/index.ts";
 // Each player can reveal their full deck, then turn-ended and match-ended.
@@ -112,11 +114,7 @@ export interface Card {
   readonly cost: number;
   readonly power: number;
 }
-export interface Play {
-  readonly cardId: string;
-  readonly lane: number;
-}
-export type PlayerId = 0 | 1;
+export type { Play, PlayerId };
 export interface Score {
   readonly lanes: readonly (PlayerId | null)[];
   readonly power: readonly number[];

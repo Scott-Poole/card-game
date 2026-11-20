@@ -1,4 +1,8 @@
-import type { LocationDefinition } from "../rules/index.ts";
+import {
+  opponentOf,
+  type LocationDefinition,
+  type PlayerId,
+} from "../rules/index.ts";
 import { testLocations } from "./locations.test-support.ts";
 import { expect, test } from "vitest";
 import {
@@ -170,10 +174,17 @@ test("lane-capacity rejects a card past the limit, counting revealed cards", () 
   expect(stageIn(state, 1, 0, 3)).toEqual({ ok: false, error: "full-lane" });
 });
 
+interface RevealOrderCase {
+  a: number[];
+  b: number[];
+  ap: number;
+  bp: number;
+  first: PlayerId;
+}
 test.each([
   { a: [0, 1], b: [2, 2], ap: 1, bp: 9, first: 0 },
   { a: [0, 0], b: [1, 1], ap: 1, bp: 9, first: 1 },
-])(
+] satisfies RevealOrderCase[])(
   "reveal order uses lane wins then total power: %j",
   ({ a, b, ap, bp, first }) => {
     let state = createMatch(42, [deck(ap), deck(bp)], testLocations);
@@ -188,7 +199,7 @@ test.each([
     const events = turn(state, play(state, 0, 2), play(state, 1, 2)).events;
     expect(
       events.filter((e) => e.type === "card-revealed").map((e) => e.player),
-    ).toEqual([first, first === 0 ? 1 : 0]);
+    ).toEqual([first, opponentOf(first)]);
   },
 );
 

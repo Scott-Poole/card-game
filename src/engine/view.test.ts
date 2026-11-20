@@ -1,4 +1,5 @@
 import { testLocations } from "./locations.test-support.ts";
+import { opponentOf } from "../rules/index.ts";
 import { expect, test } from "vitest";
 import {
   commit,
@@ -42,7 +43,7 @@ function player(id: PlayerId) {
 test.each([0, 1] satisfies PlayerId[])(
   "player %i sees only permitted information before and after opponent commits",
   (id) => {
-    const opponent = id === 0 ? 1 : 0;
+    const opponent = opponentOf(id);
     for (const committed of [false, true]) {
       const other = { ...state.players[opponent], committed };
       const current: MatchState = {
@@ -181,7 +182,7 @@ test("phase narrows planning and forfeited view results", () => {
         expect(result).toEqual({
           lanes: [null, null, null],
           power: [2, 2],
-          winner: loser === 0 ? 1 : 0,
+          winner: opponentOf(loser),
         });
       }
     }
@@ -199,7 +200,7 @@ test("both players see the same three match locations in lane order", () => {
 test("off-board zones are face up: each player sees both players' full lists", () => {
   for (const id of [0, 1] satisfies PlayerId[]) {
     const view = playerView(state, id);
-    const other = id === 0 ? 1 : 0;
+    const other = opponentOf(id);
     expect(view.own.zones).toEqual(state.players[id].zones);
     expect(view.opponent.zones).toEqual(state.players[other].zones);
     expect(view.opponent.zones.destroyed).toEqual([

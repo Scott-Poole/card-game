@@ -1,9 +1,9 @@
+import { shuffle, type CardDefinition } from "../engine/index.ts";
 import {
-  shuffle,
-  type CardDefinition,
+  DECK_CARDS_PER_COST,
+  TURN_LIMIT,
   type PlayerId,
-} from "../engine/index.ts";
-import { DECK_CARDS_PER_COST, TURN_LIMIT } from "../rules/index.ts";
+} from "../rules/index.ts";
 import type { RosterEntry } from "../engine/roster.ts";
 
 export const roster: readonly RosterEntry[] = [

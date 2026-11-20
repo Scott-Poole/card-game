@@ -1,4 +1,5 @@
-import type { PlayerId, PlayerView } from "../protocol/messages.ts";
+import type { PlayerView } from "../protocol/messages.ts";
+import { opponentOf } from "../rules/index.ts";
 
 export type Outcome = "win" | "loss" | "draw";
 
@@ -20,7 +21,7 @@ export function summarizeResult(
   const outcome = (winner: number | null): Outcome =>
     winner === null ? "draw" : winner === player ? "win" : "loss";
   const lanes = result.lanes.map(outcome);
-  const opponent: PlayerId = player === 0 ? 1 : 0;
+  const opponent = opponentOf(player);
   return {
     winner: outcome(result.winner),
     lanes,
