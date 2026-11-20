@@ -230,7 +230,7 @@ function Slots({
         minH:
           cards.some((card) => card.ability) ||
           staged.some((card) => card.ability)
-            ? "[128px]"
+            ? "[176px]"
             : "[0]",
       })}
     >
