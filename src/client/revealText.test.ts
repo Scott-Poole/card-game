@@ -38,3 +38,17 @@ test("a past turn end lists its turn number", () => {
 test("a past match end reads plainly", () => {
   expect(logEventText(matchEnded)).toBe("Match ended");
 });
+
+test("power changes announce the absolute power", () => {
+  const event: MatchEvent = {
+    type: "power-changed",
+    player: 0,
+    lane: 1,
+    cardId: "c1",
+    power: 5,
+  };
+  expect(revealStatusText(event, [revealed])).toBe("Card now has 5 power");
+  expect(logEventText(event, [{ ...revealed, player: 0 }])).toBe(
+    "Player 1: Athena in lane 2 now has 5 power",
+  );
+});

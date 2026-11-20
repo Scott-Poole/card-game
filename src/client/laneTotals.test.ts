@@ -124,3 +124,19 @@ test("running totals equal the engine's lane totals for the same view", () => {
     totals.opponent.reduce((sum, n) => sum + n, 0),
   ]);
 });
+
+test.each([2, 3, 4, 5])(
+  "lane totals use current power %i including a location bonus",
+  (power) => {
+    expect(
+      selectLaneTotals({
+        own: { lanes: [[{ power }], [], []] },
+        opponent: { lanes: [[], [], []] },
+        locations: [
+          withEffect({ kind: "power-per-card", amount: 2 }),
+          ...noEffects.slice(1),
+        ],
+      }),
+    ).toEqual({ own: [power + 2, 0, 0], opponent: [0, 0, 0] });
+  },
+);

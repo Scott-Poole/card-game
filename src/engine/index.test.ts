@@ -633,3 +633,84 @@ test("power-per-card flips a lane winner, the reveal order and the match winner 
   expect(boostedMatch.state.result?.winner).toBe(1);
   expect(boostedMatch.revealFirst).toBe(1);
 });
+
+test.each([1, 2, 3] as const)(
+  "self boost resolves once by %i immediately after reveal",
+  (amount) => {
+    const card: CardDefinition = {
+      id: "boost",
+      name: "Ember",
+      cost: 0,
+      power: 2,
+      ability: {
+        text: `Gain ${String(amount)} power.`,
+        effect: { kind: "boost-self", amount },
+      },
+    };
+    const initial = createMatch(42, [[card], []], testLocations);
+    const run = () => turn(initial, [{ cardId: "boost", lane: 0 }]);
+    const result = run();
+    expect(result.state.players[0].lanes[0]?.[0]?.power).toBe(2 + amount);
+    expect(result.events.slice(0, 2)).toEqual([
+      { type: "card-revealed", player: 0, lane: 0, card },
+      {
+        type: "power-changed",
+        player: 0,
+        lane: 0,
+        cardId: "boost",
+        power: 2 + amount,
+      },
+    ]);
+    expect(run()).toEqual(result);
+    let state = result.state;
+    while (state.phase !== "ended") state = turn(state).state;
+    expect(state.result.power).toEqual([2 + amount, 0]);
+  },
+);
+
+test.each([0, 1] as const)(
+  "ability finishes before the next card flips for seat %i without RNG",
+  (id) => {
+    const boost: CardDefinition = {
+      id: "boost",
+      name: "Ember",
+      cost: 0,
+      power: 2,
+      ability: {
+        text: "Gather 2 power.",
+        effect: { kind: "boost-self", amount: 2 },
+      },
+    };
+    const vanilla: CardDefinition = {
+      id: "plain",
+      name: "Road",
+      cost: 0,
+      power: 3,
+    };
+    const run = (cards: readonly CardDefinition[]) => {
+      const initial = createMatch(42, [cards, cards], testLocations);
+      const plays = [
+        { cardId: "boost", lane: 0 },
+        { cardId: "plain", lane: 0 },
+      ];
+      return turn(initial, id === 0 ? plays : [], id === 1 ? plays : []);
+    };
+    const boosted = run([boost, vanilla]);
+    const plain = run([
+      { id: "boost", name: "Ember", cost: 0, power: 2 },
+      vanilla,
+    ]);
+    expect(boosted.events.map((event) => event.type)).toEqual([
+      "card-revealed",
+      "power-changed",
+      "card-revealed",
+      "turn-ended",
+    ]);
+    expect(
+      boosted.state.players[id].lanes[0]?.map((card) => card.power),
+    ).toEqual([4, 3]);
+    expect(boosted.state.players[id].lanes[0]?.[0]?.printed.power).toBe(2);
+    expect(boosted.state.rng).toBe(plain.state.rng);
+    expect(playerView(boosted.state, id).revealFirst).toBe(id);
+  },
+);
