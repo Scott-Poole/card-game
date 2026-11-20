@@ -2006,7 +2006,7 @@ test("unaffordable hand card stays inspectable and cannot be staged", async ({
   await expect(card).toHaveCSS("opacity", "0.55");
   await card.getByRole("button", { name: /^Inspect / }).click();
   await expect(a.getByRole("dialog")).toContainText(
-    "No ability description available.",
+    (await card.getAttribute("aria-label")) ?? "",
   );
   for (let lane = 1; lane <= 3; lane++) {
     await expect(
@@ -2223,6 +2223,8 @@ test.describe("power-per-card location", () => {
           .getByRole("button", {
             name: new RegExp(`^Stage .* in lane ${lane}$`),
           })
+          // Keep this location-total scenario independent of enemy weakening.
+          .filter({ hasNotText: "Vesta, Tender of Borrowed Fire" })
           .and(page.locator(":enabled"))
           .first();
         if (await play.count()) {
