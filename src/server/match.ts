@@ -6,9 +6,12 @@ import {
   applyAction,
   playerView,
   type MatchState,
-  type PlayerId,
 } from "../engine/index.ts";
-import type { LocationDefinition } from "../rules/index.ts";
+import {
+  opponentOf,
+  type LocationDefinition,
+  type PlayerId,
+} from "../rules/index.ts";
 import type { ClientMessage, ServerMessage } from "../protocol/messages.ts";
 import { locations as shippedLocations } from "./locations.ts";
 import type { RosterEntry } from "../engine/roster.ts";
@@ -137,7 +140,7 @@ export function matchHost(
         seats.delete(peer);
         if (!seat || seat.match.state.phase === "ended") return;
         const { match, player } = seat;
-        const winner = player === 0 ? 1 : 0;
+        const winner = opponentOf(player);
         match.state = forfeit(match.state, player);
         send(match.peers[winner], {
           type: "state",

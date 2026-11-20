@@ -111,6 +111,11 @@ export interface Play {
   readonly cardId: string;
   readonly lane: number;
 }
+export type PlayerId = 0 | 1;
+/** The other player of the two. */
+export function opponentOf(id: PlayerId): PlayerId {
+  return id === 0 ? 1 : 0;
+}
 export interface StagingView {
   readonly phase: "planning" | "ended";
   readonly energy: number;
