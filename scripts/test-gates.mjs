@@ -177,6 +177,31 @@ assert.equal(
   1,
   "dropping the pointer is caught",
 );
+// The bullet is the whole list item, so wrapped text counts and the next item does not.
+assert.equal(
+  findAgentsDrift({
+    agents: `${bulletWith(`static checks. ${pointer}`)}  Runs test:queue and build-storybook.\n`,
+    gates,
+  }).length,
+  2,
+  "a gate named on a continuation line is caught",
+);
+assert.deepEqual(
+  findAgentsDrift({
+    agents: `${bulletWith("static checks, and the exact list is in")}  scripts/gates.mjs.\n`,
+    gates,
+  }),
+  [],
+  "a pointer wrapped onto a continuation line counts",
+);
+assert.deepEqual(
+  findAgentsDrift({
+    agents: `${bulletWith(`static checks. ${pointer}`)}- Other: test:queue lives here.\n\nProse about test:queue.\n`,
+    gates,
+  }),
+  [],
+  "the next list item and later paragraphs are not part of the bullet",
+);
 assert.equal(
   findAgentsDrift({ agents: "no bullet here", gates }).length,
   1,

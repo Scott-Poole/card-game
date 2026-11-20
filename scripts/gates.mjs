@@ -33,8 +33,21 @@ export function isGateScript(name) {
 // helpers keep that bullet from restating the list, which drifted every time a gate landed.
 const checkBulletStart = "- `pnpm check`:";
 
+// The whole list item: its first line plus any continuation lines, up to the next blank
+// line or list marker, so wrapping the text neither hides a gate name nor the pointer.
 export function checkBullet(agents) {
-  return agents.split("\n").find((line) => line.startsWith(checkBulletStart));
+  const lines = agents.split("\n");
+  const start = lines.findIndex((line) => line.startsWith(checkBulletStart));
+  if (start === -1) return undefined;
+  let end = start + 1;
+  while (
+    end < lines.length &&
+    lines[end].trim() !== "" &&
+    !/^\s*(?:[-*+]|\d+[.)])\s/.test(lines[end])
+  ) {
+    end += 1;
+  }
+  return lines.slice(start, end).join("\n");
 }
 
 // Gate names that are not bare English words (`lint`, `test`): `test:*`, `format:check`,
