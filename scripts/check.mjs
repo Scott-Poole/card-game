@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { gates } from "./gates.mjs";
 
 // Git hooks export local repository paths. Foreign scratch repositories in the
 // regression suites must resolve their own Git directory and index.
@@ -12,19 +13,6 @@ for (const name of gitEnv.stdout.trim().split("\n")) {
   Reflect.deleteProperty(environment, name);
 }
 
-const gates = [
-  "typecheck",
-  "lint",
-  "format:check",
-  "test",
-  "test:guardrail",
-  "test:queue",
-  "test:read-main",
-  "test:boundaries",
-  "test:skill-links",
-  "test:working-markdown",
-  "test:browser",
-];
 for (const gate of gates) {
   const result = spawnSync("pnpm", [gate], {
     stdio: "inherit",
