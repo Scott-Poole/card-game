@@ -3,6 +3,7 @@ import {
   type EffectKind,
   isEffectKind,
   isBoostSelfAmount,
+  isBoostLaneAlliesAmount,
   LANE_COUNT,
   LANE_CAPACITY,
   TURN_LIMIT,
@@ -227,6 +228,8 @@ function isWinner(v: unknown): v is PlayerId | null {
 const effectValidators: Readonly<
   Record<EffectKind, (effect: Record<string, unknown>) => boolean>
 > = {
+  "boost-lane-allies": (effect) =>
+    exact(effect, ["kind", "amount"]) && isBoostLaneAlliesAmount(effect.amount),
   "boost-self": (effect) =>
     exact(effect, ["kind", "amount"]) && isBoostSelfAmount(effect.amount),
 };

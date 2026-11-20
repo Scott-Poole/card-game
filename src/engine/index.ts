@@ -287,15 +287,38 @@ export function resolve(state: MatchState): Result<{
           lane: play.lane,
           card,
         });
-        if (card.ability) {
-          const power = revealed.power;
-          events.push({
-            type: "power-changed",
-            player: id,
-            lane: play.lane,
-            cardId: card.id,
-            power,
-          });
+        const effect = card.ability?.effect;
+        if (effect) {
+          switch (effect.kind) {
+            case "boost-self":
+              events.push({
+                type: "power-changed",
+                player: id,
+                lane: play.lane,
+                cardId: card.id,
+                power: revealed.power,
+              });
+              break;
+            case "boost-lane-allies":
+              for (let index = 0; index < lane.length - 1; index++) {
+                const ally = lane[index];
+                if (!ally) continue;
+                const power = ally.power + effect.amount;
+                lane[index] = { ...ally, power };
+                events.push({
+                  type: "power-changed",
+                  player: id,
+                  lane: play.lane,
+                  cardId: ally.id,
+                  power,
+                });
+              }
+              break;
+            default: {
+              const exhaustive: never = effect;
+              return exhaustive;
+            }
+          }
         }
       }
     }

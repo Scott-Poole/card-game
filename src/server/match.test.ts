@@ -269,11 +269,19 @@ test("both players' raw frames contain only revealed opponent card ids", async (
   views = await states(a, b);
   expect(views[0].opponent.lanes[1]).toContainEqual({
     ...second,
-    power: second.power + (second.ability?.effect.amount ?? 0),
+    power:
+      second.power +
+      (second.ability?.effect.kind === "boost-self"
+        ? second.ability.effect.amount
+        : 0),
   });
   expect(views[1].opponent.lanes[0]).toContainEqual({
     ...first,
-    power: first.power + (first.ability?.effect.amount ?? 0),
+    power:
+      first.power +
+      (first.ability?.effect.kind === "boost-self"
+        ? first.ability.effect.amount
+        : 0),
   });
   a.socket.close();
   b.socket.close();

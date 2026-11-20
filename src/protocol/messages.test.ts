@@ -496,6 +496,17 @@ it("decodes full zone lists for both players: every zone is face up", () => {
 });
 
 it.each([
+  ...[1, 2, 0, 3].map((amount): [unknown, boolean] => [
+    { text: "Share power.", effect: { kind: "boost-lane-allies", amount } },
+    amount === 1 || amount === 2,
+  ]),
+  [
+    {
+      text: "Share power.",
+      effect: { kind: "boost-lane-allies", amount: 2, extra: true },
+    },
+    false,
+  ],
   [{ text: "Gain 2 power.", effect: { kind: "boost-self", amount: 2 } }, true],
   [{ text: "Gain power.", effect: { kind: "unknown", amount: 2 } }, false],
   [{ text: "Gain power.", effect: { kind: "boost-self", amount: 0 } }, false],

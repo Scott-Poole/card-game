@@ -200,14 +200,24 @@ export interface BoostSelfEffect {
   readonly kind: "boost-self";
   readonly amount: 1 | 2 | 3;
 }
-export type Effect = BoostSelfEffect;
+export interface BoostLaneAlliesEffect {
+  readonly kind: "boost-lane-allies";
+  readonly amount: 1 | 2;
+}
+export type Effect = BoostSelfEffect | BoostLaneAlliesEffect;
 export type EffectKind = Effect["kind"];
-const EFFECT_KINDS: Readonly<Record<EffectKind, true>> = { "boost-self": true };
+const EFFECT_KINDS: Readonly<Record<EffectKind, true>> = {
+  "boost-self": true,
+  "boost-lane-allies": true,
+};
 export function isEffectKind(kind: unknown): kind is EffectKind {
   return typeof kind === "string" && Object.hasOwn(EFFECT_KINDS, kind);
 }
 export function isBoostSelfAmount(amount: unknown): amount is 1 | 2 | 3 {
   return amount === 1 || amount === 2 || amount === 3;
+}
+export function isBoostLaneAlliesAmount(amount: unknown): amount is 1 | 2 {
+  return amount === 1 || amount === 2;
 }
 export function boostedPower(
   power: number,
@@ -215,6 +225,7 @@ export function boostedPower(
 ): number {
   const operation = effect ?? { kind: "none" as const };
   switch (operation.kind) {
+    case "boost-lane-allies":
     case "none":
       return power;
     case "boost-self":

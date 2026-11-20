@@ -37,7 +37,7 @@ const originals = [
       id: "ariadne-returnweaver",
       name: "Ariadne, Weaver of Returns",
       cost: 2,
-      power: 4,
+      power: 5,
     },
     figure: "Ariadne",
     tradition: "greek",
@@ -48,7 +48,11 @@ const originals = [
       id: "flora-orchardwhisper",
       name: "Flora, Orchard's First Whisper",
       cost: 2,
-      power: 4,
+      power: 3,
+      ability: {
+        text: "On reveal, grant 1 power to each other ally already revealed in this lane.",
+        effect: { kind: "boost-lane-allies", amount: 1 },
+      },
     },
     figure: "Flora",
     tradition: "roman",
@@ -205,7 +209,13 @@ test("a deck is two distinct roster cards per cost, drawn from the roster", () =
     expect(card.id.startsWith("1:")).toBe(true);
     const source = roster.find((e) => `1:${e.card.id}` === card.id);
     expect(card).toEqual({ ...source?.card, id: card.id });
-    expect(Object.keys(card).sort()).toEqual(["cost", "id", "name", "power"]);
+    expect(Object.keys(card).sort()).toEqual([
+      ...(card.ability ? ["ability"] : []),
+      "cost",
+      "id",
+      "name",
+      "power",
+    ]);
   }
 });
 
