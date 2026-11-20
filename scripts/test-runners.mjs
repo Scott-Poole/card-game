@@ -8,7 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 // The test runners must not skip tests silently. Prove each guard in the repo's real
 // configs against throwaway fixtures: a committed `test.only` must fail Playwright
@@ -17,12 +17,19 @@ const repo = resolve(import.meta.dirname, "..");
 const playwrightConfig = join(repo, "playwright.config.ts");
 const vitestConfig = join(repo, "vitest.config.ts");
 
-const run = (command, args, cwd, env = {}) =>
-  spawnSync(join(repo, "node_modules", ".bin", command), args, {
+const run = (command, args, cwd, env = {}) => {
+  const result = spawnSync(join(repo, "node_modules", ".bin", command), args, {
     cwd,
     encoding: "utf8",
     env: { ...process.env, ...env },
+    timeout: 120_000,
   });
+  if (result.error)
+    throw new Error(`${command} failed to run`, { cause: result.error });
+  if (result.signal)
+    throw new Error(`${command} was killed by ${result.signal}`);
+  return result;
+};
 
 const fixtureRoot = await mkdtemp(join(tmpdir(), "test-runners-"));
 try {
@@ -62,9 +69,11 @@ try {
     fixtureRoot,
     { CI: "true" },
   );
-  if (onlyRun.status === 0) {
+  // Require Playwright's own forbidOnly complaint: any other failure proves nothing.
+  const onlyOutput = onlyRun.stdout + onlyRun.stderr;
+  if (onlyRun.status === 0 || !onlyOutput.includes("forbidOnly")) {
     throw new Error(
-      `Playwright exited 0 for a committed test.only under CI; set forbidOnly: !!process.env.CI:\n${onlyRun.stdout}`,
+      `Playwright must fail a committed test.only under CI with its forbidOnly error; set forbidOnly: !!process.env.CI (exit ${onlyRun.status}):\n${onlyOutput}`,
     );
   }
   console.log("playwright: committed test.only fails under CI");
@@ -89,10 +98,15 @@ try {
     ],
     fixtureRoot,
   );
+  if (vitestRun.status !== 0) {
+    throw new Error(
+      `vitest failed on the fixture tree:\n${vitestRun.stdout}${vitestRun.stderr}`,
+    );
+  }
   let collected;
   try {
     collected = JSON.parse(await readFile(report, "utf8")).testResults.map(
-      (file) => file.name.slice(srcDir.length + 1),
+      (file) => basename(file.name),
     );
   } catch {
     throw new Error(
