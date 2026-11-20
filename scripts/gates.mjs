@@ -33,19 +33,23 @@ export function isGateScript(name) {
 // helpers keep that bullet from restating the list, which drifted every time a gate landed.
 const checkBulletStart = "- `pnpm check`:";
 
-// The whole list item: its first line plus any continuation lines, up to the next blank
-// line or list marker, so wrapping the text neither hides a gate name nor the pointer.
+// The whole list item: its first line, wrapped continuation lines and indented nested
+// content, up to the next top-level list marker, heading, or a blank line followed by
+// unindented text. Wrapping or nesting neither hides a gate name nor the pointer.
 export function checkBullet(agents) {
-  const lines = agents.split("\n");
+  const lines = agents.split("\n").map((line) => line.replace(/\r$/, ""));
   const start = lines.findIndex((line) => line.startsWith(checkBulletStart));
   if (start === -1) return undefined;
   let end = start + 1;
-  while (
-    end < lines.length &&
-    lines[end].trim() !== "" &&
-    !/^\s*(?:[-*+]|\d+[.)])\s/.test(lines[end])
-  ) {
-    end += 1;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (line.trim() === "") {
+      const next = lines.slice(i + 1).find((later) => later.trim() !== "");
+      if (next === undefined || !/^\s/.test(next)) break;
+      continue;
+    }
+    if (/^(?:[-*+]|\d+[.)])\s|^#{1,6}\s/.test(line)) break;
+    end = i + 1;
   }
   return lines.slice(start, end).join("\n");
 }

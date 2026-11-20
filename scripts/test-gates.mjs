@@ -194,13 +194,39 @@ assert.deepEqual(
   [],
   "a pointer wrapped onto a continuation line counts",
 );
+for (const marker of ["-", "*", "1."]) {
+  assert.equal(
+    findAgentsDrift({
+      agents: `${bulletWith(`static checks. ${pointer}`)}  ${marker} Runs test:queue.\n`,
+      gates,
+    }).length,
+    1,
+    `a gate named in a nested "${marker}" item is caught`,
+  );
+}
+assert.equal(
+  findAgentsDrift({
+    agents: `${bulletWith(`static checks. ${pointer}`)}\n  Runs test:queue.\n`,
+    gates,
+  }).length,
+  1,
+  "indented text after a blank line still belongs to the bullet",
+);
 assert.deepEqual(
   findAgentsDrift({
-    agents: `${bulletWith(`static checks. ${pointer}`)}- Other: test:queue lives here.\n\nProse about test:queue.\n`,
+    agents: `${bulletWith(`static checks. ${pointer}`).replace("\n", "\r\n")}  Wrapped.\r\n`,
     gates,
   }),
   [],
-  "the next list item and later paragraphs are not part of the bullet",
+  "CRLF line endings are tolerated",
+);
+assert.deepEqual(
+  findAgentsDrift({
+    agents: `${bulletWith(`static checks. ${pointer}`)}- Other: test:queue lives here.\n\nProse about test:queue.\n## test:queue heading\n`,
+    gates,
+  }),
+  [],
+  "the next list item, headings and later paragraphs are not part of the bullet",
 );
 assert.equal(
   findAgentsDrift({ agents: "no bullet here", gates }).length,
