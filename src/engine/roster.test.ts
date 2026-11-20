@@ -306,3 +306,24 @@ test("reports a missing ability effect and overlong text", () => {
     ]),
   );
 });
+
+test.each([
+  ["Share 1 power.", 1, false],
+  ["Share 2 power.", 2, false],
+  ["Share 1 power.", 2, true],
+  ["Share 12 power.", 2, true],
+])("lane boost text %s matches amount %i", (text, amount, invalid) => {
+  const issues = validateRoster([
+    {
+      ...first,
+      card: {
+        ...first.card,
+        ability: {
+          text,
+          effect: { kind: "boost-lane-allies", amount },
+        },
+      },
+    },
+  ]);
+  expect(issues.some((issue) => issue.code === "effect-text")).toBe(invalid);
+});

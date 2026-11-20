@@ -1042,6 +1042,9 @@ test("revealed lane cards and totals follow both players through every turn", as
             previewBox.y + previewBox.height + 1,
           );
         }).toPass({ timeout: 1000 });
+        if (name === "Flora, Orchard's First Whisper")
+          for (const prior of records.get(page) ?? [])
+            if (prior.lane === Number(match[2])) prior.power += 1;
         records.get(page)?.push({
           name,
           power:
@@ -2236,6 +2239,11 @@ test.describe("power-per-card location", () => {
             ).replace("Power ", ""),
           );
           await play.press("Enter");
+          if (name === "Flora, Orchard's First Whisper")
+            powers.set(
+              page,
+              (powers.get(page) ?? []).map((prior) => prior + 1),
+            );
           powers
             .get(page)
             ?.push(

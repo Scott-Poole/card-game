@@ -714,3 +714,105 @@ test.each([0, 1] as const)(
     expect(playerView(boosted.state, id).revealFirst).toBe(id);
   },
 );
+
+test.each([1, 2] as const)(
+  "lane boost %i respects reveal order and ownership",
+  (amount) => {
+    const ally: CardDefinition = {
+      id: "ally",
+      name: "Ally",
+      cost: 0,
+      power: 3,
+    };
+    const booster: CardDefinition = {
+      id: "booster",
+      name: "Chorus",
+      cost: 0,
+      power: 2,
+      ability: {
+        text: `Grant ${String(amount)} power.`,
+        effect: { kind: "boost-lane-allies", amount },
+      },
+    };
+    for (const before of [true, false]) {
+      const initial = createMatch(42, [[ally, booster], [ally]], testLocations);
+      const result = turn(
+        initial,
+        (before ? ["ally", "booster"] : ["booster", "ally"]).map((cardId) => ({
+          cardId,
+          lane: 0,
+        })),
+        [{ cardId: "ally", lane: 0 }],
+      );
+      expect(result.state.players[0].lanes[0]?.map((c) => c.power)).toEqual(
+        before ? [3 + amount, 2] : [2, 3],
+      );
+      expect(result.state.players[1].lanes[0]?.[0]?.power).toBe(3);
+      expect(result.events.filter((e) => e.type === "power-changed")).toEqual(
+        before
+          ? [
+              {
+                type: "power-changed",
+                player: 0,
+                lane: 0,
+                cardId: "ally",
+                power: 3 + amount,
+              },
+            ]
+          : [],
+      );
+      let state = result.state;
+      while (state.phase !== "ended") state = turn(state).state;
+      expect(state.result.power).toEqual([before ? 5 + amount : 5, 3]);
+    }
+  },
+);
+
+test.each([0, 1] as const)(
+  "lane boost changes prior allies in lane order for seat %i",
+  (id) => {
+    const cards: readonly CardDefinition[] = [
+      { id: "first", name: "First", cost: 0, power: 3 },
+      { id: "second", name: "Second", cost: 0, power: 4 },
+      { id: "other-lane", name: "Other", cost: 0, power: 5 },
+      {
+        id: "booster",
+        name: "Chorus",
+        cost: 0,
+        power: 2,
+        ability: {
+          text: "Share 2 power.",
+          effect: { kind: "boost-lane-allies", amount: 2 },
+        },
+      },
+    ];
+    const initial = turn(createMatch(42, [cards, cards], testLocations)).state;
+    const plays = [
+      { cardId: "first", lane: 0 },
+      { cardId: "second", lane: 0 },
+      { cardId: "other-lane", lane: 1 },
+    ];
+    const prior = turn(initial, plays, plays).state;
+    const result = turn(
+      prior,
+      id === 0 ? [{ cardId: "booster", lane: 0 }] : [],
+      id === 1 ? [{ cardId: "booster", lane: 0 }] : [],
+    );
+    expect(result.events.slice(0, 3)).toEqual([
+      { type: "card-revealed", player: id, lane: 0, card: cards[3] },
+      { type: "power-changed", player: id, lane: 0, cardId: "first", power: 5 },
+      {
+        type: "power-changed",
+        player: id,
+        lane: 0,
+        cardId: "second",
+        power: 6,
+      },
+    ]);
+    expect(result.state.players[id].lanes[1]?.[0]?.power).toBe(5);
+    expect(
+      result.state.players[id === 0 ? 1 : 0].lanes[0]?.map((c) => c.power),
+    ).toEqual([3, 4]);
+    expect(prior.players[id].lanes[0]?.map((c) => c.power)).toEqual([3, 4]);
+  },
+);
