@@ -29,6 +29,43 @@ export function isGateScript(name) {
   );
 }
 
+// AGENTS.md describes `pnpm check` in kind and points here for the exact list. These
+// helpers keep that bullet from restating the list, which drifted every time a gate landed.
+const checkBulletStart = "- `pnpm check`:";
+
+export function checkBullet(agents) {
+  return agents.split("\n").find((line) => line.startsWith(checkBulletStart));
+}
+
+// Gate names that are not bare English words (`lint`, `test`): `test:*`, `format:check`,
+// `build-storybook`.
+export function isNamedGate(name) {
+  return /[:-]/.test(name);
+}
+
+// Returns one message per way the AGENTS.md `pnpm check` bullet breaks that rule.
+export function findAgentsDrift({ agents, gates }) {
+  const bullet = checkBullet(agents);
+  if (bullet === undefined) {
+    return [`AGENTS.md has no line starting with ${checkBulletStart}`];
+  }
+  const problems = [];
+  if (!bullet.includes("scripts/gates.mjs")) {
+    problems.push(
+      "the AGENTS.md `pnpm check` bullet must point at scripts/gates.mjs for the exact gate list",
+    );
+  }
+  for (const gate of gates.filter(isNamedGate)) {
+    const escaped = gate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`(?<![\\w:-])${escaped}(?![\\w:-])`).test(bullet)) {
+      problems.push(
+        `the AGENTS.md \`pnpm check\` bullet names "${gate}"; describe the gates in kind and leave the list to scripts/gates.mjs`,
+      );
+    }
+  }
+  return problems;
+}
+
 // Returns one message per way the gate list and package.json scripts disagree.
 export function findGateDrift({ gates, scripts, exempt }) {
   const problems = [];
