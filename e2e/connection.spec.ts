@@ -2002,11 +2002,12 @@ test("unaffordable hand card stays inspectable and cannot be staged", async ({
     .getByRole("region", { name: "Hand" })
     .getByRole("article")
     .filter({ hasText: /Cost [2-6]/ })
+    .filter({ hasNot: a.locator('[data-part="ability"]') })
     .first();
   await expect(card).toHaveCSS("opacity", "0.55");
   await card.getByRole("button", { name: /^Inspect / }).click();
   await expect(a.getByRole("dialog")).toContainText(
-    (await card.getAttribute("aria-label")) ?? "",
+    "No ability description available.",
   );
   for (let lane = 1; lane <= 3; lane++) {
     await expect(
@@ -2221,10 +2222,11 @@ test.describe("power-per-card location", () => {
         ).toBeVisible();
         const play = page
           .getByRole("button", {
-            name: new RegExp(`^Stage .* in lane ${lane}$`),
+            name: new RegExp(
+              `^Stage (?!Vesta, Tender of Borrowed Fire).* in lane ${lane}$`,
+            ),
           })
           // Keep this location-total scenario independent of enemy weakening.
-          .filter({ hasNotText: "Vesta, Tender of Borrowed Fire" })
           .and(page.locator(":enabled"))
           .first();
         if (await play.count()) {

@@ -818,7 +818,7 @@ test.each([0, 1] as const)(
 );
 
 test.each([1, 2] as const)(
-  "weakening amount %i floors enemies and flips scoring",
+  "weakening amount %i floors enemies and preserves scoring totals",
   (amount) => {
     const cards: readonly CardDefinition[] = [
       { id: "zero", name: "Zero", cost: 0, power: 0 },
@@ -963,5 +963,8 @@ test.each([0, 1] as const)(
     while (state.phase !== "ended") state = turn(state).state;
     expect(state.result.lanes[0]).toBe(weakened ? owner : opponentOf(owner));
     expect(state.result.winner).toBe(opponentOf(owner));
+    expect(state.result.power).toEqual(
+      owner === 0 ? [2, weakened ? 3 : 5] : [weakened ? 3 : 5, 2],
+    );
   },
 );

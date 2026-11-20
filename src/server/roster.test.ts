@@ -4,7 +4,7 @@ import { DECK_CARDS_PER_COST, DECK_SIZE } from "../rules/index.ts";
 import { drawDeck, roster } from "./roster.ts";
 
 // The twelve original cards, pinned in full and keyed by id: later content
-// work may add, reorder or move cards, but must not change these.
+// work may add, reorder or move cards; ability tickets update their authored data.
 const originals = [
   {
     card: {

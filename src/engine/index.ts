@@ -300,6 +300,8 @@ export function resolve(state: MatchState): Result<{
               });
               break;
             case "weaken-lane-enemies": {
+              // Own lanes are buffered locally; the opponent lives in next so
+              // later reveals read these changes without mutating prior state.
               const enemyId = opponentOf(id);
               const enemy = next.players[enemyId];
               const enemyLanes = enemy.lanes.map((cards, laneIndex) =>

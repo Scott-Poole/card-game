@@ -327,6 +327,7 @@ test.each([
   ]);
   expect(issues.some((issue) => issue.code === "effect-text")).toBe(invalid);
 });
+
 test.each([
   ["Drain 1 power.", 1, false],
   ["Drain 2 power.", 2, false],
