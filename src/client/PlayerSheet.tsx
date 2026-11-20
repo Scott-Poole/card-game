@@ -52,6 +52,7 @@ export default function PlayerSheet({
               {cards.map((card) => (
                 <li key={card.id}>
                   {card.name} · Cost {card.cost} · Power {card.power}
+                  {card.ability && <p>{card.ability.text}</p>}
                 </li>
               ))}
             </ul>

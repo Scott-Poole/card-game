@@ -78,6 +78,9 @@ export default function Card(props: CardProps) {
               props.data.name
             )}
           </strong>
+          {props.data.ability && (
+            <span data-part="ability">{props.data.ability.text}</span>
+          )}
         </>
       )}
       {props.children}

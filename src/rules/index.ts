@@ -190,3 +190,29 @@ export function legalPlays(view: StagingView): readonly Play[] {
   }
   return plays;
 }
+
+/** An on-reveal ability; vanilla cards omit it. */
+export interface Ability {
+  readonly text: string;
+  readonly effect: Effect;
+}
+export interface Effect {
+  readonly kind: "boost-self";
+  readonly amount: number;
+}
+export function boostedPower(
+  power: number,
+  effect: Effect | undefined,
+): number {
+  const operation = effect ?? { kind: "none" as const };
+  switch (operation.kind) {
+    case "none":
+      return power;
+    case "boost-self":
+      return power + operation.amount;
+    default: {
+      const exhaustive: never = operation;
+      return exhaustive;
+    }
+  }
+}

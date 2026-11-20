@@ -97,3 +97,22 @@ test("player one's match-ending turn maps both sides to the correct lanes", () =
   ]);
   expect(steps.at(-1)?.view.result).toEqual(ended.result);
 });
+
+test.each([0, 1] as const)(
+  "power change updates side %i and its lane total",
+  (player) => {
+    const steps = sequenceReveal(opening, [
+      { type: "card-revealed", player, lane: 2, card: herald },
+      { type: "power-changed", player, lane: 2, cardId: herald.id, power: 5 },
+    ]);
+    const final = steps[1]?.view;
+    expect(final && selectLaneTotals(final)).toEqual(
+      player === 0
+        ? { own: [0, 0, 5], opponent: [0, 0, 0] }
+        : { own: [0, 0, 0], opponent: [0, 0, 5] },
+    );
+    expect(
+      steps[0]?.view[player === 0 ? "own" : "opponent"].lanes[2]?.[0]?.power,
+    ).toBe(2);
+  },
+);

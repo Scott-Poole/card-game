@@ -30,3 +30,29 @@ export const FaceDownLane: Story = {
 export const Composed: Story = {
   args: { art: <span>Art slot</span>, children: <span>Composed detail</span> },
 };
+
+export const Ability: Story = {
+  args: {
+    data: {
+      ...herald,
+      power: 1,
+      ability: {
+        text: "On reveal, gather 2 power.",
+        effect: { kind: "boost-self", amount: 2 },
+      },
+    },
+  },
+};
+export const Boosted: Story = {
+  args: {
+    size: "lane",
+    data: {
+      ...herald,
+      power: 3,
+      ability: {
+        text: "On reveal, gather 2 power.",
+        effect: { kind: "boost-self", amount: 2 },
+      },
+    },
+  },
+};

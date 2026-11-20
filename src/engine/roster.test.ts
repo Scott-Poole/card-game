@@ -250,3 +250,27 @@ test.each(["", "-a", "a-", "a--b"])("rejects malformed id %s", (id) => {
     ]),
   ).toEqual([{ code: "id", index: 0 }]);
 });
+
+test.each(["", "Gain power.", "Gain 12 power."])(
+  "rejects ability text %s",
+  (text) => {
+    const entries = valid.map((entry, index) =>
+      index === 0
+        ? {
+            ...entry,
+            card: {
+              ...entry.card,
+              ability: {
+                text,
+                effect: { kind: "boost-self" as const, amount: 2 },
+              },
+            },
+          }
+        : entry,
+    );
+    expect(validateRoster(entries)).toContainEqual({
+      code: text === "" ? "ability-text" : "effect-text",
+      index: 0,
+    });
+  },
+);

@@ -1,4 +1,8 @@
-import { DECK_CARDS_PER_COST, TURN_LIMIT } from "../rules/index.ts";
+import {
+  DECK_CARDS_PER_COST,
+  TURN_LIMIT,
+  MAX_LOCATION_TEXT,
+} from "../rules/index.ts";
 import type { CardDefinition } from "./index.ts";
 
 export interface RosterEntry {
@@ -22,7 +26,10 @@ export type RosterIssue =
         | "tradition"
         | "figure"
         | "name-figure"
-        | "flavor";
+        | "flavor"
+        | "ability-text"
+        | "effect-text"
+        | "effect";
       readonly index: number;
     };
 
@@ -69,6 +76,35 @@ export function validateRoster(
       card.power > 3 * card.cost
     )
       add("power");
+    const ability = card.ability;
+    {
+      const text = ability?.text ?? "";
+      const effect = ability?.effect ?? { kind: "none" as const };
+      if (ability && (!text.trim() || text.length > MAX_LOCATION_TEXT))
+        add("ability-text");
+      switch (effect.kind) {
+        case "none":
+          break;
+        case "boost-self":
+          if (
+            !Number.isInteger(effect.amount) ||
+            effect.amount < 1 ||
+            effect.amount > 3
+          )
+            add("effect");
+          else if (
+            !new RegExp(
+              `(?<![\\d.])${String(effect.amount)}(?!\\d|\\.\\d)`,
+            ).test(text)
+          )
+            add("effect-text");
+          break;
+        default: {
+          const exhaustive: never = effect;
+          return exhaustive;
+        }
+      }
+    }
     if (entry.tradition !== "greek" && entry.tradition !== "roman")
       add("tradition");
     const figure = entry.figure.trim();

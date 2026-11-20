@@ -1,5 +1,7 @@
 import {
   checkStaging,
+  boostedPower,
+  type Ability,
   LANE_COUNT,
   laneTotals,
   opponentOf,
@@ -19,6 +21,10 @@ export interface CardDefinition {
   readonly name: string;
   readonly cost: number;
   readonly power: number;
+  readonly ability?: Ability;
+}
+export interface LaneCard extends CardDefinition {
+  readonly printed: CardDefinition;
 }
 export type { Play, PlayerId };
 /** A player's off-board zones, in the order cards arrived. Every card in one
@@ -27,7 +33,7 @@ export type Zones = Readonly<Record<Zone, readonly CardDefinition[]>>;
 export interface PlayerState {
   readonly hand: readonly CardDefinition[];
   readonly deck: readonly CardDefinition[];
-  readonly lanes: readonly (readonly CardDefinition[])[];
+  readonly lanes: readonly (readonly LaneCard[])[];
   readonly zones: Zones;
   readonly staged: readonly Play[];
   readonly committed: boolean;
@@ -61,6 +67,13 @@ export type MatchEvent =
       readonly player: PlayerId;
       readonly lane: number;
       readonly card: CardDefinition;
+    }
+  | {
+      readonly type: "power-changed";
+      readonly player: PlayerId;
+      readonly lane: number;
+      readonly cardId: string;
+      readonly power: number;
     }
   | { readonly type: "turn-ended"; readonly turn: number }
   | { readonly type: "match-ended"; readonly result: Score };
@@ -262,13 +275,25 @@ export function resolve(state: MatchState): Result<{
       const lane = lanes[play.lane];
       // stage validates both lookups; committed plays cannot change through this API.
       if (card && lane) {
-        lane.push(card);
+        const revealed: LaneCard = { ...card, printed: card };
+        lane.push(revealed);
         events.push({
           type: "card-revealed",
           player: id,
           lane: play.lane,
           card,
         });
+        if (card.ability) {
+          const power = boostedPower(card.power, card.ability.effect);
+          lane[lane.length - 1] = { ...revealed, power };
+          events.push({
+            type: "power-changed",
+            player: id,
+            lane: play.lane,
+            cardId: card.id,
+            power,
+          });
+        }
       }
     }
     next = replace(next, id, {
@@ -333,7 +358,9 @@ export function playerView(state: MatchState, id: PlayerId): PlayerView {
   function publicPlayer(player: PlayerState): PublicPlayerView {
     return {
       deckSize: player.deck.length,
-      lanes: player.lanes,
+      lanes: player.lanes.map((lane) =>
+        lane.map((card) => ({ ...card.printed, power: card.power })),
+      ),
       zones: player.zones,
       committed: player.committed,
     };
