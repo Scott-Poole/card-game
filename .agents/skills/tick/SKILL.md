@@ -37,7 +37,7 @@ Once per run, before step 1, work out which providers are **out**, using `delega
 
 > Providers out: `claudeAgent`, `codex`.
 
-Name only the providers that are out, and write `Providers out: none.` when neither is. Build the line from the set as it stands at that launch: a refusal found at step 4 or in a **Check** changes the set, and the later launches carry the update. The thread treats the line as its starting out-set; it still launches on a provider the line leaves out and learns from a refusal as `delegate` says.
+Name only the providers that are out, and write `Providers out: none.` when neither is. Build the line from the set as it stands at that launch: a refusal found at step 4 or in a **Check** changes the set, and the later launches carry the update. The thread treats the line as its starting out-set; it still launches on a provider the line leaves out and learns from a refusal as `delegate` says. The line is a snapshot from the moment it was written: the newest `Providers out:` line in a thread replaces every older one, and a line older than `providerOutHours` no longer counts (an out provider has recovered by then, and the next launch on it is the probe).
 
 ## 1. Ask the queue
 
@@ -134,7 +134,7 @@ When step 1 printed `PLAN <category>`:
      >
      > Providers out: <the set from **Providers**, or `none`>.
 
-   If the launch fails, `... | bash -s -- plan-abort <n> "<error>"` and end the run. A refusal is the exception: launch once more on the plan tier's fallback with branch `plan/<n>-<category>-b`, add the refused provider to the out set, and read the new thread once after a few seconds: on a refusal (`failed`, 3 items or fewer), add that provider to the out set too and `plan-abort`; on a healthy thread record it with `note <n> "planner thread: <link>"`. The ticket steps (releasing a claim, `alive`) do not apply to a planner.
+   If the launch fails, `... | bash -s -- plan-abort <n> "<error>"` and end the run. A refusal is the exception: add the refused provider to the out set first, then launch once more on the plan tier's fallback with branch `plan/<n>-<category>-b` (its message carries the updated `Providers out:` line), and read the new thread once after a few seconds: on a refusal (`failed`, 3 items or fewer), add that provider to the out set too and `plan-abort`; on a healthy thread record it with `note <n> "planner thread: <link>"`. The ticket steps (releasing a claim, `alive`) do not apply to a planner.
 
 3. Record the thread: `... | bash -s -- note <n> "planner thread: <link>"`.
 
