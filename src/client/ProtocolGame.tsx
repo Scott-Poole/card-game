@@ -15,18 +15,20 @@ import Card from "./Card.tsx";
 import PlayerSheet from "./PlayerSheet.tsx";
 import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
+import {
+  selectActionLocked,
+  selectCommitLabel,
+  selectEnded,
+  selectSpentEnergy,
+  selectStanding,
+} from "./boardFacts.ts";
 import BoardPanel from "./BoardPanel.tsx";
 import MatchResult from "./MatchResult.tsx";
 import RevealLog from "./RevealLog.tsx";
 import { summarizeResult } from "./matchResult.ts";
 import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
-import {
-  laneIsFull,
-  legalPlays,
-  opponentOf,
-  TURN_LIMIT,
-} from "../rules/index.ts";
+import { laneIsFull, legalPlays, opponentOf } from "../rules/index.ts";
 import { css, cx } from "../../styled-system/css/index.js";
 import { button } from "../../styled-system/recipes/index.js";
 import { useAppDispatch, useAppSelector } from "./hooks.ts";
@@ -65,18 +67,14 @@ function Game() {
   const { view, active: revealing, skip, step } = useReveal(latest);
   const stagedPlays = useAppSelector(selectStaging);
   const staged = revealing ? [] : stagedPlays;
-  const actionLocked =
-    revealing ||
-    pending !== null ||
-    status !== "connected" ||
-    (view?.own.committed ?? false) ||
-    view?.phase === "ended";
+  const actionLocked = selectActionLocked({
+    view,
+    revealing,
+    pending,
+    status,
+  });
   const locked = actionLocked || settling;
-  const spent = staged.reduce(
-    (sum, play) =>
-      sum + (view?.own.hand.find((card) => card.id === play.cardId)?.cost ?? 0),
-    0,
-  );
+  const spent = selectSpentEnergy(view?.own.hand ?? [], staged);
   const available = view
     ? legalPlays({ ...view, own: { ...view.own, staged } })
     : [];
@@ -89,16 +87,9 @@ function Game() {
     !turnOver &&
     laneIsFull({ ...view, own: { ...view.own, staged } }, lane);
   const totals = view ? selectLaneTotals(view) : null;
-  const ended = !revealing && view?.phase === "ended";
-  const commitLabel = !view
-    ? ""
-    : ended
-      ? "View result"
-      : revealing
-        ? "Revealing…"
-        : view.own.committed
-          ? "Waiting for opponent…"
-          : `End turn ${String(view.turn)}/${String(TURN_LIMIT)}`;
+  const ended = selectEnded(view, revealing);
+  const commitLabel = selectCommitLabel(view, revealing);
+  const standing = view ? selectStanding(view, revealing) : null;
   const playing = view?.phase === "planning" || revealing;
   function canStage(
     cardId: string | null,
@@ -185,13 +176,7 @@ function Game() {
                   <div
                     className={css({ textAlign: "center", fontSize: "small" })}
                   >
-                    <span role="status">
-                      {ended ? "Final board" : "Current standing"}: leading in{" "}
-                      {totals?.own.filter(
-                        (total, lane) => total > (totals.opponent[lane] ?? 0),
-                      ).length ?? 0}{" "}
-                      of {view.own.lanes.length} lanes
-                    </span>
+                    <span role="status">{standing?.headline}</span>
                   </div>
                   <PlayerTag
                     label={`You · Player ${String(view.player + 1)}`}
@@ -415,7 +400,7 @@ function Game() {
                   events={view.events}
                   onSkip={skip}
                 />
-                {ended && (
+                {ended && view.phase === "ended" && (
                   <MatchResult
                     summary={summarizeResult(view)}
                     compact={playing}
