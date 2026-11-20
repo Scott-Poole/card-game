@@ -82,9 +82,9 @@ export default function Card(props: CardProps) {
             <span
               data-part="ability"
               className={css({
-                fontSize: "small",
-                lineHeight: "heading",
-                lineClamp: 2,
+                fontSize: props.size === "lane" ? "[10px]" : "small",
+                lineHeight: "[1]",
+                lineClamp: props.size === "lane" ? 1 : 2,
                 flexShrink: 0,
                 overflowWrap: "anywhere",
               })}
