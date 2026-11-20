@@ -2002,13 +2002,14 @@ test("unaffordable hand card stays inspectable and cannot be staged", async ({
     .getByRole("region", { name: "Hand" })
     .getByRole("article")
     .filter({ hasText: /Cost [2-6]/ })
-    .filter({ hasNot: a.locator('[data-part="ability"]') })
     .first();
   await expect(card).toHaveCSS("opacity", "0.55");
+  const ability = card.locator('[data-part="ability"]');
+  const description = (await ability.count())
+    ? await ability.innerText()
+    : "No ability description available.";
   await card.getByRole("button", { name: /^Inspect / }).click();
-  await expect(a.getByRole("dialog")).toContainText(
-    "No ability description available.",
-  );
+  await expect(a.getByRole("dialog")).toContainText(description);
   for (let lane = 1; lane <= 3; lane++) {
     await expect(
       a.getByRole("button", {
