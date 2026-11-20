@@ -2,9 +2,14 @@ import {
   checkStaging,
   LANE_COUNT,
   laneTotals,
+  opponentOf,
   TURN_LIMIT,
+  type LocationDefinition,
+  type Play,
+  type PlayerId,
+  type StagingError,
+  type Zone,
 } from "../rules/index.ts";
-import type { LocationDefinition, StagingError, Zone } from "../rules/index.ts";
 import { assertLocationPool } from "./locations.ts";
 const LANE_IDS = Array.from({ length: LANE_COUNT }, (_, i) => i);
 const OPENING_HAND = 3;
@@ -15,11 +20,7 @@ export interface CardDefinition {
   readonly cost: number;
   readonly power: number;
 }
-export type PlayerId = 0 | 1;
-export interface Play {
-  readonly cardId: string;
-  readonly lane: number;
-}
+export type { Play, PlayerId };
 /** A player's off-board zones, in the order cards arrived. Every card in one
  * is face up: both players can inspect them at any time. */
 export type Zones = Readonly<Record<Zone, readonly CardDefinition[]>>;
@@ -250,7 +251,7 @@ export function resolve(state: MatchState): Result<{
   if (state.phase !== "planning" || !state.players.every((p) => p.committed))
     return { ok: false, error: "wrong-phase" };
   const { first, rng } = firstToReveal(state);
-  const order: PlayerId[] = [first, first === 0 ? 1 : 0];
+  const order: PlayerId[] = [first, opponentOf(first)];
   let next: MatchState = { ...state, rng };
   const events: MatchEvent[] = [];
   for (const id of order) {
@@ -338,7 +339,7 @@ export function playerView(state: MatchState, id: PlayerId): PlayerView {
     };
   }
   const own = state.players[id];
-  const opponent = state.players[id === 0 ? 1 : 0];
+  const opponent = state.players[opponentOf(id)];
   const fields = {
     player: id,
     turn: state.turn,
@@ -359,7 +360,7 @@ export function forfeit(state: MatchState, loser: PlayerId): MatchState {
   if (state.phase === "ended") return state;
   const result = {
     ...score(state),
-    winner: loser === 0 ? 1 : 0,
+    winner: opponentOf(loser),
   } satisfies Score;
   return {
     ...state,

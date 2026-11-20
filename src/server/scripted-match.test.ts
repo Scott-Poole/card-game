@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { opponentOf } from "../rules/index.ts";
 import { expect, test } from "vitest";
 import { applyAction, createMatch } from "../engine/index.ts";
 import {
@@ -26,7 +27,7 @@ function run(seed: number, fixed = false) {
           throw new Error("expected state, never error");
         const view = decoded.message.view;
         const own = authority.players[id];
-        const opponent = authority.players[id === 0 ? 1 : 0];
+        const opponent = authority.players[opponentOf(id)];
         const serialized = JSON.stringify(view);
         // Check the actual host frames, including unknown fields rejected by the decoder.
         for (const card of [...opponent.hand, ...own.deck, ...opponent.deck])

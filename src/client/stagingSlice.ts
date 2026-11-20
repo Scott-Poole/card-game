@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import type { Play } from "../protocol/messages.ts";
+import type { Play } from "../rules/index.ts";
 const initialState: { plays: readonly Play[] } = { plays: [] };
 export const stagingSlice = createSlice({
   name: "staging",

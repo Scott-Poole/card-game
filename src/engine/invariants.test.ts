@@ -1,6 +1,6 @@
 import { testLocations } from "./locations.test-support.ts";
 import { assert, expect, test } from "vitest";
-import { type LocationDefinition } from "../rules/index.ts";
+import { opponentOf, type LocationDefinition } from "../rules/index.ts";
 
 import {
   commit,
@@ -92,7 +92,7 @@ test.each(Array.from({ length: 200 }, (_, seed) => seed))(
         }, 0);
         assert.ok(cost <= state.energy);
         const view = JSON.stringify(playerView(state, id));
-        const opponent = state.players[id === 0 ? 1 : 0];
+        const opponent = state.players[opponentOf(id)];
         for (const card of [...opponent.hand, ...opponent.deck])
           assert.ok(!view.includes(card.id));
         for (const play of opponent.staged)

@@ -21,7 +21,12 @@ import RevealLog from "./RevealLog.tsx";
 import { summarizeResult } from "./matchResult.ts";
 import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
-import { laneIsFull, legalPlays, TURN_LIMIT } from "../rules/index.ts";
+import {
+  laneIsFull,
+  legalPlays,
+  opponentOf,
+  TURN_LIMIT,
+} from "../rules/index.ts";
 import { css, cx } from "../../styled-system/css/index.js";
 import { button } from "../../styled-system/recipes/index.js";
 import { useAppDispatch, useAppSelector } from "./hooks.ts";
@@ -170,10 +175,8 @@ function Game() {
               <>
                 <header className="board-tags">
                   <PlayerTag
-                    label={`Opponent · Player ${String(view.player === 0 ? 2 : 1)}`}
-                    revealsFirst={
-                      view.revealFirst === (view.player === 0 ? 1 : 0)
-                    }
+                    label={`Opponent · Player ${String(opponentOf(view.player) + 1)}`}
+                    revealsFirst={view.revealFirst === opponentOf(view.player)}
                     onInspect={() => {
                       setSelected(null);
                       setInspection({ kind: "player", side: "opponent" });
@@ -487,7 +490,7 @@ function Game() {
                     `Lane ${String(inspection.number)}`)
                   : inspection.side === "own"
                     ? `You · Player ${String((view?.player ?? 0) + 1)}`
-                    : `Opponent · Player ${String(view?.player === 0 ? 2 : 1)}`
+                    : `Opponent · Player ${String(view ? opponentOf(view.player) + 1 : 1)}`
             }
             onClose={(cancelSelection) => {
               if (cancelSelection) setSelected(null);
