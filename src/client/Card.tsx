@@ -79,7 +79,18 @@ export default function Card(props: CardProps) {
             )}
           </strong>
           {props.data.ability && (
-            <span data-part="ability">{props.data.ability.text}</span>
+            <span
+              data-part="ability"
+              className={css({
+                fontSize: "small",
+                lineHeight: "heading",
+                lineClamp: 2,
+                flexShrink: 0,
+                overflowWrap: "anywhere",
+              })}
+            >
+              {props.data.ability.text}
+            </span>
           )}
         </>
       )}

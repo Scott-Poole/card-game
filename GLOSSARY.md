@@ -112,7 +112,7 @@ To place a staged card into its chosen lane as a public card during turn resolut
 _Avoid_: Stage
 
 **MatchEvent**:
-A report of a card being revealed, a turn ending or a match ending.
+A report of a card being revealed, its power changing, a turn ending or a match ending.
 
 **Ability**:
 Optional card rule text and an effect that resolves when the card is revealed.

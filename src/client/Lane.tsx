@@ -227,7 +227,11 @@ function Slots({
         gridTemplateRows: "repeat(2, minmax(0, 1fr))",
         gap: "xs",
         flex: "1",
-        minH: "[0]",
+        minH:
+          cards.some((card) => card.ability) ||
+          staged.some((card) => card.ability)
+            ? "[128px]"
+            : "[0]",
       })}
     >
       {Array.from({ length: LANE_CAPACITY }, (_, slot) => {

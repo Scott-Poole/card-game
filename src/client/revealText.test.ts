@@ -47,6 +47,8 @@ test("power changes announce the absolute power", () => {
     cardId: "c1",
     power: 5,
   };
-  expect(revealStatusText(event)).toBe("Power is now 5");
-  expect(logEventText(event)).toBe("Player 1: c1 in lane 2 now has 5 power");
+  expect(revealStatusText(event, [revealed])).toBe("Card now has 5 power");
+  expect(logEventText(event, [{ ...revealed, player: 0 }])).toBe(
+    "Player 1: Athena in lane 2 now has 5 power",
+  );
 });

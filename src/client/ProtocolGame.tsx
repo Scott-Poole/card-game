@@ -209,7 +209,9 @@ function Game() {
                       revealingCard={
                         step?.event.type === "card-revealed"
                           ? step.event.card.id
-                          : undefined
+                          : step?.event.type === "power-changed"
+                            ? step.event.cardId
+                            : undefined
                       }
                       registerSlot={(slot, element) => {
                         const key = `${String(lane)}:${String(slot)}`;
@@ -487,7 +489,10 @@ function Game() {
                 <p>
                   Cost {inspection.card.cost} · Power {inspection.card.power}
                 </p>
-                <p>{inspection.card.ability?.text ?? "No ability."}</p>
+                <p>
+                  {inspection.card.ability?.text ??
+                    "No ability description available."}
+                </p>
                 {selected === inspection.card.id &&
                   !locked &&
                   available.some(
