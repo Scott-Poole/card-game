@@ -52,3 +52,17 @@ test("power changes announce the absolute power", () => {
     "Player 1: Athena in lane 2 now has 5 power",
   );
 });
+
+test("power changes name allies revealed on earlier turns", () => {
+  const event: MatchEvent = {
+    type: "power-changed",
+    player: 0,
+    lane: 0,
+    cardId: "c1",
+    power: 4,
+  };
+  expect(revealStatusText(event, [], [card])).toBe("Athena now has 4 power");
+  expect(logEventText(event, [], [card])).toBe(
+    "Player 1: Athena in lane 1 now has 4 power",
+  );
+});

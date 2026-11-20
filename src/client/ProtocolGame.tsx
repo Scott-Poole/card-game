@@ -396,6 +396,7 @@ function Game() {
                   </button>
                 </div>
                 <RevealLog
+                  view={view}
                   playing={playing}
                   revealing={revealing}
                   step={step?.event}
