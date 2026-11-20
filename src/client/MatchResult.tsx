@@ -1,7 +1,7 @@
 import type { Ref } from "react";
-import { css, cx } from "../../styled-system/css/index.js";
-import { panel, button } from "../../styled-system/recipes/index.js";
+import { button } from "../../styled-system/recipes/index.js";
 import type { Outcome, ResultSummary } from "./matchResult.ts";
+import BoardPanel from "./BoardPanel.tsx";
 
 const outcomeLabel: Record<Outcome, string> = {
   win: "You win",
@@ -22,15 +22,8 @@ export default function MatchResult({
   ref?: Ref<HTMLElement>;
 }) {
   return (
-    <section
-      className={cx(
-        panel(),
-        css({
-          my: "md",
-          p: compact ? "sm" : { base: "compact", md: "md" },
-          overflowWrap: "anywhere",
-        }),
-      )}
+    <BoardPanel
+      playing={compact}
       aria-label="Match result"
       ref={ref}
       tabIndex={-1}
@@ -63,6 +56,6 @@ export default function MatchResult({
       <button className={button()} onClick={onPlayAgain}>
         Play again
       </button>
-    </section>
+    </BoardPanel>
   );
 }
