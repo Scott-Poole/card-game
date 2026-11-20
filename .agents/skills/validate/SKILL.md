@@ -18,4 +18,4 @@ Done when the final tree passes the full local gate, changed behavior has been e
 
 ## Stories for UI validation
 
-Use `pnpm storybook` to inspect Card, Lane and Board stories, including odd states such as full lanes, staging, ties and ended matches. Add or adjust protocol-typed fixtures beside the stories when a changed state needs coverage. Take screenshots of the relevant stories during browser validation and record what you inspected. Storybook is a development tool outside `pnpm check`; use `pnpm build-storybook` when changing its setup.
+Use `pnpm storybook` to inspect Card, Lane and Board stories, including odd states such as full lanes, staging, ties and ended matches. Add or adjust protocol-typed fixtures beside the stories when a changed state needs coverage. Take screenshots of the relevant stories during browser validation and record what you inspected. `pnpm check` builds Storybook (`pnpm build-storybook`), so a broken story or `.storybook/` setting fails the gate.
