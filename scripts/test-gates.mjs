@@ -4,26 +4,47 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { URL, fileURLToPath, pathToFileURL } from "node:url";
-import { exemptScripts, findGateDrift, gates, isGateScript } from "./gates.mjs";
+import {
+  checkBullet,
+  exemptScripts,
+  findAgentsDrift,
+  findGateDrift,
+  gates,
+  isGateScript,
+  isNamedGate,
+} from "./gates.mjs";
 
-// With a path argument the suite checks that package.json against the real gate list
-// and exits; without one it checks the repo's own, then proves the check bites.
-const target = process.argv[2];
-const packageJson = target
-  ? pathToFileURL(resolve(target))
+// With path arguments (package.json, then AGENTS.md) the suite checks those files against
+// the real gate list and exits; without them it checks the repo's own, then proves the
+// check bites.
+const [packageTarget, agentsTarget] = process.argv.slice(2);
+const target = packageTarget !== undefined;
+const packageJson = packageTarget
+  ? pathToFileURL(resolve(packageTarget))
   : new URL("../package.json", import.meta.url);
+const agentsFile = agentsTarget
+  ? pathToFileURL(resolve(agentsTarget))
+  : new URL("../AGENTS.md", import.meta.url);
 const { scripts } = JSON.parse(await readFile(packageJson, "utf8"));
-const drift = findGateDrift({ gates, scripts, exempt: exemptScripts });
+const agents = await readFile(agentsFile, "utf8");
+const drift = [
+  ...findGateDrift({ gates, scripts, exempt: exemptScripts }),
+  ...findAgentsDrift({ agents, gates }),
+];
 assert.deepEqual(drift, [], drift.join("\n"));
 if (target) process.exit(0);
 
 // Fixture package.json files, run through this same script as a child process.
 const self = fileURLToPath(import.meta.url);
 const directory = await mkdtemp(join(tmpdir(), "gate-list-"));
-async function run(name, fixtureScripts) {
+async function run(name, fixtureScripts, fixtureAgents = agents) {
   const file = join(directory, `${name}.json`);
+  const agentsCopy = join(directory, `${name}.AGENTS.md`);
   await writeFile(file, JSON.stringify({ scripts: fixtureScripts }));
-  return spawnSync(process.execPath, [self, file], { encoding: "utf8" });
+  await writeFile(agentsCopy, fixtureAgents);
+  return spawnSync(process.execPath, [self, file, agentsCopy], {
+    encoding: "utf8",
+  });
 }
 try {
   let result = await run("example", { ...scripts, "test:example": "true" });
@@ -45,6 +66,26 @@ try {
     result.stderr,
     /"test:queue" is in the gate list but package\.json has no such script/,
   );
+
+  const bullet = checkBullet(agents);
+  result = await run(
+    "named",
+    scripts,
+    agents.replace(bullet, `${bullet} Also runs test:queue.`),
+  );
+  assert.notEqual(result.status, 0, "a gate named in AGENTS.md must fail");
+  assert.match(result.stderr, /names "test:queue"/);
+
+  result = await run(
+    "unpointed",
+    scripts,
+    agents.replace(
+      bullet,
+      bullet.replaceAll("scripts/gates.mjs", "the script"),
+    ),
+  );
+  assert.notEqual(result.status, 0, "a missing pointer must fail");
+  assert.match(result.stderr, /must point at scripts\/gates\.mjs/);
 
   result = await run("clean", scripts);
   assert.equal(result.status, 0, result.stderr);
@@ -105,4 +146,91 @@ for (const name of ["build", "fix", "check", "storybook", "build:docs"]) {
     `${name} is not a verifying script`,
   );
 }
+
+// The AGENTS.md rule on synthetic bullets: every named gate form is caught, prose is not.
+const bulletWith = (text) => `- \`pnpm check\`: ${text}\n`;
+const pointer = "See scripts/gates.mjs.";
+assert.deepEqual(
+  findAgentsDrift({ agents: bulletWith(`static checks. ${pointer}`), gates }),
+  [],
+);
+for (const name of gates.filter(isNamedGate)) {
+  assert.equal(
+    findAgentsDrift({
+      agents: bulletWith(`runs ${name}, then more. ${pointer}`),
+      gates,
+    }).length,
+    1,
+    `naming ${name} in AGENTS.md is caught`,
+  );
+}
+assert.deepEqual(
+  findAgentsDrift({
+    agents: bulletWith(`typecheck, lint, test and Storybook build. ${pointer}`),
+    gates,
+  }),
+  [],
+  "bare English words stay allowed",
+);
+assert.equal(
+  findAgentsDrift({ agents: bulletWith("static checks."), gates }).length,
+  1,
+  "dropping the pointer is caught",
+);
+// The bullet is the whole list item, so wrapped text counts and the next item does not.
+assert.equal(
+  findAgentsDrift({
+    agents: `${bulletWith(`static checks. ${pointer}`)}  Runs test:queue and build-storybook.\n`,
+    gates,
+  }).length,
+  2,
+  "a gate named on a continuation line is caught",
+);
+assert.deepEqual(
+  findAgentsDrift({
+    agents: `${bulletWith("static checks, and the exact list is in")}  scripts/gates.mjs.\n`,
+    gates,
+  }),
+  [],
+  "a pointer wrapped onto a continuation line counts",
+);
+for (const marker of ["-", "*", "1."]) {
+  assert.equal(
+    findAgentsDrift({
+      agents: `${bulletWith(`static checks. ${pointer}`)}  ${marker} Runs test:queue.\n`,
+      gates,
+    }).length,
+    1,
+    `a gate named in a nested "${marker}" item is caught`,
+  );
+}
+assert.equal(
+  findAgentsDrift({
+    agents: `${bulletWith(`static checks. ${pointer}`)}\n  Runs test:queue.\n`,
+    gates,
+  }).length,
+  1,
+  "indented text after a blank line still belongs to the bullet",
+);
+assert.deepEqual(
+  findAgentsDrift({
+    agents: `${bulletWith(`static checks. ${pointer}`).replace("\n", "\r\n")}  Wrapped.\r\n`,
+    gates,
+  }),
+  [],
+  "CRLF line endings are tolerated",
+);
+assert.deepEqual(
+  findAgentsDrift({
+    agents: `${bulletWith(`static checks. ${pointer}`)}- Other: test:queue lives here.\n\nProse about test:queue.\n## test:queue heading\n`,
+    gates,
+  }),
+  [],
+  "the next list item, headings and later paragraphs are not part of the bullet",
+);
+assert.equal(
+  findAgentsDrift({ agents: "no bullet here", gates }).length,
+  1,
+  "a missing bullet is caught",
+);
 console.log("gate-list regression cases passed");
