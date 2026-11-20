@@ -22,22 +22,30 @@ _Avoid_: Engine caller (when referring to a player)
 
 ## Match flow
 
+**Energy**:
+Each player's budget for the combined cost of their staged cards in a turn, starting at one and increasing by one each new turn.
+
+**Forfeit**:
+An immediate match loss when a player's connection closes during planning: the opponent wins regardless of the board, while the [Result](#result) still describes the board's lane winners and each side's total power. The final view reports only the match ending, with no turn ending; leaving the queue before being seated or disconnecting after the match has ended is not a forfeit.
+
 **Match**:
-A contest between two players over up to six turns, ending with a result.
+A contest between two players over up to six turns, ending with a [Result](#result), including when a player forfeits.
 _Avoid_: Game (when referring to a particular contest)
 
-**Turn**:
-One numbered cycle in which both players plan and commit their plays before those plays are revealed.
-_Avoid_: Round
+**Phase**:
+The match's status, either planning, when uncommitted players may stage and commit plays, or ended, when the [Result](#result) is final.
 
 **Resolution**:
 The step after both players commit that reveals staged cards, ends the turn and either starts the next turn or ends the match.
 
-**Phase**:
-The match's status, either planning, when uncommitted players may stage and commit plays, or ended, when the result is final.
+<a id="result"></a>
 
-**Energy**:
-Each player's budget for the combined cost of their staged cards in a turn, starting at one and increasing by one each new turn.
+**Result**:
+The outcome recording each lane's winner (none when its lane totals tie), each side's total power across all lanes, and the match winner, with lane totals including location effects. Except for a forfeit, the player who wins more lanes wins the match; equal lanes won are broken by higher total power, and a tie on both is a draw with no winner.
+
+**Turn**:
+One numbered cycle in which both players plan and commit their plays before those plays are revealed.
+_Avoid_: Round
 
 ## Lanes
 
