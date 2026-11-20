@@ -9,6 +9,7 @@ export const gates = [
   "test:queue",
   "test:read-main",
   "test:boundaries",
+  "test:runners",
   "test:skill-links",
   "test:working-markdown",
   "test:gates",
