@@ -327,3 +327,23 @@ test.each([
   ]);
   expect(issues.some((issue) => issue.code === "effect-text")).toBe(invalid);
 });
+test.each([
+  ["Drain 1 power.", 1, false],
+  ["Drain 2 power.", 2, false],
+  ["Drain 1 power.", 2, true],
+  ["Drain 12 power.", 2, true],
+])("lane weakening text %s matches amount %i", (text, amount, invalid) => {
+  const issues = validateRoster([
+    {
+      ...first,
+      card: {
+        ...first.card,
+        ability: {
+          text,
+          effect: { kind: "weaken-lane-enemies", amount },
+        },
+      },
+    },
+  ]);
+  expect(issues.some((issue) => issue.code === "effect-text")).toBe(invalid);
+});

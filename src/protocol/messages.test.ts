@@ -496,6 +496,19 @@ it("decodes full zone lists for both players: every zone is face up", () => {
 });
 
 it.each([
+  ...[1, 2, 0, 3, -1, 1.5, "1", null, undefined].map(
+    (amount): [unknown, boolean] => [
+      { text: "Drain power.", effect: { kind: "weaken-lane-enemies", amount } },
+      amount === 1 || amount === 2,
+    ],
+  ),
+  [
+    {
+      text: "Drain 2 power.",
+      effect: { kind: "weaken-lane-enemies", amount: 2, extra: true },
+    },
+    false,
+  ],
   ...[1, 2, 0, 3].map((amount): [unknown, boolean] => [
     { text: "Share power.", effect: { kind: "boost-lane-allies", amount } },
     amount === 1 || amount === 2,

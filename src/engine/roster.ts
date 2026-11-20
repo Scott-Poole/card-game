@@ -3,6 +3,7 @@ import {
   TURN_LIMIT,
   MAX_LOCATION_TEXT,
   isBoostSelfAmount,
+  isWeakenLaneEnemiesAmount,
   isBoostLaneAlliesAmount,
   isEffectKind,
   type EffectKind,
@@ -41,6 +42,7 @@ const amountValidators: Readonly<
   Record<EffectKind, (amount: unknown) => boolean>
 > = {
   "boost-self": isBoostSelfAmount,
+  "weaken-lane-enemies": isWeakenLaneEnemiesAmount,
   "boost-lane-allies": isBoostLaneAlliesAmount,
 };
 

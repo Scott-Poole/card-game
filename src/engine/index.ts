@@ -299,6 +299,28 @@ export function resolve(state: MatchState): Result<{
                 power: revealed.power,
               });
               break;
+            case "weaken-lane-enemies": {
+              const enemyId = opponentOf(id);
+              const enemy = next.players[enemyId];
+              const enemyLanes = enemy.lanes.map((cards, laneIndex) =>
+                laneIndex !== play.lane
+                  ? cards
+                  : cards.map((target) => {
+                      const power = Math.max(0, target.power - effect.amount);
+                      if (power === target.power) return target;
+                      events.push({
+                        type: "power-changed",
+                        player: enemyId,
+                        lane: play.lane,
+                        cardId: target.id,
+                        power,
+                      });
+                      return { ...target, power };
+                    }),
+              );
+              next = replace(next, enemyId, { ...enemy, lanes: enemyLanes });
+              break;
+            }
             case "boost-lane-allies":
               for (let index = 0; index < lane.length - 1; index++) {
                 const ally = lane[index];

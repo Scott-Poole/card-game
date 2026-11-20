@@ -204,11 +204,17 @@ export interface BoostLaneAlliesEffect {
   readonly kind: "boost-lane-allies";
   readonly amount: 1 | 2;
 }
-export type Effect = BoostSelfEffect | BoostLaneAlliesEffect;
+export interface WeakenLaneEnemiesEffect {
+  readonly kind: "weaken-lane-enemies";
+  readonly amount: 1 | 2;
+}
+export type Effect =
+  BoostSelfEffect | BoostLaneAlliesEffect | WeakenLaneEnemiesEffect;
 export type EffectKind = Effect["kind"];
 const EFFECT_KINDS: Readonly<Record<EffectKind, true>> = {
   "boost-self": true,
   "boost-lane-allies": true,
+  "weaken-lane-enemies": true,
 };
 export function isEffectKind(kind: unknown): kind is EffectKind {
   return typeof kind === "string" && Object.hasOwn(EFFECT_KINDS, kind);
@@ -219,12 +225,16 @@ export function isBoostSelfAmount(amount: unknown): amount is 1 | 2 | 3 {
 export function isBoostLaneAlliesAmount(amount: unknown): amount is 1 | 2 {
   return amount === 1 || amount === 2;
 }
+export function isWeakenLaneEnemiesAmount(amount: unknown): amount is 1 | 2 {
+  return amount === 1 || amount === 2;
+}
 export function boostedPower(
   power: number,
   effect: Effect | undefined,
 ): number {
   const operation = effect ?? { kind: "none" as const };
   switch (operation.kind) {
+    case "weaken-lane-enemies":
     case "boost-lane-allies":
     case "none":
       return power;
