@@ -1,26 +1,24 @@
 import type { LocationDefinition } from "../rules/index.ts";
 
-const NO_EFFECT = "No effect for now.";
-
 /** The authored pool every match draws its three lanes' locations from. */
 export const locations: readonly LocationDefinition[] = [
   {
     id: "labyrinth-of-knossos",
     name: "Labyrinth of Knossos",
-    text: NO_EFFECT,
-    effect: { kind: "none" },
+    text: "Each player may reveal at most 3 cards here.",
+    effect: { kind: "lane-capacity", limit: 3 },
   },
   {
     id: "styx-crossing",
     name: "Crossing of the Styx",
-    text: NO_EFFECT,
+    text: "No effect for now.",
     effect: { kind: "none" },
   },
   {
     id: "delphic-cleft",
     name: "Oracle's Cleft at Delphi",
-    text: NO_EFFECT,
-    effect: { kind: "none" },
+    text: "Each player may reveal at most 1 card here.",
+    effect: { kind: "lane-capacity", limit: 1 },
   },
   {
     id: "hesperides-grove",
@@ -31,14 +29,14 @@ export const locations: readonly LocationDefinition[] = [
   {
     id: "temple-of-vesta",
     name: "Hearth of Vesta",
-    text: NO_EFFECT,
+    text: "No effect for now.",
     effect: { kind: "none" },
   },
   {
     id: "palatine-hill",
     name: "Palatine Hill at Dusk",
-    text: NO_EFFECT,
-    effect: { kind: "none" },
+    text: "Each card you play here adds 1 power.",
+    effect: { kind: "power-per-card", amount: 1 },
   },
   {
     id: "forge-beneath-etna",
@@ -55,7 +53,7 @@ export const locations: readonly LocationDefinition[] = [
   {
     id: "tiber-ford",
     name: "Ford of the Tiber",
-    text: NO_EFFECT,
+    text: "No effect for now.",
     effect: { kind: "none" },
   },
 ];
