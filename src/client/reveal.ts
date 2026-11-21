@@ -9,7 +9,8 @@ export interface RevealStep {
 export function sequenceReveal(
   previous: PlayerView,
   events: readonly MatchEvent[],
-  final?: PlayerView,
+  // Supplies printed definitions for cards whose power changed on earlier turns.
+  final: PlayerView,
 ): RevealStep[] {
   let view = previous;
 
@@ -38,20 +39,10 @@ export function sequenceReveal(
       }
       case "card-destroyed": {
         const side = event.player === view.player ? "own" : "opponent";
-        const reveal = events.find(
-          (candidate) =>
-            candidate.type === "card-revealed" &&
-            candidate.player === event.player &&
-            candidate.card.id === event.cardId,
+        const target = final[side].zones.destroyed.find(
+          (card) => card.id === event.cardId,
         );
-        const target =
-          final?.[side].zones.destroyed.find(
-            (card) => card.id === event.cardId,
-          ) ??
-          (reveal?.type === "card-revealed" ? reveal.card : undefined) ??
-          view[side].lanes[event.lane]?.find(
-            (card) => card.id === event.cardId,
-          );
+        if (!target) throw new Error("Destroyed card missing from final view");
         const lanes = view[side].lanes.map((cards, lane) =>
           lane === event.lane
             ? cards.filter((card) => card.id !== event.cardId)
@@ -59,9 +50,7 @@ export function sequenceReveal(
         );
         const zones = {
           ...view[side].zones,
-          destroyed: target
-            ? [...view[side].zones.destroyed, target]
-            : view[side].zones.destroyed,
+          destroyed: [...view[side].zones.destroyed, target],
         };
         view =
           side === "own"

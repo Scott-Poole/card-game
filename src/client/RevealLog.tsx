@@ -20,16 +20,12 @@ export default function RevealLog({
   events: readonly MatchEvent[];
   onSkip: () => void;
 }) {
-  const cardsFor = (event: MatchEvent | undefined) =>
-    event?.type === "power-changed" || event?.type === "card-destroyed"
-      ? [
-          ...((event.player === view.player ? view.own : view.opponent).lanes[
-            event.lane
-          ] ?? []),
-          ...(event.player === view.player ? view.own : view.opponent).zones
-            .destroyed,
-        ]
-      : [];
+  const cardsFor = (event: MatchEvent | undefined) => {
+    if (event?.type !== "power-changed" && event?.type !== "card-destroyed")
+      return [];
+    const side = event.player === view.player ? view.own : view.opponent;
+    return [...(side.lanes[event.lane] ?? []), ...side.zones.destroyed];
+  };
   return (
     <BoardPanel
       className="board-reveal"

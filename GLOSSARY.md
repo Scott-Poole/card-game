@@ -118,4 +118,4 @@ A report of a card being revealed, its power changing, a card being destroyed, a
 Optional card rule text and an effect that resolves when the card is revealed.
 
 **Effect**:
-A closed rule operation authored as data. Ability effects raise the revealing card’s power (`boost-self`, 1 to 3), raise each other ally already revealed in its lane (`boost-lane-allies`, 1 to 2), or lower each enemy already revealed there (`weaken-lane-enemies`, 1 to 2, floored at 0), or destroy the lowest-current-power enemy already revealed there (`destroy-weakest-enemy`, ties to earliest reveal); location effects apply to lanes.
+A closed rule operation authored as data. Ability effects raise the revealing card’s power (`boost-self`, 1 to 3), raise each other ally already revealed in its lane (`boost-lane-allies`, 1 to 2), lower each enemy already revealed there (`weaken-lane-enemies`, 1 to 2, floored at 0), or destroy the lowest-current-power enemy already revealed there (`destroy-weakest-enemy`, ties to earliest reveal); location effects apply to lanes.

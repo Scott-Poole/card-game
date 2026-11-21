@@ -1114,3 +1114,52 @@ test.each([0, 1] as const)(
     ).toEqual([enemy, enemy, enemy]);
   },
 );
+
+test.each([0, 1] as const)(
+  "same-turn destroy respects reveal order in seat %i",
+  (owner) => {
+    const target: CardDefinition = {
+      id: "target",
+      name: "Target",
+      cost: 0,
+      power: 2,
+    };
+    const killer: CardDefinition = {
+      id: "killer",
+      name: "Killer",
+      cost: 0,
+      power: 0,
+      ability: {
+        text: "Destroy weakest enemy.",
+        effect: { kind: "destroy-weakest-enemy" },
+      },
+    };
+    const initial = createMatch(
+      42,
+      owner === 0 ? [[killer], [target]] : [[target], [killer]],
+      testLocations,
+    );
+    const first = playerView(initial, owner).revealFirst;
+    const result = turn(
+      initial,
+      [{ cardId: owner === 0 ? killer.id : target.id, lane: 0 }],
+      [{ cardId: owner === 1 ? killer.id : target.id, lane: 0 }],
+    );
+    const enemy = opponentOf(owner);
+    expect(result.state.players[enemy].zones.destroyed).toEqual(
+      first === owner ? [] : [target],
+    );
+    expect(result.events.filter((e) => e.type === "card-destroyed")).toEqual(
+      first === owner
+        ? []
+        : [
+            {
+              type: "card-destroyed",
+              player: enemy,
+              lane: 0,
+              cardId: target.id,
+            },
+          ],
+    );
+  },
+);

@@ -987,7 +987,9 @@ test("revealed lane cards and totals follow both players through every turn", as
         page.getByRole("button", { name: `End turn ${String(turn)}/6` }),
       ).toBeVisible();
       const choices = page
-        .getByRole("button", { name: /Stage .* in lane/ })
+        .getByRole("button", {
+          name: /^Stage (?!(?:Vesta|Artemis),).* in lane/,
+        })
         .and(page.locator(":enabled"));
       const preferred = choices.filter({
         hasText: `Lane ${String((turn % 3) + 1)}`,
@@ -1759,8 +1761,8 @@ for (const finish of [
 test("two players reveal both sides and agree on lane totals", async ({
   pair: [a, b],
 }) => {
-  // By turn three every opening hand contains an affordable card.
-  for (let turn = 1; turn < 3; turn++) {
+  // By turn four the six drawn cards include an affordable non-destroyer.
+  for (let turn = 1; turn < 4; turn++) {
     for (const page of [a, b]) await commitButton(page).click();
     for (const page of [a, b])
       await expect(
@@ -1769,7 +1771,7 @@ test("two players reveal both sides and agree on lane totals", async ({
   }
   for (const page of [a, b]) {
     await page
-      .getByRole("button", { name: /Stage .* in lane 1$/ })
+      .getByRole("button", { name: /^Stage (?!Artemis,).* in lane 1$/ })
       .and(page.locator(":enabled"))
       .first()
       .press("Enter");
@@ -1778,7 +1780,7 @@ test("two players reveal both sides and agree on lane totals", async ({
   const totals: string[] = [];
   for (const page of [a, b]) {
     await expect(
-      page.getByRole("button", { name: "End turn 4/6" }),
+      page.getByRole("button", { name: "End turn 5/6" }),
     ).toBeVisible();
     const lane = page.getByRole("region", { name: "Lane 1", exact: true });
     for (const side of ["Your cards", "Opponent cards"])
@@ -2224,10 +2226,10 @@ test.describe("power-per-card location", () => {
         const play = page
           .getByRole("button", {
             name: new RegExp(
-              `^Stage (?!Vesta, Tender of Borrowed Fire).* in lane ${lane}$`,
+              `^Stage (?!(?:Vesta|Artemis),).* in lane ${lane}$`,
             ),
           })
-          // Keep this location-total scenario independent of enemy weakening.
+          // Keep this location-total scenario independent of enemy weakening and destruction.
           .and(page.locator(":enabled"))
           .first();
         if (await play.count()) {

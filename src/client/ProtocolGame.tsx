@@ -209,8 +209,7 @@ function Game() {
                       revealingCard={
                         step?.event.type === "card-revealed"
                           ? step.event.card.id
-                          : step?.event.type === "power-changed" ||
-                              step?.event.type === "card-destroyed"
+                          : step?.event.type === "power-changed"
                             ? step.event.cardId
                             : undefined
                       }
