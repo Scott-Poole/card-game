@@ -78,7 +78,7 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
    gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=squash -f sha=$PIN
    ```
    (`gh pr merge` can hit the Projects-classic GraphQL bug noted in `AGENTS.md`; REST avoids it.)
-4. **Clean up**: if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it; if `WT` is another session's worktree, leave it. Then `git fetch origin main` (never pull in Scott's primary checkout; it is his to update), and delete the local `<headRefName>` if no worktree still uses it. A squash leaves the branch's commits off `main`'s history, so `git branch -d` refuses and the guardrail blocks `-D`: leave the local branch; GitHub already deleted the remote one, and `git fetch --prune` drops the tracking ref.
+4. **Clean up**: `git fetch origin main` (never pull in Scott's primary checkout; it is his to update). A squash leaves the branch's commits off `main`'s history, so `git branch -d` refuses and the guardrail blocks `-D`: leave the local branch; GitHub already deleted the remote one, and `git fetch --prune` drops the tracking ref. Last, if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it, since your shell may be standing in it; if `WT` is another session's worktree, leave it.
 
 Done when `origin/main` contains the squash commit and step 4.4 is done.
 

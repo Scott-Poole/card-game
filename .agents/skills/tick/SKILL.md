@@ -142,17 +142,24 @@ Done when the planning issue is open with the thread link. Then end the run (onl
 
 ## Sweep
 
-Once per run, as the last command before your reply, remove worktrees whose owner never did (`AGENTS.md`): clean, no open PR, and a PR merged over an hour ago, so a thread still finishing its merge keeps its checkout. Primary checkout, `main-view` and the worktree you stand in never match. Name the removed paths in the reply.
+Once per run, as the last command before your reply, remove the worktrees of tick-launched threads whose owner never did (`AGENTS.md`). A worktree is **finished** when its branch is `ticket/<n>-*` or `plan/<n>-*`, issue `#<n>` has been closed for over an hour (a merge, `plan-done` or `plan-abort` closes it, and a ticket worth resuming is never closed), it is clean, and nothing is open on the branch. A ticket branch also needs a merged PR whose head is the worktree's `HEAD`, so commits made after the merge keep it. Every `gh` call must succeed; a failed query skips the worktree. Interactive threads, the primary checkout, `main-view` and the worktree you stand in never match. Name the removed paths in the reply.
 
 ```sh
 here=$(git rev-parse --show-toplevel)
-git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{print p, substr($2, 12)}' |
-	while read -r path branch; do
-		case $path in "$HOME"/.t3/worktrees/card-game/*) ;; *) continue ;; esac
-		[ "$path" != "$here" ] && [ -z "$(git -C "$path" status --porcelain)" ] || continue
-		[ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ] || continue
-		merged=$(gh pr list --head "$branch" --state merged --json mergedAt --jq 'map(.mergedAt) | max // empty')
-		[ -n "$merged" ] && [ "$(date -d "$merged" +%s)" -lt "$(date -d '1 hour ago' +%s)" ] &&
-			git worktree remove "$path" && echo "removed $path"
-	done
+while read -r path branch; do
+	case $path in "$HOME"/.t3/worktrees/card-game/*) ;; *) continue ;; esac
+	[[ $branch =~ ^(ticket|plan)/([0-9]+)- ]] || continue
+	kind=${BASH_REMATCH[1]} n=${BASH_REMATCH[2]}
+	[ "$path" != "$here" ] && [ -z "$(git -C "$path" status --porcelain)" ] || continue
+	closed=$(gh issue view "$n" --json state,closedAt --jq 'select(.state == "CLOSED") | .closedAt' </dev/null) || continue
+	[ -n "$closed" ] && [ "$(date -d "$closed" +%s)" -lt "$(date -d '1 hour ago' +%s)" ] || continue
+	open=$(gh pr list --head "$branch" --state open --json number --jq length </dev/null) || continue
+	[ "$open" = 0 ] || continue
+	if [ "$kind" = ticket ]; then
+		head=$(git -C "$path" rev-parse HEAD)
+		merged=$(gh pr list --head "$branch" --state merged --json headRefOid --jq "map(select(.headRefOid == \"$head\")) | length" </dev/null) || continue
+		[ "$merged" -gt 0 ] || continue
+	fi
+	git worktree remove "$path" && echo "removed $path"
+done < <(git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{print p, substr($2, 12)}')
 ```
