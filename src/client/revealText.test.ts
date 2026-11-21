@@ -66,3 +66,16 @@ test("power changes name allies revealed on earlier turns", () => {
     "Player 1: Athena in lane 1 now has 4 power",
   );
 });
+
+test.each([0, 1] as const)("destroy text names side %i card", (player) => {
+  const event: MatchEvent = {
+    type: "card-destroyed",
+    player,
+    lane: 1,
+    cardId: card.id,
+  };
+  expect(revealStatusText(event, [], [card])).toBe("Destroyed Athena");
+  expect(logEventText(event, [], [card])).toBe(
+    `Player ${String(player + 1)}: Athena destroyed in lane 2`,
+  );
+});

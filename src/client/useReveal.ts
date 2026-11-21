@@ -34,7 +34,7 @@ export function useReveal(latest: PlayerView | null) {
         latest.events.some((event) => event.type !== "match-ended") &&
         (latest.turn === seen.turn + 1 ||
           (latest.turn === seen.turn && latest.phase !== seen.phase))
-          ? sequenceReveal(seen, latest.events)
+          ? sequenceReveal(seen, latest.events, latest)
           : [];
       setPlayback({ seen: latest, base: seen, steps: next, index: 0 });
     }

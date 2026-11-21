@@ -75,6 +75,12 @@ export type MatchEvent =
       readonly cardId: string;
       readonly power: number;
     }
+  | {
+      readonly type: "card-destroyed";
+      readonly player: PlayerId;
+      readonly lane: number;
+      readonly cardId: string;
+    }
   | { readonly type: "turn-ended"; readonly turn: number }
   | { readonly type: "match-ended"; readonly result: Score };
 function random(rng: number): number {
@@ -299,6 +305,39 @@ export function resolve(state: MatchState): Result<{
                 power: revealed.power,
               });
               break;
+            case "destroy-weakest-enemy": {
+              const enemyId = opponentOf(id);
+              const enemy = next.players[enemyId];
+              const targets = enemy.lanes[play.lane] ?? [];
+              const target = targets.reduce<LaneCard | undefined>(
+                (weakest, candidate) =>
+                  !weakest || candidate.power < weakest.power
+                    ? candidate
+                    : weakest,
+                undefined,
+              );
+              if (target) {
+                next = replace(next, enemyId, {
+                  ...enemy,
+                  lanes: enemy.lanes.map((cards, index) =>
+                    index === play.lane
+                      ? cards.filter((c) => c !== target)
+                      : cards,
+                  ),
+                  zones: {
+                    ...enemy.zones,
+                    destroyed: [...enemy.zones.destroyed, target.printed],
+                  },
+                });
+                events.push({
+                  type: "card-destroyed",
+                  player: enemyId,
+                  lane: play.lane,
+                  cardId: target.id,
+                });
+              }
+              break;
+            }
             case "weaken-lane-enemies": {
               // Own lanes are buffered locally; the opponent lives in next so
               // later reveals read these changes without mutating prior state.

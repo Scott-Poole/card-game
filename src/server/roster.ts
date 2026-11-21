@@ -88,6 +88,10 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "artemis-dewwatcher",
+      ability: {
+        text: "On reveal, destroy the weakest enemy already revealed in this lane.",
+        effect: { kind: "destroy-weakest-enemy" },
+      },
       name: "Artemis, Watcher of Dewpaths",
       cost: 4,
       power: 8,
