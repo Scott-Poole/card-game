@@ -70,7 +70,7 @@ The engine's representation of a card's identity, name, cost and power, used for
 The player's private collection of cards available to stage for play, starting with three cards drawn from their deck. At the start of each later turn, the player draws one more card if their deck is not empty.
 
 **Deck**:
-The player's ordered supply of cards still available to draw into their hand. Before the opening hand is drawn, it contains two cards per cost, from 1 to 6, drawn from the roster; it supplies the opening hand and the draws on later turns, with any cards not drawn by the end of the match remaining in the deck.
+The player's ordered supply of cards, including their authored abilities, still available to draw into their hand. Before the opening hand is drawn, it contains two cards per cost, from 1 to 6, drawn from the roster; it supplies the opening hand and the draws on later turns, with any cards not drawn by the end of the match remaining in the deck.
 _Avoid_: Roster
 
 **Zone**:
@@ -78,7 +78,7 @@ One of a player's three off-board piles for cards that have left play: **destroy
 _Avoid_: Graveyard, pile (when referring to a particular zone)
 
 **Roster**:
-The authored collection of cards and their mythological figure, tradition and flavor text from which decks are drawn. At each cost represented, mean power equals twice that cost, with individual cards ranging from their cost to three times their cost, inclusive, so no cost tier is stronger per energy than another.
+The authored collection of cards, including optional on-reveal abilities, and their mythological figure, tradition and flavor text from which decks are drawn. Half the roster has abilities spanning all six costs and four effect kinds; the rest are vanilla. At each cost represented, mean printed power equals twice that cost, with individual cards ranging from their cost to three times their cost, inclusive, keeping the printed power curve even while abilities add value.
 _Avoid_: Deck
 
 **Power**:

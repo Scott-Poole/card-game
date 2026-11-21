@@ -94,7 +94,7 @@ export const roster: readonly RosterEntry[] = [
       },
       name: "Artemis, Watcher of Dewpaths",
       cost: 4,
-      power: 8,
+      power: 7,
     },
     figure: "Artemis",
     tradition: "greek",
@@ -105,7 +105,7 @@ export const roster: readonly RosterEntry[] = [
       id: "neptune-deepsurveyor",
       name: "Neptune, Surveyor of Deep Roads",
       cost: 4,
-      power: 8,
+      power: 9,
     },
     figure: "Neptune",
     tradition: "roman",
@@ -114,9 +114,13 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "athena-bridgearchitect",
+      ability: {
+        text: "On reveal, add 1 power to each other ally already revealed in this lane.",
+        effect: { kind: "boost-lane-allies", amount: 1 },
+      },
       name: "Athena, Architect of Unbuilt Bridges",
       cost: 5,
-      power: 10,
+      power: 9,
     },
     figure: "Athena",
     tradition: "greek",
@@ -128,7 +132,7 @@ export const roster: readonly RosterEntry[] = [
       id: "juno-oathwitness",
       name: "Juno, Witness of Iron Vows",
       cost: 5,
-      power: 10,
+      power: 11,
     },
     figure: "Juno",
     tradition: "roman",
@@ -137,9 +141,13 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "demeter-seedkeeper",
+      ability: {
+        text: "On reveal, each enemy already revealed in this lane loses 2 power, never below 0.",
+        effect: { kind: "weaken-lane-enemies", amount: 2 },
+      },
       name: "Demeter, Keeper of Winter's Seed",
       cost: 6,
-      power: 12,
+      power: 11,
     },
     figure: "Demeter",
     tradition: "greek",
@@ -150,7 +158,7 @@ export const roster: readonly RosterEntry[] = [
       id: "saturn-fieldreaper",
       name: "Saturn, Reaper of Resting Fields",
       cost: 6,
-      power: 12,
+      power: 13,
     },
     figure: "Saturn",
     tradition: "roman",
@@ -159,6 +167,10 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "iris-rainstitcher",
+      ability: {
+        text: "On reveal, gain 1 power.",
+        effect: { kind: "boost-self", amount: 1 },
+      },
       name: "Iris, Stitcher of Rainbow Errands",
       cost: 1,
       power: 1,
@@ -192,6 +204,10 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "pomona-graftkeeper",
+      ability: {
+        text: "On reveal, give each other ally already revealed in this lane 2 power.",
+        effect: { kind: "boost-lane-allies", amount: 2 },
+      },
       name: "Pomona, Keeper of Patient Grafts",
       cost: 2,
       power: 3,
@@ -203,6 +219,10 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "hecate-crossroadlamp",
+      ability: {
+        text: "On reveal, lower each enemy already revealed in this lane by 2 power, to a minimum of 0.",
+        effect: { kind: "weaken-lane-enemies", amount: 2 },
+      },
       name: "Hecate, Lamplighter of Crossroads",
       cost: 3,
       power: 5,
@@ -236,6 +256,10 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "fortuna-turnwheel",
+      ability: {
+        text: "On reveal, destroy the weakest enemy already revealed in this lane, leaving its slot empty.",
+        effect: { kind: "destroy-weakest-enemy" },
+      },
       name: "Fortuna, Turner of Idle Wheels",
       cost: 4,
       power: 7,
@@ -247,6 +271,10 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "apollo-dawnlyrist",
+      ability: {
+        text: "On reveal, increase this card by 3 power.",
+        effect: { kind: "boost-self", amount: 3 },
+      },
       name: "Apollo, Lyrist of Measured Dawns",
       cost: 5,
       power: 9,
@@ -280,6 +308,10 @@ export const roster: readonly RosterEntry[] = [
   {
     card: {
       id: "bellona-drumcaller",
+      ability: {
+        text: "On reveal, destroy the weakest enemy already revealed in this lane, breaking ties by earliest reveal.",
+        effect: { kind: "destroy-weakest-enemy" },
+      },
       name: "Bellona, Caller of Distant Drums",
       cost: 6,
       power: 11,

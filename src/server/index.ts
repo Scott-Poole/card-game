@@ -25,6 +25,8 @@ export interface ServerOptions {
   clientDirectory: string;
   /** Location pool matches draw from; defaults to the shipped pool. */
   locations?: readonly LocationDefinition[];
+  /** Controlled match inputs for integrations; production uses private random decks. */
+  inputs?: Parameters<typeof matchHost>[0];
 }
 export interface ServerHandle {
   port: number;
@@ -50,7 +52,7 @@ export function startServer(options: ServerOptions): Promise<ServerHandle> {
       error instanceof Error ? error : new Error(String(error)),
     );
   }
-  const matches = matchHost(undefined, pool);
+  const matches = matchHost(options.inputs, pool);
   const app = App().ws("/ws", {
     // Transport limits: oversize frames disconnect rather than enter the decoder.
     maxPayloadLength: 16 * 1024,
