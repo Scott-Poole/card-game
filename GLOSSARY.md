@@ -60,11 +60,11 @@ A named place with rule text, attached to one lane for the whole match. Each mat
 ## Cards
 
 **Card**:
-A playable item identified within a player's deck with a name, cost and power.
+A playable item identified within a player's deck with a name, cost, printed power and an optional ability.
 _Avoid_: Figure (when referring to a particular playable card)
 
 **CardDefinition**:
-The engine's representation of a card's identity, name, cost and power, used for cards in a match as well as authored roster entries.
+The engine's representation of a card's identity, name, cost, printed power and optional ability, used for cards in a match as well as authored roster entries.
 
 **Hand**:
 The player's private collection of cards available to stage for play, starting with three cards drawn from their deck. At the start of each later turn, the player draws one more card if their deck is not empty.
@@ -78,7 +78,7 @@ One of a player's three off-board piles for cards that have left play: **destroy
 _Avoid_: Graveyard, pile (when referring to a particular zone)
 
 **Roster**:
-The authored collection of cards and their mythological figure, tradition and flavor text from which decks are drawn. At each cost represented, mean power equals twice that cost, with individual cards ranging from their cost to three times their cost, inclusive, so no cost tier is stronger per energy than another.
+The authored collection of cards, including optional on-reveal abilities, and their mythological figure, tradition and flavor text from which decks are drawn. At each cost represented, mean printed power equals twice that cost, with individual cards ranging from their cost to three times their cost, inclusive, keeping the printed power curve even while abilities add value.
 _Avoid_: Deck
 
 **Power**:

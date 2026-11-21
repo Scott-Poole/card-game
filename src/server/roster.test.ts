@@ -93,7 +93,7 @@ const originals = [
       },
       name: "Artemis, Watcher of Dewpaths",
       cost: 4,
-      power: 8,
+      power: 7,
     },
     figure: "Artemis",
     tradition: "greek",
@@ -104,7 +104,7 @@ const originals = [
       id: "neptune-deepsurveyor",
       name: "Neptune, Surveyor of Deep Roads",
       cost: 4,
-      power: 8,
+      power: 9,
     },
     figure: "Neptune",
     tradition: "roman",
@@ -113,9 +113,13 @@ const originals = [
   {
     card: {
       id: "athena-bridgearchitect",
+      ability: {
+        text: "On reveal, add 1 power to each other ally already revealed in this lane.",
+        effect: { kind: "boost-lane-allies", amount: 1 },
+      },
       name: "Athena, Architect of Unbuilt Bridges",
       cost: 5,
-      power: 10,
+      power: 9,
     },
     figure: "Athena",
     tradition: "greek",
@@ -127,7 +131,7 @@ const originals = [
       id: "juno-oathwitness",
       name: "Juno, Witness of Iron Vows",
       cost: 5,
-      power: 10,
+      power: 11,
     },
     figure: "Juno",
     tradition: "roman",
@@ -136,9 +140,13 @@ const originals = [
   {
     card: {
       id: "demeter-seedkeeper",
+      ability: {
+        text: "On reveal, each enemy already revealed in this lane loses 2 power, never below 0.",
+        effect: { kind: "weaken-lane-enemies", amount: 2 },
+      },
       name: "Demeter, Keeper of Winter's Seed",
       cost: 6,
-      power: 12,
+      power: 11,
     },
     figure: "Demeter",
     tradition: "greek",
@@ -149,7 +157,7 @@ const originals = [
       id: "saturn-fieldreaper",
       name: "Saturn, Reaper of Resting Fields",
       cost: 6,
-      power: 12,
+      power: 13,
     },
     figure: "Saturn",
     tradition: "roman",
@@ -259,4 +267,39 @@ test("a cost whose cards share an id cannot draw a deck", () => {
     card: { ...e.card, id: e.card.cost === 1 ? "twin" : e.card.id },
   }));
   expect(() => drawDeck(0, sequence(1), twins)).toThrow();
+});
+
+test("half the roster has distinct ability text across every cost and effect", () => {
+  const abilities = roster.filter(({ card }) => card.ability);
+  expect(abilities).toHaveLength(12);
+  expect(new Set(abilities.map(({ card }) => card.cost))).toEqual(
+    new Set([1, 2, 3, 4, 5, 6]),
+  );
+  expect(
+    new Set(abilities.map(({ card }) => card.ability?.effect.kind)),
+  ).toEqual(
+    new Set([
+      "boost-self",
+      "boost-lane-allies",
+      "weaken-lane-enemies",
+      "destroy-weakest-enemy",
+    ]),
+  );
+  expect(new Set(abilities.map(({ card }) => card.ability?.text)).size).toBe(
+    12,
+  );
+  for (const { card } of abilities) {
+    const ability = card.ability;
+    if (!ability) throw new Error("Expected an ability card");
+    const descriptions = {
+      "boost-self": /(?:gather|gain|increase this card).*power/i,
+      "boost-lane-allies":
+        /(?:grant|give|add).*power.*(?:other ally|each other ally)|(?:grant|give|add).*each other ally.*power/i,
+      "weaken-lane-enemies":
+        /(?:dim|lower|loses).*power.*(?:0)|enemy.*loses.*power.*0/i,
+      "destroy-weakest-enemy":
+        /destroy.*weakest enemy already revealed in this lane/i,
+    };
+    expect(ability.text).toMatch(descriptions[ability.effect.kind]);
+  }
 });
