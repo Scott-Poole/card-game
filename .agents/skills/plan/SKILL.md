@@ -76,4 +76,6 @@ Q plan-done <n> "<summary>"
 
 The summary lists each ticket filed, the candidates you dropped and why, and any blocked-queue diagnosis. When you can't finish (a broken tool, a repo you can't read), close with `Q plan-abort <n> "<what failed>"` so the next tick can plan again.
 
-Done when the planning issue is closed with that summary.
+Then remove your worktree, last, per `AGENTS.md`: a planner never commits, so it is always clean.
+
+Done when the planning issue is closed with that summary and your worktree is gone.

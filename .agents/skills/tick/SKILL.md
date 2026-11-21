@@ -139,3 +139,20 @@ When step 1 printed `PLAN <category>`:
 3. Record the thread: `... | bash -s -- note <n> "planner thread: <link>"`.
 
 Done when the planning issue is open with the thread link. Then end the run (only one planner runs at a time).
+
+## Sweep
+
+Once per run, as the last command before your reply, remove worktrees whose owner never did (`AGENTS.md`): clean, no open PR, and a PR merged over an hour ago, so a thread still finishing its merge keeps its checkout. Primary checkout, `main-view` and the worktree you stand in never match. Name the removed paths in the reply.
+
+```sh
+here=$(git rev-parse --show-toplevel)
+git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{print p, substr($2, 12)}' |
+	while read -r path branch; do
+		case $path in "$HOME"/.t3/worktrees/card-game/*) ;; *) continue ;; esac
+		[ "$path" != "$here" ] && [ -z "$(git -C "$path" status --porcelain)" ] || continue
+		[ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ] || continue
+		merged=$(gh pr list --head "$branch" --state merged --json mergedAt --jq 'map(.mergedAt) | max // empty')
+		[ -n "$merged" ] && [ "$(date -d "$merged" +%s)" -lt "$(date -d '1 hour ago' +%s)" ] &&
+			git worktree remove "$path" && echo "removed $path"
+	done
+```
