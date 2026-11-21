@@ -99,7 +99,7 @@ async function states(
   return [x.view, y.view] satisfies readonly [typeof x.view, typeof y.view];
 }
 test("six turns resolve, reject illegal actions privately, and never expose hidden fields", async () => {
-  const { a, b, views: initial } = await pair();
+  const { a, b, views: initial } = await pair(plainPool);
   let views = initial;
   async function illegal(message: unknown) {
     a.send(message);
@@ -237,7 +237,7 @@ test("a fifth card in a lane fails privately and a revised legal play succeeds",
 });
 
 test("both players' raw frames contain only revealed opponent card ids", async () => {
-  const { a, b, views: initial } = await pair();
+  const { a, b, views: initial } = await pair(plainPool);
   let views = initial;
   const first = views[0].own.hand.find((c) => c.cost === 1);
   const second = views[1].own.hand.find((c) => c.cost <= 2);
