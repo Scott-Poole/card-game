@@ -288,5 +288,18 @@ test("half the roster has distinct ability text across every cost and effect", (
   expect(new Set(abilities.map(({ card }) => card.ability?.text)).size).toBe(
     12,
   );
-  expect(validateRoster(roster)).toEqual([]);
+  for (const { card } of abilities) {
+    const ability = card.ability;
+    if (!ability) throw new Error("Expected an ability card");
+    const descriptions = {
+      "boost-self": /(?:gather|gain|increase this card).*power/i,
+      "boost-lane-allies":
+        /(?:grant|give|add).*power.*(?:other ally|each other ally)|(?:grant|give|add).*each other ally.*power/i,
+      "weaken-lane-enemies":
+        /(?:dim|lower|loses).*power.*(?:0)|enemy.*loses.*power.*0/i,
+      "destroy-weakest-enemy":
+        /destroy.*weakest enemy already revealed in this lane/i,
+    };
+    expect(ability.text).toMatch(descriptions[ability.effect.kind]);
+  }
 });

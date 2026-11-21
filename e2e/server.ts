@@ -23,9 +23,24 @@ const pool = process.env.E2E_LOCATIONS === "boosted" ? boostedPool() : plain;
 // while retaining real authored cards and the production two-per-cost deck.
 function abilityInputs() {
   const seed = 197;
+  const ids = [
+    "hermes-letterkeeper",
+    "janus-dawnhinge",
+    "ariadne-returnweaver",
+    "flora-orchardwhisper",
+    "hephaestus-quietsmith",
+    "vesta-embertender",
+    "artemis-dewwatcher",
+    "neptune-deepsurveyor",
+    "athena-bridgearchitect",
+    "juno-oathwitness",
+    "demeter-seedkeeper",
+    "saturn-fieldreaper",
+  ];
+  const entries = roster.filter(({ card }) => ids.includes(card.id));
   const decks = [
-    drawDeck(0, () => 0, roster.slice(0, 12)),
-    drawDeck(1, () => 0, roster.slice(0, 12)),
+    drawDeck(0, () => 0, entries),
+    drawDeck(1, () => 0, entries),
   ] as const;
   const probe = createMatch(seed, decks, pool);
   const arranged = decks.map((deck, player) => {
@@ -55,7 +70,21 @@ function abilityInputs() {
   });
   const [first, second] = arranged;
   if (!first || !second) throw new Error("Missing controlled deck");
-  return { seed, decks: [first, second] as const };
+  const pinned = [first, second] as const;
+  const verified = createMatch(seed, pinned, pool);
+  for (const player of verified.players)
+    if (
+      player.hand.map((card) => card.name).join("|") !==
+      [
+        "Hermes, Keeper of Unsent Letters",
+        "Artemis, Watcher of Dewpaths",
+        "Janus, Hinge of Morning",
+      ].join("|")
+    )
+      throw new Error(
+        "Controlled opening hand no longer matches the ability scenario",
+      );
+  return { seed, decks: pinned };
 }
 const server = await startServer({
   port: Number(process.env.PORT ?? "0"),

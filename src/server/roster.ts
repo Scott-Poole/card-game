@@ -257,7 +257,7 @@ export const roster: readonly RosterEntry[] = [
     card: {
       id: "fortuna-turnwheel",
       ability: {
-        text: "On reveal, destroy the weakest enemy already revealed in this lane, leaving its slot empty.",
+        text: "On reveal, destroy the weakest enemy already revealed in this lane, sending it to the destroyed zone.",
         effect: { kind: "destroy-weakest-enemy" },
       },
       name: "Fortuna, Turner of Idle Wheels",
