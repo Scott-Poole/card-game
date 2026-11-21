@@ -141,6 +141,12 @@ export type MatchEvent =
       readonly cardId: string;
       readonly power: number;
     }
+  | {
+      readonly type: "card-destroyed";
+      readonly player: PlayerId;
+      readonly lane: number;
+      readonly cardId: string;
+    }
   | { readonly type: "turn-ended"; readonly turn: number }
   | { readonly type: "match-ended"; readonly result: Score };
 /** A lane's match-fixed location: authored name and rule text, and its effect. */
@@ -229,6 +235,7 @@ function isWinner(v: unknown): v is PlayerId | null {
 const effectValidators: Readonly<
   Record<EffectKind, (effect: Record<string, unknown>) => boolean>
 > = {
+  "destroy-weakest-enemy": (effect) => exact(effect, ["kind"]),
   "boost-lane-allies": (effect) =>
     exact(effect, ["kind", "amount"]) && isBoostLaneAlliesAmount(effect.amount),
   "weaken-lane-enemies": (effect) =>
@@ -290,6 +297,13 @@ function isEvent(v: unknown): v is MatchEvent {
         isPlayer(v.player) &&
         integer(v.lane, 0, LANE_COUNT - 1) &&
         isCard(v.card)
+      );
+    case "card-destroyed":
+      return (
+        exact(v, ["type", "player", "lane", "cardId"]) &&
+        isPlayer(v.player) &&
+        integer(v.lane, 0, LANE_COUNT - 1) &&
+        typeof v.cardId === "string"
       );
     case "power-changed":
       return (

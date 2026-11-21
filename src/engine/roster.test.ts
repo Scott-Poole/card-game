@@ -348,3 +348,27 @@ test.each([
   ]);
   expect(issues.some((issue) => issue.code === "effect-text")).toBe(invalid);
 });
+
+test.each([
+  ["Destroy the weakest enemy in this lane.", undefined, false, false],
+  ["Gain power.", undefined, false, true],
+  ["Destroy the weakest enemy.", 1, true, false],
+])("destroy roster text %s", (text, amount, badEffect, badText) => {
+  const issues = validateRoster([
+    {
+      ...first,
+      card: {
+        ...first.card,
+        ability: {
+          text,
+          effect: {
+            kind: "destroy-weakest-enemy",
+            ...(amount === undefined ? {} : { amount }),
+          },
+        },
+      },
+    },
+  ]);
+  expect(issues.some((issue) => issue.code === "effect")).toBe(badEffect);
+  expect(issues.some((issue) => issue.code === "effect-text")).toBe(badText);
+});

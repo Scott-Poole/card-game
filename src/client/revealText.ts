@@ -9,6 +9,8 @@ export function revealStatusText(
   switch (event?.type) {
     case "card-revealed":
       return `Revealed ${event.card.name}`;
+    case "card-destroyed":
+      return `Destroyed ${powerCardName(event, events, cards)}`;
     case "power-changed":
       return `${powerCardName(event, events, cards)} now has ${String(event.power)} power`;
     case "turn-ended":
@@ -33,6 +35,8 @@ export function logEventText(
   switch (event.type) {
     case "card-revealed":
       return `Player ${String(event.player + 1)}: ${event.card.name} in lane ${String(event.lane + 1)}`;
+    case "card-destroyed":
+      return `Player ${String(event.player + 1)}: ${powerCardName(event, events, cards)} destroyed in lane ${String(event.lane + 1)}`;
     case "power-changed":
       return `Player ${String(event.player + 1)}: ${powerCardName(event, events, cards)} in lane ${String(event.lane + 1)} now has ${String(event.power)} power`;
     case "turn-ended":
@@ -47,7 +51,7 @@ export function logEventText(
 }
 
 function powerCardName(
-  event: Extract<MatchEvent, { type: "power-changed" }>,
+  event: Extract<MatchEvent, { type: "power-changed" | "card-destroyed" }>,
   events: readonly MatchEvent[],
   cards: readonly Card[],
 ): string {

@@ -566,3 +566,51 @@ it.each([true, false])("power-changed event decoding valid=%s", (valid) => {
     expect(decodeServerMessage(input).ok).toBe(valid);
   expect(decodeClientMessage(message).ok).toBe(false);
 });
+
+it.each([
+  [{ kind: "destroy-weakest-enemy" }, true],
+  [{ kind: "destroy-weakest-enemy", amount: 1 }, false],
+  [{ kind: "destroy-weakest-enemy", extra: true }, false],
+])("destroy effect decoding %j", (effect, ok) => {
+  expect(
+    decodeServerMessage({
+      type: "state",
+      view: {
+        ...view,
+        own: {
+          ...view.own,
+          hand: [
+            {
+              id: "a",
+              name: "A",
+              cost: 1,
+              power: 1,
+              ability: { text: "Destroy weakest enemy.", effect },
+            },
+          ],
+        },
+      },
+    }).ok,
+  ).toBe(ok);
+});
+it.each([
+  [{}, true],
+  [{ player: 2 }, false],
+  [{ lane: -1 }, false],
+  [{ lane: 3 }, false],
+  [{ cardId: undefined }, false],
+  [{ cardId: 1 }, false],
+  [{ extra: 1 }, false],
+])("destroy event decoding %j", (patch, ok) => {
+  const message = {
+    type: "state",
+    view: {
+      ...view,
+      events: [
+        { type: "card-destroyed", player: 0, lane: 0, cardId: "a", ...patch },
+      ],
+    },
+  };
+  for (const input of [message, JSON.stringify(message)])
+    expect(decodeServerMessage(input).ok).toBe(ok);
+});

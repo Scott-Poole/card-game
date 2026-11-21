@@ -9,8 +9,10 @@ export interface RevealStep {
 export function sequenceReveal(
   previous: PlayerView,
   events: readonly MatchEvent[],
+  final?: PlayerView,
 ): RevealStep[] {
   let view = previous;
+
   return events.map((event) => {
     switch (event.type) {
       case "card-revealed": {
@@ -32,6 +34,39 @@ export function sequenceReveal(
                 },
               }
             : { ...view, opponent: { ...view.opponent, lanes } };
+        break;
+      }
+      case "card-destroyed": {
+        const side = event.player === view.player ? "own" : "opponent";
+        const reveal = events.find(
+          (candidate) =>
+            candidate.type === "card-revealed" &&
+            candidate.player === event.player &&
+            candidate.card.id === event.cardId,
+        );
+        const target =
+          final?.[side].zones.destroyed.find(
+            (card) => card.id === event.cardId,
+          ) ??
+          (reveal?.type === "card-revealed" ? reveal.card : undefined) ??
+          view[side].lanes[event.lane]?.find(
+            (card) => card.id === event.cardId,
+          );
+        const lanes = view[side].lanes.map((cards, lane) =>
+          lane === event.lane
+            ? cards.filter((card) => card.id !== event.cardId)
+            : cards,
+        );
+        const zones = {
+          ...view[side].zones,
+          destroyed: target
+            ? [...view[side].zones.destroyed, target]
+            : view[side].zones.destroyed,
+        };
+        view =
+          side === "own"
+            ? { ...view, own: { ...view.own, lanes, zones } }
+            : { ...view, opponent: { ...view.opponent, lanes, zones } };
         break;
       }
       case "power-changed": {

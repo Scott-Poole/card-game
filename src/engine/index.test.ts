@@ -968,3 +968,149 @@ test.each([0, 1] as const)(
     );
   },
 );
+
+test.each([
+  { powers: [3, 1], boost: false, lost: "b" },
+  { powers: [1, 1], boost: false, lost: "a" },
+  { powers: [1, 2], boost: true, lost: "b" },
+  { powers: [], boost: false, lost: undefined },
+])("destroy selects current weakest: %j", ({ powers, boost, lost }) => {
+  const enemies: CardDefinition[] = powers.map((power, i) => ({
+    id: i === 0 ? "a" : "b",
+    name: "Target",
+    cost: 0,
+    power,
+    ...(boost && i === 0
+      ? {
+          ability: {
+            text: "Gain 3 power.",
+            effect: { kind: "boost-self", amount: 3 },
+          },
+        }
+      : {}),
+  }));
+  const destroyer: CardDefinition = {
+    id: "destroy",
+    name: "Destroyer",
+    cost: 0,
+    power: 0,
+    ability: {
+      text: "Destroy the weakest enemy.",
+      effect: { kind: "destroy-weakest-enemy" },
+    },
+  };
+  let state = createMatch(42, [[destroyer], enemies], testLocations);
+  state = turn(
+    state,
+    [],
+    enemies.map((c) => ({ cardId: c.id, lane: 0 })),
+  ).state;
+  const before = state;
+  const result = turn(state, [{ cardId: "destroy", lane: 0 }]);
+  expect(result.state.players[1].zones.destroyed.map((c) => c.id)).toEqual(
+    lost ? [lost] : [],
+  );
+  expect(result.state.players[1].lanes[0]?.map((c) => c.id)).toEqual(
+    enemies.filter((c) => c.id !== lost).map((c) => c.id),
+  );
+  expect(before.players[1].zones.destroyed).toEqual([]);
+  expect(result.events.slice(0, lost ? 2 : 1).map((e) => e.type)).toEqual(
+    lost ? ["card-revealed", "card-destroyed"] : ["card-revealed"],
+  );
+});
+
+test("destroy restores printed power, preserves arrival order, frees capacity and removes per-card bonus", () => {
+  const victim: CardDefinition = {
+    id: "v",
+    name: "Victim",
+    cost: 0,
+    power: 1,
+    ability: { text: "Gain 3.", effect: { kind: "boost-self", amount: 3 } },
+  };
+  const killer: CardDefinition = {
+    id: "k",
+    name: "Killer",
+    cost: 0,
+    power: 0,
+    ability: {
+      text: "Destroy weakest enemy.",
+      effect: { kind: "destroy-weakest-enemy" },
+    },
+  };
+  const spare: CardDefinition = { id: "s", name: "Spare", cost: 0, power: 2 };
+  const locations: LocationDefinition[] = testLocations.map((location) => ({
+    ...location,
+    effect: { kind: "power-per-card", amount: 2 },
+  }));
+  let state = createMatch(42, [[killer], [victim, spare]], locations);
+  state = turn(state, [], [{ cardId: "v", lane: 0 }]).state;
+  const first = turn(state, [{ cardId: "k", lane: 0 }]);
+  expect(first.state.players[1].zones.destroyed).toEqual([victim]);
+  expect(playerView(first.state, 1).own.lanes[0]).toEqual([]);
+  expect(stage(first.state, 1, [{ cardId: "s", lane: 0 }]).ok).toBe(true);
+  state = turn(first.state, [], [{ cardId: "s", lane: 0 }]).state;
+  while (state.phase !== "ended") state = turn(state).state;
+  expect(state.result.power).toEqual([2, 4]);
+});
+
+test.each([0, 1] as const)(
+  "seat %i destroys in arrival order and frees a full lane",
+  (owner) => {
+    const killers: CardDefinition[] = Array.from({ length: 3 }, (_, i) => ({
+      id: `k${String(i)}`,
+      name: "Killer",
+      cost: 0,
+      power: 0,
+      ability: {
+        text: "Destroy weakest enemy.",
+        effect: { kind: "destroy-weakest-enemy" },
+      },
+    }));
+    const targets: CardDefinition[] = Array.from({ length: 4 }, (_, i) => ({
+      id: `t${String(i)}`,
+      name: "Target",
+      cost: 0,
+      power: i === 0 ? 3 : 1,
+    }));
+    let state = createMatch(
+      42,
+      owner === 0 ? [killers, targets] : [targets, killers],
+      testLocations,
+    );
+    const enemy = opponentOf(owner);
+    const enemyPlays = state.players[enemy].hand.map((c) => ({
+      cardId: c.id,
+      lane: 0,
+    }));
+    state = turn(
+      state,
+      enemy === 0 ? enemyPlays : [],
+      enemy === 1 ? enemyPlays : [],
+    ).state;
+    const last = state.players[enemy].hand[0];
+    if (!last) throw new Error("expected fourth target");
+    state = turn(
+      state,
+      enemy === 0 ? [{ cardId: last.id, lane: 0 }] : [],
+      enemy === 1 ? [{ cardId: last.id, lane: 0 }] : [],
+    ).state;
+    expect(state.players[enemy].lanes[0]).toHaveLength(4);
+    const plays = killers.map((c) => ({ cardId: c.id, lane: 0 }));
+    const result = turn(
+      state,
+      owner === 0 ? plays : [],
+      owner === 1 ? plays : [],
+    );
+    const original = state.players[enemy].lanes[0] ?? [];
+    const expected = original
+      .filter((c) => c.power === 1)
+      .map((c) => c.printed);
+    expect(result.state.players[enemy].zones.destroyed).toEqual(expected);
+    expect(result.state.players[enemy].lanes[0]).toHaveLength(1);
+    expect(
+      result.events
+        .filter((e) => e.type === "card-destroyed")
+        .map((e) => e.player),
+    ).toEqual([enemy, enemy, enemy]);
+  },
+);

@@ -41,6 +41,7 @@ export type RosterIssue =
 const amountValidators: Readonly<
   Record<EffectKind, (amount: unknown) => boolean>
 > = {
+  "destroy-weakest-enemy": (amount) => amount === undefined,
   "boost-self": isBoostSelfAmount,
   "weaken-lane-enemies": isWeakenLaneEnemiesAmount,
   "boost-lane-allies": isBoostLaneAlliesAmount,
@@ -104,6 +105,11 @@ export function validateRoster(
         !amountValidators[effect.kind](effect.amount)
       )
         add("effect");
+      else if (
+        effect.kind === "destroy-weakest-enemy" &&
+        !/destroy.*weakest.*enemy/i.test(text)
+      )
+        add("effect-text");
       else if (
         typeof effect.amount === "number" &&
         !new RegExp(`(?<![\\d.])${String(effect.amount)}(?!\\d|\\.\\d)`).test(

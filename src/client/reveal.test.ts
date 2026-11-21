@@ -116,3 +116,41 @@ test.each([0, 1] as const)(
     ).toBe(2);
   },
 );
+
+test.each([0, 1] as const)(
+  "destroy moves printed card into side %i zone",
+  (player) => {
+    const steps = sequenceReveal(opening, [
+      { type: "card-revealed", player, lane: 2, card: herald },
+      { type: "power-changed", player, lane: 2, cardId: herald.id, power: 9 },
+      { type: "card-destroyed", player, lane: 2, cardId: herald.id },
+    ]);
+    const side = player === 0 ? "own" : "opponent";
+    expect(steps.at(-1)?.view[side].lanes[2]).toEqual([]);
+    expect(steps.at(-1)?.view[side].zones.destroyed).toEqual([herald]);
+  },
+);
+
+test("cross-turn destruction uses the authoritative printed definition and owner", () => {
+  const previous: PlayerView = {
+    ...opening,
+    opponent: {
+      ...opening.opponent,
+      lanes: [[], [], [{ ...herald, power: 9 }]],
+    },
+  };
+  const final: PlayerView = {
+    ...opening,
+    opponent: {
+      ...opening.opponent,
+      zones: { ...opening.opponent.zones, destroyed: [herald] },
+    },
+  };
+  const steps = sequenceReveal(
+    previous,
+    [{ type: "card-destroyed", player: 1, lane: 2, cardId: herald.id }],
+    final,
+  );
+  expect(steps[0]?.view.opponent.zones.destroyed).toEqual([herald]);
+  expect(steps[0]?.view.opponent.lanes[2]).toEqual([]);
+});

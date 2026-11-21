@@ -208,10 +208,17 @@ export interface WeakenLaneEnemiesEffect {
   readonly kind: "weaken-lane-enemies";
   readonly amount: 1 | 2;
 }
+export interface DestroyWeakestEnemyEffect {
+  readonly kind: "destroy-weakest-enemy";
+}
 export type Effect =
-  BoostSelfEffect | BoostLaneAlliesEffect | WeakenLaneEnemiesEffect;
+  | BoostSelfEffect
+  | BoostLaneAlliesEffect
+  | WeakenLaneEnemiesEffect
+  | DestroyWeakestEnemyEffect;
 export type EffectKind = Effect["kind"];
 const EFFECT_KINDS: Readonly<Record<EffectKind, true>> = {
+  "destroy-weakest-enemy": true,
   "boost-self": true,
   "boost-lane-allies": true,
   "weaken-lane-enemies": true,
@@ -234,6 +241,7 @@ export function boostedPower(
 ): number {
   const operation = effect ?? { kind: "none" as const };
   switch (operation.kind) {
+    case "destroy-weakest-enemy":
     case "weaken-lane-enemies":
     case "boost-lane-allies":
     case "none":

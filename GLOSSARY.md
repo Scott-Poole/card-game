@@ -74,7 +74,7 @@ The player's ordered supply of cards still available to draw into their hand. Be
 _Avoid_: Roster
 
 **Zone**:
-One of a player's three off-board piles for cards that have left play: **destroyed** (removed from a lane), **discarded** (sent from hand) and **banished** (removed from the match for good, from anywhere). Every zone is face up: both players' full lists are in each view and can be opened from the player-info sheet at any time. Nothing sends a card to a zone yet: abilities will, and the name "banished" may still change.
+One of a player's three off-board piles for cards that have left play: **destroyed** (removed from a lane), **discarded** (sent from hand) and **banished** (removed from the match for good, from anywhere). Every zone is face up: both players' full lists are in each view and can be opened from the player-info sheet at any time. The on-reveal `destroy-weakest-enemy` ability writes destroyed in arrival order, using printed card definitions; discarded and banished remain unwritten, and the name "banished" may still change.
 _Avoid_: Graveyard, pile (when referring to a particular zone)
 
 **Roster**:
@@ -112,10 +112,10 @@ To place a staged card into its chosen lane as a public card during turn resolut
 _Avoid_: Stage
 
 **MatchEvent**:
-A report of a card being revealed, its power changing, a turn ending or a match ending.
+A report of a card being revealed, its power changing, a card being destroyed, a turn ending or a match ending.
 
 **Ability**:
 Optional card rule text and an effect that resolves when the card is revealed.
 
 **Effect**:
-A closed rule operation authored as data. Ability effects raise the revealing card’s power (`boost-self`, 1 to 3), raise each other ally already revealed in its lane (`boost-lane-allies`, 1 to 2), or lower each enemy already revealed there (`weaken-lane-enemies`, 1 to 2, floored at 0); location effects apply to lanes.
+A closed rule operation authored as data. Ability effects raise the revealing card’s power (`boost-self`, 1 to 3), raise each other ally already revealed in its lane (`boost-lane-allies`, 1 to 2), or lower each enemy already revealed there (`weaken-lane-enemies`, 1 to 2, floored at 0), or destroy the lowest-current-power enemy already revealed there (`destroy-weakest-enemy`, ties to earliest reveal); location effects apply to lanes.
