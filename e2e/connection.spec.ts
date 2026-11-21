@@ -2561,9 +2561,10 @@ test.describe("authored abilities in a real match", () => {
       await page.clock.pauseAt(new Date("2026-01-01T00:01:00Z"));
     await commitButton(a).click();
     await commitButton(b).click();
-    await expect(
-      a.getByRole("button", { name: "Skip reveal", exact: true }),
-    ).toBeVisible();
+    for (const page of [a, b])
+      await expect(
+        page.getByRole("button", { name: "Skip reveal", exact: true }),
+      ).toBeVisible();
     for (const page of [a, b]) await page.clock.runFor(360);
     await expect(
       lane(a).getByText("Opponent total: 1 · Your total: 0", { exact: true }),
@@ -2618,9 +2619,10 @@ test.describe("authored abilities in a real match", () => {
       await page.clock.pauseAt(new Date("2026-01-01T00:02:00Z"));
     await commitButton(a).click();
     await commitButton(b).click();
-    await expect(
-      a.getByRole("button", { name: "Skip reveal", exact: true }),
-    ).toBeVisible();
+    for (const page of [a, b])
+      await expect(
+        page.getByRole("button", { name: "Skip reveal", exact: true }),
+      ).toBeVisible();
     for (const page of [a, b]) await page.clock.runFor(360);
     await expect(
       lane(a).getByText("Opponent total: 3 · Your total: 7", { exact: true }),
