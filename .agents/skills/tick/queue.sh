@@ -236,7 +236,7 @@ cmd_next() {
 			and (.assignees | length) == 0
 			and ((.sub_issues_summary.total // 0) == 0)
 			and ((.issue_dependencies_summary.blocked_by // 0) == 0)
-			and (any(.labels[]; .name == \"$CLAIMED\" or .name == \"$TRIAGE\") | not)
+			and (any(.labels[]; .name == \"$CLAIMED\" or .name == \"$TRIAGE\" or .name == \"grilling\") | not)
 		)] | first // empty | \"\(.number) \(.title)\"")
 	if [[ -z $pick ]]; then
 		plan_next "$cfg" "$now" "$stale_hours"
@@ -535,7 +535,9 @@ cmd_grill_start() {
 	[[ $allowed == true ]] || { log "untrusted issue author"; return 1; }
 	count=$(gh issue list --repo "$REPO" --label grilling --state open --limit 10 --json number --jq length)
 	((count < 10)) || { log "grilling cap reached (10)"; return 1; }
+	arm "$n" "" grilling
 	transition "$n" grilling ""
+	disarm
 }
 cmd_grill_launched() {
 	local labels
