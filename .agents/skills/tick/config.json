@@ -1,5 +1,6 @@
 {
   "enabled": true,
+  "trustedAuthors": ["Scott-Poole"],
   "maxInProgress": 4,
   "maxDailyClaims": 12,
   "staleHours": 8,
@@ -8,6 +9,7 @@
   },
   "planning": {
     "enabled": true,
+  "trustedAuthors": ["Scott-Poole"],
     "maxDailyRuns": 3,
     "maxTicketsPerRun": 5,
     "categories": ["feature", "game-content", "bug-hunt", "code-health", "verification", "process", "docs"]

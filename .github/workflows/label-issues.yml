@@ -1,0 +1,20 @@
+name: Label trusted issues
+on:
+  issues:
+    types: [opened, labeled]
+permissions:
+  issues: write
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      # Public repository: fetch only the default-branch script, without checkout
+      # credentials or executing anything from the issue or a pull request.
+      - name: Apply ticket labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/scripts/label-issues.sh?ref=$DEFAULT_BRANCH" \
+            -H 'Accept: application/vnd.github.raw+json' > "$RUNNER_TEMP/label-issues.sh"
+          bash "$RUNNER_TEMP/label-issues.sh"
