@@ -1,5 +1,6 @@
 {
   "enabled": true,
+  "trustedAuthors": ["Scott-Poole"],
   "maxInProgress": 4,
   "maxDailyClaims": 12,
   "staleHours": 8,
