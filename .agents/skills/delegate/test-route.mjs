@@ -1,3 +1,4 @@
+process.env.CARD_GAME_USAGE_FILE = "/nonexistent/card-game-test-usage.json";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 const route = ".agents/skills/delegate/route.sh";

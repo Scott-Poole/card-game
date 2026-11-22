@@ -1,0 +1,8 @@
+{
+  "staleMinutes": 60,
+  "paceTolerance": 15,
+  "limitPercent": 100,
+  "timeoutMs": 30000,
+  "summaryIssue": 226,
+  "catalogStaleHours": 24
+}
