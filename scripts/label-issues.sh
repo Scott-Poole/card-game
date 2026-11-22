@@ -13,7 +13,7 @@ if [[ "$action" == opened ]]; then
     gh api "repos/$GITHUB_REPOSITORY/issues/$number/labels" --method POST -f 'labels[]=needs-triage'
   fi
 elif [[ "$action" == labeled ]]; then
-  if jq -e '.label.name == "ready-for-agent"' "$GITHUB_EVENT_PATH" >/dev/null; then
+  if jq -e 'any(.labels[]; .name == "ready-for-agent")' <<< "$issue" >/dev/null; then
     if jq -e 'any(.labels[]; .name == "needs-triage")' <<< "$issue" >/dev/null; then
       if ! gh api "repos/$GITHUB_REPOSITORY/issues/$number/labels/needs-triage" --method DELETE; then
         # Another actor may have removed it after the read. Propagate other errors.

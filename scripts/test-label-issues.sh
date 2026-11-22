@@ -58,3 +58,13 @@ echo 'PASS live labels override stale event snapshots'
 
 DELETE_GONE=1 run_case labeled Scott-Poole '["ready-for-agent","needs-triage"]' ready-for-agent 'api repos/test/repo/issues/42/labels/needs-triage --method DELETE'
 echo 'PASS concurrent label removal is idempotent'
+
+run_case labeled Scott-Poole '["ready-for-agent","needs-triage","enhancement"]' enhancement 'api repos/test/repo/issues/42/labels/needs-triage --method DELETE'
+printf '{}' > "$WORK/invalid-config.json"
+: > "$CALLS"
+if CONFIG="$WORK/invalid-config.json" GITHUB_EVENT_PATH="$WORK/event.json" bash "$ROOT/scripts/label-issues.sh"; then
+  echo 'FAIL: invalid trust policy succeeded'
+  exit 1
+fi
+[[ ! -s "$CALLS" ]] || { echo 'FAIL: invalid policy mutated labels'; exit 1; }
+echo 'PASS surviving label events reconcile and invalid policy fails'
