@@ -235,22 +235,3 @@ export function isBoostLaneAlliesAmount(amount: unknown): amount is 1 | 2 {
 export function isWeakenLaneEnemiesAmount(amount: unknown): amount is 1 | 2 {
   return amount === 1 || amount === 2;
 }
-export function boostedPower(
-  power: number,
-  effect: Effect | undefined,
-): number {
-  const operation = effect ?? { kind: "none" as const };
-  switch (operation.kind) {
-    case "destroy-weakest-enemy":
-    case "weaken-lane-enemies":
-    case "boost-lane-allies":
-    case "none":
-      return power;
-    case "boost-self":
-      return power + operation.amount;
-    default: {
-      const exhaustive: never = operation;
-      return exhaustive;
-    }
-  }
-}

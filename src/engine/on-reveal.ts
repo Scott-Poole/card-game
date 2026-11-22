@@ -11,7 +11,7 @@ function replace(
     players: id === 0 ? [player, state.players[1]] : [state.players[0], player],
   };
 }
-/** The revealing card is already appended last in its lane, at printed power.
+/** The revealing card is already on the board at printed power.
  * Only cards currently on the board participate. No RNG samples are consumed.
  * Returned events belong to this ability; the caller owns the turn event log.
  */
@@ -20,17 +20,18 @@ export function resolveOnReveal(
   id: PlayerId,
   laneIndex: number,
   effect: Effect,
+  cardId: string,
 ): { readonly state: MatchState; readonly events: readonly MatchEvent[] } {
   let updated = state;
   const events: MatchEvent[] = [];
   const player = state.players[id];
   const lane = [...(player.lanes[laneIndex] ?? [])];
-  const revealed = lane.at(-1);
-  if (!revealed) return { state, events };
-  const card = revealed;
   switch (effect.kind) {
-    case "boost-self":
-      lane[lane.length - 1] = {
+    case "boost-self": {
+      const index = lane.findIndex((card) => card.id === cardId);
+      const revealed = lane[index];
+      if (!revealed) throw new Error("Revealing card must be in its lane");
+      lane[index] = {
         ...revealed,
         power: revealed.power + effect.amount,
       };
@@ -38,10 +39,11 @@ export function resolveOnReveal(
         type: "power-changed",
         player: id,
         lane: laneIndex,
-        cardId: card.id,
+        cardId,
         power: revealed.power + effect.amount,
       });
       break;
+    }
     case "destroy-weakest-enemy": {
       const enemyId = opponentOf(id);
       const enemy = updated.players[enemyId];
@@ -95,9 +97,9 @@ export function resolveOnReveal(
       break;
     }
     case "boost-lane-allies":
-      for (let index = 0; index < lane.length - 1; index++) {
+      for (let index = 0; index < lane.length; index++) {
         const ally = lane[index];
-        if (!ally) continue;
+        if (!ally || ally.id === cardId) continue;
         const power = ally.power + effect.amount;
         lane[index] = { ...ally, power };
         events.push({

@@ -298,7 +298,13 @@ export function resolve(state: MatchState): Result<{
         });
         const effect = card.ability?.effect;
         if (effect) {
-          const resolved = resolveOnReveal(next, id, play.lane, effect);
+          const resolved = resolveOnReveal(
+            next,
+            id,
+            play.lane,
+            effect,
+            card.id,
+          );
           next = resolved.state;
           events.push(...resolved.events);
         }
