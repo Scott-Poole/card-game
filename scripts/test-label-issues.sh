@@ -24,7 +24,8 @@ run_case() {
   : > "$CALLS"
   jq -n --arg action "$action" --arg author "$author" --argjson labels "$labels" --arg added "$added" \
     '{action:$action, label:{name:$added}, issue:{number:42,user:{login:$author},labels:($labels|map({name:.})),title:"$(touch SHOULD_NOT_EXIST); `id`"}}' > "$WORK/event.json"
-  GITHUB_EVENT_PATH="$WORK/event.json" bash "$ROOT/scripts/label-issues.sh"
+  (cd "$WORK"; GITHUB_EVENT_PATH="$WORK/event.json" bash "$ROOT/scripts/label-issues.sh")
+  [[ ! -e "$WORK/SHOULD_NOT_EXIST" ]] || { echo "FAIL: title executed"; exit 1; }
   [[ "$(cat "$CALLS")" == "$expected" ]] || { echo "FAIL: $action $author $labels"; cat "$CALLS"; exit 1; }
 }
 run_case opened Scott-Poole '[]' '' 'api repos/test/repo/issues/42/labels --method POST -f labels[]=needs-triage'

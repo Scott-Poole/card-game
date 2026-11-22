@@ -9,7 +9,6 @@
   },
   "planning": {
     "enabled": true,
-  "trustedAuthors": ["Scott-Poole"],
     "maxDailyRuns": 3,
     "maxTicketsPerRun": 5,
     "categories": ["feature", "game-content", "bug-hunt", "code-health", "verification", "process", "docs"]
