@@ -55,6 +55,12 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "f0820b18426a7d9a6c823a890988ba0ac70bf0fd596d30d7ef07c88558728c23"
     },
+    "interaction-design": {
+      "source": "poteto/noodle",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/interaction-design/SKILL.md",
+      "computedHash": "4551ca4b21cb03186c632023883eacc5ca3b700b52741cd4d966636e85eeac08"
+    },
     "make-interfaces-feel-better": {
       "source": "poteto/noodle",
       "sourceType": "github",
