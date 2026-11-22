@@ -38,11 +38,7 @@ export function validateLocations(
     readonly id: string;
     readonly name: string;
     readonly text: string;
-    readonly effect: {
-      readonly kind: unknown;
-      readonly amount?: unknown;
-      readonly limit?: unknown;
-    };
+    readonly effect: unknown;
   }[],
 ): readonly LocationIssue[] {
   const issues: LocationIssue[] = [];

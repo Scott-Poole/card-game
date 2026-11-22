@@ -218,8 +218,21 @@ for (const { guard, effects } of [
     expect(guard(effect)).toBe(true);
     expect(guard({ ...effect, extra: true })).toBe(false);
     expect(guard({ ...effect, [Symbol("extra")]: true })).toBe(false);
+    expect(guard({})).toBe(false);
     expect(guard({ ...effect, kind: undefined })).toBe(false);
     expect(guard({ ...effect, kind: "unknown" })).toBe(false);
+    expect(guard({ ...effect, kind: 1 })).toBe(false);
+    expect(guard(Object.assign(Object.create(null), effect))).toBe(true);
+    expect(guard(Object.create(effect))).toBe(false);
+    class EffectInstance {
+      constructor() {
+        Object.assign(this, effect);
+      }
+    }
+    expect(guard(new EffectInstance())).toBe(false);
+    expect(
+      guard(Object.defineProperty({ ...effect }, "extra", { value: true })),
+    ).toBe(false);
     const field = "limit" in effect ? "limit" : "amount";
     if (field in effect) {
       expect(guard({ kind: effect.kind })).toBe(false);
@@ -227,6 +240,9 @@ for (const { guard, effects } of [
         expect(guard({ ...effect, [field]: invalid })).toBe(false);
       }
       expect(guard({ ...effect, [field]: 1 })).toBe(true);
+      if ("amount" in effect && typeof effect.amount === "number") {
+        expect(guard({ ...effect, amount: effect.amount + 1 })).toBe(false);
+      }
     } else {
       expect(guard({ ...effect, amount: undefined })).toBe(false);
       expect(guard({ ...effect, limit: 1 })).toBe(false);
