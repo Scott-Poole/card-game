@@ -178,6 +178,16 @@ cmd_next() {
 			# A claim the listing lags and a direct read doesn't show either holds a slot only.
 			[[ $labels == *" $CLAIMED "* ]] || continue
 		fi
+		# Triage has several writers. Its holding label releases a claim even before
+		# an escalation comment lands, or when triage was requested directly.
+		labels=" $(labels_of "$n") "
+		if [[ $labels == *" $TRIAGE "* ]]; then
+			transition "$n" "" "$QUEUE"
+			transition "$n" "" "$CLAIMED"
+			wip=$((wip - 1))
+			log "released #$n for triage"
+			continue
+		fi
 		claimed_at=$(claim_started "$n") || return 1
 		rc=0
 		handoff_since_claim "$n" || rc=$?
@@ -357,6 +367,9 @@ cmd_claim() {
 	labels=" $(labels_of "$n") "
 	if [[ $labels == *" $TRIAGE "* ]]; then
 		log "refusing to claim #$n: it was escalated meanwhile"
+		transition "$n" "" "$QUEUE"
+		transition "$n" "" "$CLAIMED"
+		disarm
 		exit 1
 	fi
 	disarm

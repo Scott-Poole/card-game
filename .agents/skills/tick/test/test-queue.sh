@@ -83,7 +83,7 @@ jq -S . "$WORK/state.json" >"$WORK/before.json"
 run parent-done 4
 check "second completion changes nothing" is "$(cat "$WORK/before.json")" "$(jq -S . "$WORK/state.json")"
 
-# One claimed escalation plus a completed spec must still allow work (cap is two).
+# A completed spec and a triage backlog must still allow work.
 jq '.issues["1"] = {number:1,title:"Escalated",state:"open",labels:[{name:"needs-triage"}]} |
     .events["1"] = [{event:"labeled",label:{name:"in-progress"}}] |
     .issues["6"] = {number:6,title:"Ticket 6",state:"open",labels:[{name:"ready-for-agent"}],assignees:[]}' "$WORK/state.json" >"$WORK/new.json"
@@ -277,12 +277,46 @@ setup "[$(issue 1 in-progress), $(issue 2 needs-triage), $(issue 3 needs-triage)
 run next
 check "a stale check comes before the triage backlog" is "$OUT" "CHECK 1 0 Ticket 1"
 
+# Triage can be requested without an escalation comment (for example by Scott).
+setup "[$(issue 1 in-progress,needs-triage), $(issue 6 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")]}"
+run next
+check "triage without a handoff releases the claim" is "$(labels 1):$OUT" "needs-triage:LAUNCH 6 Ticket 6"
+
 # Heartbeats keep a live claim fresh.
 setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
 FAKE_GH_NOW=$TODAY run alive 1 nudged
 check "alive posts one heartbeat" is "$CODE:$(labels 1):$(comments 1)" "0:in-progress:1"
 run next
 check "after alive the claim is no longer stale" is "$OUT" "PLAN feature"
+
+# Fail every call, one at a time, at every position of a release or an alive. Whatever fails,
+# the ticket ends either fully done or exactly as it started, never half-swapped.
+for spec in "GET issues/1" "POST issues/1/labels" "DELETE issues/1/labels" "POST issues/1/comments"; do
+	# The release comment is the last step: if only it fails the swap has completed, which is fine.
+	release_specs=$([[ $spec == "POST issues/1/comments" ]] && echo skip || echo run)
+	for skip in 0 1 2 3 4 5 6 7 8 9; do
+		setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
+		rm -f "$WORK/state.json.failseen"
+		if [[ $release_specs == run ]]; then
+			FAKE_GH_FAIL="$spec" FAKE_GH_FAIL_SKIP=$skip FAKE_GH_FAIL_ONCE=1 run release 1 "thread gone"
+			check "release is all-or-nothing when [$spec] #$skip fails" is "$(labels 1)" "$([[ $CODE == 0 ]] && echo ready-for-agent || echo in-progress)"
+		fi
+		setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
+		rm -f "$WORK/state.json.failseen"
+		FAKE_GH_FAIL="$spec" FAKE_GH_FAIL_SKIP=$skip FAKE_GH_FAIL_ONCE=1 run alive 1
+		check "alive is all-or-nothing when [$spec] #$skip fails" is "$(labels 1)" "$([[ $CODE == 0 ]] && echo in-progress || echo in-progress)"
+	done
+done
+setup "[$(issue 6 ready-for-agent)]"
+run alive 6
+check "alive refuses an unclaimed ticket" is "$CODE:$(comments 6)" "1:0"
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
+add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
+run release 1 "thread gone"
+check "release refuses a posted handoff" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress:1"
+setup "[$(issue 1 in-progress)]" "{\"1\": [$(claimed_event "$OLD")]}"
+FAKE_GH_FAIL="GET issues/1/events" run release 1 "thread gone"
+check "release fails closed on claim-start lookup failure" is "$CODE:$(labels 1)" "1:in-progress"
 
 # A claim is all-or-nothing too: without its comment it has no start, so a failed write
 # puts the ticket back in the queue.
@@ -345,7 +379,7 @@ check "a lagging claim is reconciled without a cap" is "$(labels 6):$OUT" "needs
 setup "[$(issue 1 needs-triage), $(issue 2 needs-triage), $(issue 6 ready-for-agent)]"
 jq --argjson e "[$(claimed_event "$OLD")]" '.event_pages = {"1": [[{"event":"closed"}], $e], "2": [[{"event":"closed"}], $e]}' "$WORK/state.json" >"$WORK/new.json" && mv "$WORK/new.json" "$WORK/state.json"
 run next
-check "claims on a later events page count toward the triage backlog" is "$OUT" "LAUNCH 6 Ticket 6"
+check "claim-history pagination does not block unrelated work" is "$OUT" "LAUNCH 6 Ticket 6"
 jq --argjson e "[$(claimed_event "$OLD")]" '.event_pages = {"1": [[{"event":"closed"}], $e]}' "$WORK/state.json" >"$WORK/new.json" && mv "$WORK/new.json" "$WORK/state.json"
 run resume-info 1
 check "resume-info counts claims on a later events page" is "$OUT" "THREAD none CLAIMS 1"
@@ -360,7 +394,7 @@ run claim 6
 check "claim refuses a ticket that carries needs-triage" is "$CODE:$(labels 6):$(comments 6)" "1:needs-triage,ready-for-agent:0"
 setup "[$(issue 6 ready-for-agent)]"
 FAKE_GH_RACE_TRIAGE=1 run claim 6
-check "a claim that raced an escalation is undone" is "$CODE:$(labels 6):$(comments 6)" "1:needs-triage,ready-for-agent:1"
+check "a claim that raced an escalation is undone" is "$CODE:$(labels 6):$(comments 6)" "1:needs-triage:1"
 # This run's own claim is reconciled too: a half-done escalation counts at once.
 setup "[$(issue 1 needs-triage), $(issue 2 in-progress), $(issue 3 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"2\": [$(claimed_event "$TODAY")]}"
 add_comments "$(comment_at 2 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 2 2099-01-01T00:00:00Z $'## Needs you\n\nDecision: ...')"
@@ -378,16 +412,16 @@ run release 1 "thread gone"
 check "release refuses an unexplained needs-triage" is "$CODE:$(labels 1):$(comments 1)" "1:in-progress,needs-triage:0"
 run alive 1
 check "alive leaves an unexplained needs-triage" is "$CODE:$(labels 1):$(comments 1)" "0:in-progress,needs-triage:1"
-# Cap accounting: a ticket this run handed to Scott counts even when the human listing lags it...
+# A finished escalation releases its slot even when listings lag.
 setup "[$(issue 1 needs-triage), $(issue 6 needs-triage), $(issue 10 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")], \"6\": [$(claimed_event "$TODAY")]}"
 FAKE_GH_LAG_LISTING="6" run next 6
 check "triage listing lag does not block work" is "$OUT" "LAUNCH 10 Ticket 10"
-# ...and when its claim event history lags it, so ever_claimed cannot see it.
+# The same holds when its claim event history lags.
 setup "[$(issue 1 needs-triage), $(issue 6 in-progress), $(issue 10 ready-for-agent)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 6 "$TODAY" 'tick: claimed now; launching a work-ticket thread.'), $(comment_at 6 2099-01-01T00:00:00Z "$HANDOFF")"
 run next 6
 check "an escalation without claim events releases its slot" is "$(labels 6):$OUT" "needs-triage:LAUNCH 10 Ticket 10"
-# alive must not erase a handoff either (a legacy flag and a real escalation look alike).
+# A heartbeat must not erase a handoff.
 setup "[$(issue 1 in-progress,needs-triage)]" "{\"1\": [$(claimed_event "$OLD")]}"
 add_comments "$(comment_at 1 "$TODAY" $'## Needs you\n\nDecision: ...')"
 run alive 1
