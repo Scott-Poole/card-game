@@ -42,3 +42,34 @@ try {
 } finally {
   rmSync(temp, { recursive: true, force: true });
 }
+const run = (...args) =>
+  JSON.parse(execFileSync("bash", [route, ...args], { encoding: "utf8" }));
+assert.deepEqual(run("plan", "--out", "claude"), [result[1]]);
+assert.deepEqual(run("plan", "--out", "claude,codex"), []);
+assert.equal(run("review.two-family")[0].options.variant, "high");
+assert.equal(run("review.claude", "--out", "codex")[0].options.variant, "high");
+assert.notEqual(spawnSync("bash", [route, "plan", "--out", "codx"]).status, 0);
+const catalog = JSON.parse(
+  readFileSync(".agents/skills/delegate/routing.json"),
+);
+assert.ok(Object.hasOwn(catalog.aliases, catalog.orchestrator.alias));
+for (const [tier, aliases] of Object.entries(catalog.tiers)) {
+  for (const alias of aliases)
+    assert.ok(Object.hasOwn(catalog.aliases, alias), `${tier}: ${alias}`);
+}
+for (const file of [
+  ".agents/skills/delegate/SKILL.md",
+  ".agents/skills/tick/SKILL.md",
+  ".agents/skills/land/SKILL.md",
+  "docs/agents/nightly-triage.md",
+]) {
+  for (const [, reference] of readFileSync(file, "utf8").matchAll(
+    /`((?:codex|claude|flash|implement|review)\.[a-z-]+)`/g,
+  )) {
+    assert.ok(
+      Object.hasOwn(catalog.aliases, reference) ||
+        Object.hasOwn(catalog.tiers, reference),
+      `${file}: unresolved ${reference}`,
+    );
+  }
+}

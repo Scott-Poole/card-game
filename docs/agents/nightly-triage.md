@@ -22,7 +22,7 @@ Use this prompt:
 > Run nightly ticket triage for Scott-Poole/card-game. Load read-main and use its
 > landed read-only checkout. Run node scripts/triage-finder.mjs there first. Empty
 > stdout ends immediately with zero launches. Otherwise load delegate and launch
-> one shared, read-only general child on claudeAgent / claude.workhorse with effort
+> one shared, read-only general child using the first target from `bash .agents/skills/delegate/route.sh plan` with effort
 > high. Give it the checkout path and tell it to follow .agents/skills/triage/nightly.md
 > exactly. Await its outcome and report failures; do not substitute another model.
 > Do not edit the primary checkout.

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
 const root = process.argv[2] ?? process.cwd();
 const files = execFileSync(
   "git",
@@ -12,8 +12,9 @@ const problems = [...new Set(files)]
   .filter(
     (file) =>
       file &&
-      /(?:\.md$|\.agents\/skills\/)/.test(file) &&
-      /\.(?:md|json)$/.test(file) &&
+      /(?:\.md$|^docs\/|^\.agents\/skills\/)/.test(file) &&
+      existsSync(`${root}/${file}`) &&
+      statSync(`${root}/${file}`).isFile() &&
       file !== ".agents/skills/delegate/routing.json",
   )
   .flatMap((file) =>

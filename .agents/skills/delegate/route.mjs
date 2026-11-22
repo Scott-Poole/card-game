@@ -11,6 +11,10 @@ try {
   const out = new Set(
     (args[1] ?? "").split(",").map((p) => (p === "claude" ? "claudeAgent" : p)),
   );
+  for (const provider of out) {
+    if (provider && !["codex", "claudeAgent", "opencode"].includes(provider))
+      throw new Error(`unknown out provider: ${provider}`);
+  }
   const routes = routing.tiers[tier]
     .map((alias) => {
       const entry = routing.aliases[alias];
@@ -19,10 +23,7 @@ try {
         ...entry,
         options: {
           ...entry.options,
-          ...(tier.startsWith("review.") &&
-          entry.providerInstanceId === "opencode"
-            ? { variant: "high" }
-            : {}),
+          ...routing.tierOptions?.[tier]?.[entry.providerInstanceId],
         },
       };
     })
