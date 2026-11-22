@@ -481,6 +481,10 @@ export function forfeit(state: MatchState, loser: PlayerId): MatchState {
   return {
     ...state,
     phase: "ended",
+    players: [
+      { ...state.players[0], staged: [], committed: false },
+      { ...state.players[1], staged: [], committed: false },
+    ],
     result,
     events: [{ type: "match-ended", result }],
   };

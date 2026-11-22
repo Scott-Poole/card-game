@@ -483,6 +483,45 @@ test("closing a context mid-match gives the opponent a forfeit win", async ({
   await expect(a.getByText(/^Total power:/)).toHaveCount(0);
 });
 
+test.describe("forfeit with staged cards", () => {
+  test.use({ abilities: true });
+  test("forfeit returns staged cards to the finished board's hand", async ({
+    pair: [a, b],
+  }) => {
+    const play = a
+      .getByRole("button", { name: /^Stage .* in lane 1$/ })
+      .and(a.locator(":enabled"))
+      .first();
+    const label = await play.getAttribute("aria-label");
+    const name = /^Stage (.*) in lane 1$/.exec(label ?? "")?.[1];
+    if (!name) throw new Error("Missing staged card name");
+    const hand = a.getByRole("region", { name: "Hand", exact: true });
+    await play.press("Enter");
+    await expect(
+      a.getByRole("button", { name: `Unstage ${name}`, exact: true }),
+    ).toBeVisible();
+    await expect(energy(a)).toHaveAttribute("aria-valuenow", "0");
+    await expect(hand.getByRole("article", { name, exact: true })).toHaveCount(
+      0,
+    );
+    await b.context().close();
+    await expect(
+      a.getByRole("heading", { name: "Match result" }),
+    ).toBeVisible();
+    await expect(a.getByLabel("Winner")).toHaveText("You win");
+    await expect(
+      a
+        .getByRole("region", { name: "Staged cards", exact: true })
+        .getByRole("listitem"),
+    ).toHaveCount(0);
+    await expect(a.getByRole("button", { name: /^Unstage / })).toHaveCount(0);
+    await expect(energy(a)).toHaveAttribute("aria-valuenow", "1");
+    await expect(
+      hand.getByRole("article", { name, exact: true }),
+    ).toBeVisible();
+  });
+});
+
 test("opponent updates do not unlock an unacknowledged stage", async ({
   page,
   address,
