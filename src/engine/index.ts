@@ -1,6 +1,6 @@
+import { resolveOnReveal } from "./on-reveal.ts";
 import {
   checkStaging,
-  boostedPower,
   type Ability,
   LANE_COUNT,
   laneTotals,
@@ -275,18 +275,21 @@ export function resolve(state: MatchState): Result<{
   const events: MatchEvent[] = [];
   for (const id of order) {
     const player = next.players[id];
-    const lanes = player.lanes.map((l) => [...l]);
     for (const play of player.staged) {
       const card = player.hand.find((c) => c.id === play.cardId);
-      const lane = lanes[play.lane];
+      const lane = next.players[id].lanes[play.lane];
       // stage validates both lookups; committed plays cannot change through this API.
       if (card && lane) {
         const revealed: LaneCard = {
           ...card,
           printed: card,
-          power: boostedPower(card.power, card.ability?.effect),
         };
-        lane.push(revealed);
+        next = replace(next, id, {
+          ...next.players[id],
+          lanes: next.players[id].lanes.map((cards, index) =>
+            index === play.lane ? [...cards, revealed] : cards,
+          ),
+        });
         events.push({
           type: "card-revealed",
           player: id,
@@ -295,99 +298,14 @@ export function resolve(state: MatchState): Result<{
         });
         const effect = card.ability?.effect;
         if (effect) {
-          switch (effect.kind) {
-            case "boost-self":
-              events.push({
-                type: "power-changed",
-                player: id,
-                lane: play.lane,
-                cardId: card.id,
-                power: revealed.power,
-              });
-              break;
-            case "destroy-weakest-enemy": {
-              const enemyId = opponentOf(id);
-              const enemy = next.players[enemyId];
-              const targets = enemy.lanes[play.lane] ?? [];
-              const target = targets.reduce<LaneCard | undefined>(
-                (weakest, candidate) =>
-                  !weakest || candidate.power < weakest.power
-                    ? candidate
-                    : weakest,
-                undefined,
-              );
-              if (target) {
-                next = replace(next, enemyId, {
-                  ...enemy,
-                  lanes: enemy.lanes.map((cards, index) =>
-                    index === play.lane
-                      ? cards.filter((c) => c !== target)
-                      : cards,
-                  ),
-                  zones: {
-                    ...enemy.zones,
-                    destroyed: [...enemy.zones.destroyed, target.printed],
-                  },
-                });
-                events.push({
-                  type: "card-destroyed",
-                  player: enemyId,
-                  lane: play.lane,
-                  cardId: target.id,
-                });
-              }
-              break;
-            }
-            case "weaken-lane-enemies": {
-              // Own lanes are buffered locally; the opponent lives in next so
-              // later reveals read these changes without mutating prior state.
-              const enemyId = opponentOf(id);
-              const enemy = next.players[enemyId];
-              const enemyLanes = enemy.lanes.map((cards, laneIndex) =>
-                laneIndex !== play.lane
-                  ? cards
-                  : cards.map((target) => {
-                      const power = Math.max(0, target.power - effect.amount);
-                      if (power === target.power) return target;
-                      events.push({
-                        type: "power-changed",
-                        player: enemyId,
-                        lane: play.lane,
-                        cardId: target.id,
-                        power,
-                      });
-                      return { ...target, power };
-                    }),
-              );
-              next = replace(next, enemyId, { ...enemy, lanes: enemyLanes });
-              break;
-            }
-            case "boost-lane-allies":
-              for (let index = 0; index < lane.length - 1; index++) {
-                const ally = lane[index];
-                if (!ally) continue;
-                const power = ally.power + effect.amount;
-                lane[index] = { ...ally, power };
-                events.push({
-                  type: "power-changed",
-                  player: id,
-                  lane: play.lane,
-                  cardId: ally.id,
-                  power,
-                });
-              }
-              break;
-            default: {
-              const exhaustive: never = effect;
-              return exhaustive;
-            }
-          }
+          const resolved = resolveOnReveal(next, id, play.lane, effect);
+          next = resolved.state;
+          events.push(...resolved.events);
         }
       }
     }
     next = replace(next, id, {
-      ...player,
-      lanes,
+      ...next.players[id],
       hand: player.hand.filter(
         (c) => !player.staged.some((p) => p.cardId === c.id),
       ),
