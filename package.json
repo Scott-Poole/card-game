@@ -31,7 +31,8 @@
     "storybook": "panda codegen && storybook dev -p 6006 --no-open",
     "build-storybook": "panda codegen && storybook build",
     "test:working-markdown": "node scripts/test-working-markdown.mjs && node scripts/check-working-markdown.mjs",
-    "test:label-issues": "bash scripts/test-label-issues.sh"
+    "test:label-issues": "bash scripts/test-label-issues.sh",
+    "test:triage-finder": "node scripts/test-triage-finder.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
