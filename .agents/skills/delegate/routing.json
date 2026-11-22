@@ -82,10 +82,28 @@
     "review.flash": ["claude.workhorse", "codex.workhorse"],
     "grunt": ["flash.free", "flash.paid", "claude.explore", "codex.grunt"],
     "hard": ["codex.hard", "codex.rare", "claude.judge"],
-    "flash": ["flash.free", "flash.paid"]
+    "flash": ["flash.free", "flash.paid"],
+    "review.two-family": ["flash.free", "flash.paid"]
   },
   "orchestrator": {
     "alias": "claude.workhorse",
     "note": "Documentation only: the T3 tick schedule is pinned separately."
+  },
+  "tierOptions": {
+    "review.claude": {
+      "opencode": {
+        "variant": "high"
+      }
+    },
+    "review.codex": {
+      "opencode": {
+        "variant": "high"
+      }
+    },
+    "review.two-family": {
+      "opencode": {
+        "variant": "high"
+      }
+    }
   }
 }
