@@ -2,11 +2,7 @@ import {
   DECK_CARDS_PER_COST,
   TURN_LIMIT,
   MAX_LOCATION_TEXT,
-  isBoostSelfAmount,
-  isWeakenLaneEnemiesAmount,
-  isBoostLaneAlliesAmount,
-  isEffectKind,
-  type EffectKind,
+  isEffect,
 } from "../rules/index.ts";
 import type { CardDefinition } from "./index.ts";
 
@@ -38,15 +34,6 @@ export type RosterIssue =
       readonly index: number;
     };
 
-const amountValidators: Readonly<
-  Record<EffectKind, (amount: unknown) => boolean>
-> = {
-  "destroy-weakest-enemy": (amount) => amount === undefined,
-  "boost-self": isBoostSelfAmount,
-  "weaken-lane-enemies": isWeakenLaneEnemiesAmount,
-  "boost-lane-allies": isBoostLaneAlliesAmount,
-};
-
 /**
  * Validates authored content, without changing the roster or throwing.
  *
@@ -65,7 +52,7 @@ export function validateRoster(
     readonly card: Omit<CardDefinition, "ability"> & {
       readonly ability?: {
         readonly text: string;
-        readonly effect?: { readonly kind: unknown; readonly amount?: unknown };
+        readonly effect?: unknown;
       };
     };
     readonly tradition: string;
@@ -99,18 +86,14 @@ export function validateRoster(
     if (card.ability) {
       const { text, effect } = card.ability;
       if (!text.trim() || text.length > MAX_LOCATION_TEXT) add("ability-text");
-      if (
-        !effect ||
-        !isEffectKind(effect.kind) ||
-        !amountValidators[effect.kind](effect.amount)
-      )
-        add("effect");
+      if (!isEffect(effect)) add("effect");
       else if (
         effect.kind === "destroy-weakest-enemy" &&
         !/destroy.*weakest.*enemy/i.test(text)
       )
         add("effect-text");
       else if (
+        "amount" in effect &&
         typeof effect.amount === "number" &&
         !new RegExp(`(?<![\\d.])${String(effect.amount)}(?!\\d|\\.\\d)`).test(
           text,

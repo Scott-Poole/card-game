@@ -1,5 +1,7 @@
 import { expect, test } from "vitest";
 import {
+  isEffect,
+  isLocationEffect,
   checkStaging,
   laneCapacity,
   laneIsFull,
@@ -192,3 +194,46 @@ test("opponentOf returns the other player", () => {
   expect(opponentOf(0)).toBe(1);
   expect(opponentOf(1)).toBe(0);
 });
+
+for (const { guard, effects } of [
+  {
+    guard: isEffect,
+    effects: [
+      { kind: "boost-self", amount: 3 },
+      { kind: "boost-lane-allies", amount: 2 },
+      { kind: "weaken-lane-enemies", amount: 2 },
+      { kind: "destroy-weakest-enemy" },
+    ],
+  },
+  {
+    guard: isLocationEffect,
+    effects: [
+      { kind: "none" },
+      { kind: "power-per-card", amount: 2 },
+      { kind: "lane-capacity", limit: 3 },
+    ],
+  },
+]) {
+  test.each(effects)("checks exact effect shape: $kind", (effect) => {
+    expect(guard(effect)).toBe(true);
+    expect(guard({ ...effect, extra: true })).toBe(false);
+    expect(guard({ ...effect, [Symbol("extra")]: true })).toBe(false);
+    expect(guard({ ...effect, kind: undefined })).toBe(false);
+    expect(guard({ ...effect, kind: "unknown" })).toBe(false);
+    const field = "limit" in effect ? "limit" : "amount";
+    if (field in effect) {
+      expect(guard({ kind: effect.kind })).toBe(false);
+      for (const invalid of [0, 4, 1.5, "1", null, undefined, NaN, Infinity]) {
+        expect(guard({ ...effect, [field]: invalid })).toBe(false);
+      }
+      expect(guard({ ...effect, [field]: 1 })).toBe(true);
+    } else {
+      expect(guard({ ...effect, amount: undefined })).toBe(false);
+      expect(guard({ ...effect, limit: 1 })).toBe(false);
+    }
+  });
+  test("rejects non-object effects", () => {
+    for (const value of [null, undefined, [], "none", 1])
+      expect(guard(value)).toBe(false);
+  });
+}

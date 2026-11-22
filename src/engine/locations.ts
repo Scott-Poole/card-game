@@ -1,8 +1,6 @@
 import {
-  isLaneCapacityLimit,
   LANE_COUNT,
-  isLocationEffectKind,
-  isPowerPerCardAmount,
+  isLocationEffect,
   MAX_LOCATION_NAME,
   MAX_LOCATION_TEXT,
 } from "../rules/index.ts";
@@ -70,16 +68,11 @@ export function validateLocations(
     const stated = (n: number) =>
       // Rule text must state the number as a whole number, not inside another.
       new RegExp(`(?<![\\d.])${String(n)}(?!\\d|\\.\\d)`).test(entry.text);
-    if (!isLocationEffectKind(effect.kind)) add("effect");
-    else if (effect.kind === "none") {
-      if ("amount" in effect || "limit" in effect) add("effect");
-    } else if (effect.kind === "power-per-card") {
-      if (!isPowerPerCardAmount(effect.amount) || "limit" in effect)
-        add("effect");
-      else if (!stated(effect.amount)) add("effect-text");
-    } else if (!isLaneCapacityLimit(effect.limit) || "amount" in effect)
-      add("effect");
-    else if (!stated(effect.limit)) add("effect-text");
+    if (!isLocationEffect(effect)) add("effect");
+    else if (effect.kind === "power-per-card" && !stated(effect.amount))
+      add("effect-text");
+    else if (effect.kind === "lane-capacity" && !stated(effect.limit))
+      add("effect-text");
   });
   return issues;
 }

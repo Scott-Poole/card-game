@@ -1,17 +1,11 @@
 import {
   type Ability,
-  type EffectKind,
-  isEffectKind,
-  isBoostSelfAmount,
-  isWeakenLaneEnemiesAmount,
-  isBoostLaneAlliesAmount,
+  isEffect,
+  isLocationEffect,
   LANE_COUNT,
   LANE_CAPACITY,
   TURN_LIMIT,
   DECK_SIZE,
-  isLocationEffectKind,
-  isLaneCapacityLimit,
-  isPowerPerCardAmount,
   ZONES,
   MAX_LOCATION_NAME,
   MAX_LOCATION_TEXT,
@@ -232,18 +226,6 @@ function isPlayer(v: unknown): v is PlayerId {
 function isWinner(v: unknown): v is PlayerId | null {
   return v === null || isPlayer(v);
 }
-const effectValidators: Readonly<
-  Record<EffectKind, (effect: Record<string, unknown>) => boolean>
-> = {
-  "destroy-weakest-enemy": (effect) => exact(effect, ["kind"]),
-  "boost-lane-allies": (effect) =>
-    exact(effect, ["kind", "amount"]) && isBoostLaneAlliesAmount(effect.amount),
-  "weaken-lane-enemies": (effect) =>
-    exact(effect, ["kind", "amount"]) &&
-    isWeakenLaneEnemiesAmount(effect.amount),
-  "boost-self": (effect) =>
-    exact(effect, ["kind", "amount"]) && isBoostSelfAmount(effect.amount),
-};
 function isAbility(v: unknown): v is Ability {
   return (
     isRecord(v) &&
@@ -251,9 +233,7 @@ function isAbility(v: unknown): v is Ability {
     typeof v.text === "string" &&
     v.text.trim() !== "" &&
     v.text.length <= MAX_LOCATION_TEXT &&
-    isRecord(v.effect) &&
-    isEffectKind(v.effect.kind) &&
-    effectValidators[v.effect.kind](v.effect)
+    isEffect(v.effect)
   );
 }
 function isCard(v: unknown): v is Card {
@@ -343,21 +323,6 @@ function isLocation(v: unknown): v is MatchLocation {
     v.text.length <= MAX_LOCATION_TEXT &&
     isLocationEffect(v.effect)
   );
-}
-function isLocationEffect(v: unknown): v is MatchLocation["effect"] {
-  if (!isRecord(v) || !isLocationEffectKind(v.kind)) return false;
-  switch (v.kind) {
-    case "none":
-      return exact(v, ["kind"]);
-    case "power-per-card":
-      return exact(v, ["kind", "amount"]) && isPowerPerCardAmount(v.amount);
-    case "lane-capacity":
-      return exact(v, ["kind", "limit"]) && isLaneCapacityLimit(v.limit);
-    default: {
-      const exhaustive: never = v.kind;
-      return exhaustive;
-    }
-  }
 }
 function isLocations(v: unknown): v is MatchLocation[] {
   return (

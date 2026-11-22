@@ -45,11 +45,11 @@ export function isLocationEffectKind(
   return typeof kind === "string" && Object.hasOwn(LOCATION_EFFECT_KINDS, kind);
 }
 /** True for an amount a `power-per-card` effect may carry. */
-export function isPowerPerCardAmount(amount: unknown): amount is 1 | 2 {
+function isPowerPerCardAmount(amount: unknown): amount is 1 | 2 {
   return amount === 1 || amount === 2;
 }
 /** True for a limit a `lane-capacity` effect may carry. */
-export function isLaneCapacityLimit(limit: unknown): limit is 1 | 2 | 3 {
+function isLaneCapacityLimit(limit: unknown): limit is 1 | 2 | 3 {
   return limit === 1 || limit === 2 || limit === 3;
 }
 /** How many cards each player may reveal in a lane with this effect (none:
@@ -226,12 +226,80 @@ const EFFECT_KINDS: Readonly<Record<EffectKind, true>> = {
 export function isEffectKind(kind: unknown): kind is EffectKind {
   return typeof kind === "string" && Object.hasOwn(EFFECT_KINDS, kind);
 }
-export function isBoostSelfAmount(amount: unknown): amount is 1 | 2 | 3 {
+function isBoostSelfAmount(amount: unknown): amount is 1 | 2 | 3 {
   return amount === 1 || amount === 2 || amount === 3;
 }
-export function isBoostLaneAlliesAmount(amount: unknown): amount is 1 | 2 {
+function isBoostLaneAlliesAmount(amount: unknown): amount is 1 | 2 {
   return amount === 1 || amount === 2;
 }
-export function isWeakenLaneEnemiesAmount(amount: unknown): amount is 1 | 2 {
+function isWeakenLaneEnemiesAmount(amount: unknown): amount is 1 | 2 {
   return amount === 1 || amount === 2;
+}
+
+function isEffectRecord(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    (Object.getPrototypeOf(value) === Object.prototype ||
+      Object.getPrototypeOf(value) === null)
+  );
+}
+function exactEffect(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  return (
+    Reflect.ownKeys(value).length === keys.length &&
+    keys.every((key) => Object.hasOwn(value, key))
+  );
+}
+/** Checks the complete ability effect, including its allowed keys. */
+export function isEffect(value: unknown): value is Effect {
+  if (!isEffectRecord(value) || !isEffectKind(value.kind)) return false;
+  switch (value.kind) {
+    case "destroy-weakest-enemy":
+      return exactEffect(value, ["kind"]);
+    case "boost-self":
+      return (
+        exactEffect(value, ["kind", "amount"]) &&
+        isBoostSelfAmount(value.amount)
+      );
+    case "boost-lane-allies":
+      return (
+        exactEffect(value, ["kind", "amount"]) &&
+        isBoostLaneAlliesAmount(value.amount)
+      );
+    case "weaken-lane-enemies":
+      return (
+        exactEffect(value, ["kind", "amount"]) &&
+        isWeakenLaneEnemiesAmount(value.amount)
+      );
+    default: {
+      const exhaustive: never = value.kind;
+      return exhaustive;
+    }
+  }
+}
+/** Checks the complete location effect, including its allowed keys. */
+export function isLocationEffect(value: unknown): value is LocationEffect {
+  if (!isEffectRecord(value) || !isLocationEffectKind(value.kind)) return false;
+  switch (value.kind) {
+    case "none":
+      return exactEffect(value, ["kind"]);
+    case "power-per-card":
+      return (
+        exactEffect(value, ["kind", "amount"]) &&
+        isPowerPerCardAmount(value.amount)
+      );
+    case "lane-capacity":
+      return (
+        exactEffect(value, ["kind", "limit"]) &&
+        isLaneCapacityLimit(value.limit)
+      );
+    default: {
+      const exhaustive: never = value.kind;
+      return exhaustive;
+    }
+  }
 }
