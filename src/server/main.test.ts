@@ -1,9 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
+import { freePort, startOnExplicitPort } from "./occupied-port.test-support.ts";
 import { decodeServerMessage } from "../protocol/messages.ts";
 
 const children: {
@@ -53,26 +53,6 @@ afterEach(async () => {
       .map((directory) => rm(directory, { recursive: true })),
   );
 });
-
-// Linux only lets a second uWebSockets.js server share a port when the first bound it
-// explicitly (SO_REUSEPORT); a port-0 bind gets an ephemeral port the kernel never shares.
-// So these tests claim a free port number first and bind it by name.
-async function freePort() {
-  const probe = createServer();
-  await new Promise<void>((resolve, reject) => {
-    probe.once("error", reject);
-    probe.listen(0, "127.0.0.1", resolve);
-  });
-  const address = probe.address();
-  await new Promise<void>((resolve) => {
-    probe.close(() => {
-      resolve();
-    });
-  });
-  if (address === null || typeof address === "string")
-    throw new Error("No port bound");
-  return address.port;
-}
 
 async function fixtureDirectory() {
   const directory = await mkdtemp(join(tmpdir(), "card-game-main-"));
@@ -154,20 +134,37 @@ test.each(["abc", "", "70000", "-1", "1.5"])(
   },
 );
 
-test("a second server on an occupied port exits non-zero without announcing it listens", async () => {
-  const directory = await fixtureDirectory();
-  const port = await freePort();
-  const first = launch(String(port), directory);
-  expect(await listening(first)).toBe(port);
-  const second = launch(String(port), directory);
-  const { code, signal } = await second.closed;
-  expect(code).not.toBeNull();
-  expect(code).not.toBe(0);
-  expect(signal).toBeNull();
-  const { stdout, stderr } = second.output();
-  expect(stdout).not.toContain("Listening");
-  expect(stderr).toContain(`Unable to listen on port ${String(port)}`);
-});
+test.each([false, true])(
+  "a second server exits without listening (setup collision: %s)",
+  async (collision) => {
+    const directory = await fixtureDirectory();
+    const blocker = collision ? launch("0", directory) : undefined;
+    const occupiedPort = blocker ? await listening(blocker) : undefined;
+    let firstProbe = true;
+    const port = await startOnExplicitPort(
+      async (port) => {
+        const first = launch(String(port), directory);
+        expect(await listening(first)).toBe(port);
+        return port;
+      },
+      async () => {
+        if (firstProbe && occupiedPort !== undefined) {
+          firstProbe = false;
+          return occupiedPort;
+        }
+        return freePort();
+      },
+    );
+    const second = launch(String(port), directory);
+    const { code, signal } = await second.closed;
+    expect(code).not.toBeNull();
+    expect(code).not.toBe(0);
+    expect(signal).toBeNull();
+    const { stdout, stderr } = second.output();
+    expect(stdout).not.toContain("Listening");
+    expect(stderr).toContain(`Unable to listen on port ${String(port)}`);
+  },
+);
 
 test.each(["SIGTERM", "SIGINT"] satisfies NodeJS.Signals[])(
   "%s exits cleanly within five seconds and releases the port",
