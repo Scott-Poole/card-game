@@ -12,7 +12,7 @@ This split keeps T3 access in the agent and deterministic filtering in the teste
 CLI. Unknown states fail closed. No ticket body scanning happens in the script.
 
 The scheduler API does not expose model or effort fields. The task prompt therefore
-routes execution to Claude Sonnet 5.5 high through delegate; the scheduled session
+routes execution to `claude.workhorse` high through delegate; the scheduled session
 only orchestrates that run. Empty finder output ends before delegation.
 
 To recreate the schedule, call `schedule_task` with `freshSession: true`,
@@ -22,7 +22,7 @@ Use this prompt:
 > Run nightly ticket triage for Scott-Poole/card-game. Load read-main and use its
 > landed read-only checkout. Run node scripts/triage-finder.mjs there first. Empty
 > stdout ends immediately with zero launches. Otherwise load delegate and launch
-> one shared, read-only general child on claudeAgent / claude-sonnet-5-5 with effort
+> one shared, read-only general child on claudeAgent / claude.workhorse with effort
 > high. Give it the checkout path and tell it to follow .agents/skills/triage/nightly.md
 > exactly. Await its outcome and report failures; do not substitute another model.
 > Do not edit the primary checkout.

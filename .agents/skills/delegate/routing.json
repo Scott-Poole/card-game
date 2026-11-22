@@ -1,0 +1,91 @@
+{
+  "aliases": {
+    "codex.workhorse": {
+      "providerInstanceId": "codex",
+      "model": "gpt-6.1-sol",
+      "options": {
+        "reasoningEffort": "medium"
+      }
+    },
+    "codex.hard": {
+      "providerInstanceId": "codex",
+      "model": "gpt-6.1-terra",
+      "options": {
+        "reasoningEffort": "max"
+      }
+    },
+    "codex.review-fallback": {
+      "providerInstanceId": "codex",
+      "model": "gpt-6.1-terra",
+      "options": {
+        "reasoningEffort": "medium"
+      }
+    },
+    "codex.rare": {
+      "providerInstanceId": "codex",
+      "model": "gpt-6-astra",
+      "options": {}
+    },
+    "codex.grunt": {
+      "providerInstanceId": "codex",
+      "model": "gpt-6-luna",
+      "options": {}
+    },
+    "claude.workhorse": {
+      "providerInstanceId": "claudeAgent",
+      "model": "claude-sonnet-5-5",
+      "options": {
+        "effort": "high"
+      }
+    },
+    "claude.judge": {
+      "providerInstanceId": "claudeAgent",
+      "model": "claude-opus-5-5",
+      "options": {
+        "effort": "high"
+      }
+    },
+    "claude.explore": {
+      "providerInstanceId": "claudeAgent",
+      "model": "claude-haiku-5-5",
+      "options": {}
+    },
+    "flash.free": {
+      "providerInstanceId": "opencode",
+      "model": "opencode/deepseek-v4.1-flash-free",
+      "options": {
+        "variant": "low"
+      }
+    },
+    "flash.paid": {
+      "providerInstanceId": "opencode",
+      "model": "deepseek/deepseek-flash",
+      "options": {
+        "variant": "low"
+      }
+    }
+  },
+  "tiers": {
+    "judge": ["claude.judge"],
+    "explore": ["claude.explore", "flash.free", "flash.paid"],
+    "implement": ["codex.workhorse", "claude.workhorse"],
+    "implement.codex": ["codex.workhorse", "claude.workhorse"],
+    "implement.claude": ["claude.workhorse", "codex.workhorse"],
+    "plan": ["claude.workhorse", "codex.workhorse"],
+    "review.codex": ["claude.workhorse", "flash.free", "flash.paid"],
+    "review.claude": [
+      "codex.workhorse",
+      "codex.review-fallback",
+      "flash.free",
+      "flash.paid"
+    ],
+    "review.flash": ["claude.workhorse", "codex.workhorse"],
+    "grunt": ["flash.free", "flash.paid", "claude.explore", "codex.grunt"],
+    "hard": ["codex.hard", "codex.rare", "claude.judge"],
+    "flash": ["flash.free", "flash.paid"]
+  },
+  "orchestrator": {
+    "alias": "claude.workhorse",
+    "note": "Documentation only: the T3 tick schedule is pinned separately."
+  }
+}
