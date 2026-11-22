@@ -35,6 +35,7 @@ try {
       const entry = routing.aliases[alias];
       if (!entry) throw new Error(`unknown alias: ${alias}`);
       return {
+        alias,
         ...entry,
         options: {
           ...entry.options,
@@ -45,14 +46,25 @@ try {
     .filter(
       (entry) =>
         !out.has(entry.providerInstanceId) &&
-        providerPosture(entry.providerInstanceId) !== "out",
-    )
-    .sort(
-      (a, b) =>
-        (ranks[providerPosture(a.providerInstanceId)] ?? 1) -
-        (ranks[providerPosture(b.providerInstanceId)] ?? 1),
+        (providerPosture(entry.providerInstanceId) !== "out" ||
+          entry.alias === "flash.paid"),
     );
-  console.log(JSON.stringify(routes));
+  // Only subscription choices are interchangeable. Keep overflow positions,
+  // and keep the primary picked by the derived implementation share.
+  if (!["implement.claude", "implement.codex", "hard"].includes(tier)) {
+    const subscriptions = routes
+      .filter((e) => e.providerInstanceId !== "opencode")
+      .sort(
+        (a, b) =>
+          (ranks[providerPosture(a.providerInstanceId)] ?? 1) -
+          (ranks[providerPosture(b.providerInstanceId)] ?? 1),
+      );
+    let index = 0;
+    for (let i = 0; i < routes.length; i++)
+      if (routes[i].providerInstanceId !== "opencode")
+        routes[i] = subscriptions[index++];
+  }
+  console.log(JSON.stringify(routes.map(({ alias, ...entry }) => entry)));
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

@@ -10,13 +10,29 @@ export function readUsage(now = Date.now()) {
   try {
     const data = JSON.parse(readFileSync(usagePath()));
     const age = now - Date.parse(data.fetchedAt);
-    return age >= 0 && age <= config.staleMinutes * 60000 ? data : null;
+    if (!(age >= 0 && age <= config.staleMinutes * 60000)) return null;
+    for (const entry of Object.values(data.providers ?? {})) {
+      if (entry.windows?.some((w) => Date.parse(w.resetsAt) <= now))
+        entry.posture = "unknown";
+    }
+    return data;
   } catch {
     return null;
   }
 }
 export function posture(windows, now) {
   if (!windows.length) throw new Error("no usage windows");
+  // A usable exhausted window is decisive even if another window is idle.
+  if (
+    windows.some(
+      (w) =>
+        Number.isFinite(w.usedPercent) &&
+        w.usedPercent >= config.limitPercent &&
+        w.usedPercent <= 100 &&
+        Date.parse(w.resetsAt) > now,
+    )
+  )
+    return "out";
   const scores = windows.map((w) => {
     if (
       !Number.isFinite(w.usedPercent) ||

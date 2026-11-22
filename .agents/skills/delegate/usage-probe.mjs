@@ -1,5 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname } from "node:path";
 import { createInterface } from "node:readline";
 import { config, usagePath, posture } from "./usage.mjs";
@@ -182,7 +183,10 @@ for (const provider of ["claudeAgent", "codex", "opencode"]) {
           ? "neutral"
           : extra.rateLimitReachedType
             ? "out"
-            : posture(windows, now),
+            : posture(
+                windows.filter((w) => !/opus/i.test(w.name)),
+                now,
+              ),
     };
   } catch (error) {
     providers[provider] = {
@@ -192,7 +196,11 @@ for (const provider of ["claudeAgent", "codex", "opencode"]) {
       error:
         error.code === "ENOENT"
           ? "CLI missing"
-          : error.message.split("\n")[0].slice(0, 180),
+          : provider === "claudeAgent"
+            ? "Claude meter failed or unparseable"
+            : provider === "codex"
+              ? "Codex meter failed or unparseable"
+              : "free Flash ping failed",
     };
   }
 }
@@ -201,6 +209,12 @@ const capabilitiesPath = option("--capabilities");
 try {
   if (capabilitiesPath) {
     const capabilities = JSON.parse(readFileSync(capabilitiesPath));
+    if (
+      !capabilities.fetchedAt ||
+      now - Date.parse(capabilities.fetchedAt) >
+        config.catalogStaleHours * 3600000
+    )
+      warnings.push("model catalog snapshot stale or undated");
     const routing = JSON.parse(
       readFileSync(new URL("./routing.json", import.meta.url)),
     );
@@ -210,24 +224,39 @@ try {
       );
       if (!provider?.models.some((m) => m.id === alias.model))
         warnings.push(`pinned model unavailable: ${alias.model}`);
-      const family = alias.model.match(/^(.*?)(\d+(?:\.\d+)?)(.*)$/);
-      if (family)
-        for (const model of provider?.models ?? []) {
-          const other = model.id.match(/^(.*?)(\d+(?:\.\d+)?)(.*)$/);
-          if (
-            other &&
-            family[1] === other[1] &&
-            family[3] === other[3] &&
-            +other[2] > +family[2]
-          )
-            warnings.push(`newer model ${model.id} than pinned ${alias.model}`);
-        }
+      const family = alias.model.replace(/\d+/g, "#");
+      const version = alias.model.match(/\d+/g)?.map(Number) ?? [];
+      for (const model of provider?.models ?? []) {
+        if (model.id.replace(/\d+/g, "#") !== family) continue;
+        const candidate = model.id.match(/\d+/g)?.map(Number) ?? [];
+        const first = version.findIndex((part, i) => part !== candidate[i]);
+        if (first >= 0 && candidate[first] > version[first])
+          warnings.push(`newer model ${model.id} than pinned ${alias.model}`);
+      }
     }
   } else warnings.push("model catalog unknown: supply --capabilities snapshot");
 } catch {
   warnings.push("model catalog unknown: invalid snapshot");
 }
-const data = { fetchedAt: new Date(now).toISOString(), providers, warnings };
+let sourceRevision = "installed-copy";
+try {
+  sourceRevision = run("git", [
+    "-C",
+    dirname(new URL(import.meta.url).pathname),
+    "rev-parse",
+    "HEAD",
+  ]).trim();
+} catch {}
+const configHash = createHash("sha256")
+  .update(JSON.stringify(config))
+  .digest("hex");
+const data = {
+  sourceRevision,
+  configHash,
+  fetchedAt: new Date(now).toISOString(),
+  providers,
+  warnings,
+};
 const file = usagePath();
 mkdirSync(dirname(file), { recursive: true });
 const temp = `${file}.${process.pid}.tmp`;
@@ -282,16 +311,17 @@ if (args.includes("--mirror")) {
       },
     ),
   );
-  execFileSync(
-    "gh",
-    [
-      "api",
-      "graphql",
-      "-f",
-      "query=mutation($id: ID!) { pinIssueComment(input: {issueCommentId: $id}) { clientMutationId } }",
-      "-f",
-      `id=${saved.node_id}`,
-    ],
-    { stdio: ["ignore", "ignore", "pipe"], timeout: config.timeoutMs },
-  );
+  if (!existing)
+    execFileSync(
+      "gh",
+      [
+        "api",
+        "graphql",
+        "-f",
+        "query=mutation($id: ID!) { pinIssueComment(input: {issueCommentId: $id}) { clientMutationId } }",
+        "-f",
+        `id=${saved.node_id}`,
+      ],
+      { stdio: ["ignore", "ignore", "pipe"], timeout: config.timeoutMs },
+    );
 }
