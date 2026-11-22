@@ -84,7 +84,7 @@ Done when `origin/main` contains the squash commit and step 4.4 is done.
 
 ## 5. Escalate
 
-Add the `ready-for-human` label and post one comment headed `## Needs you`, framed as a **decision**: the question, the options with their consequences, your recommendation, and how to hand back (Scott comments his answer, then swaps `ready-for-human` for `ready-for-agent`). It must read on its own, without a thread link. When the PR closes a ticket, the ticket is where Scott answers and swaps labels: `work-ticket` mirrors this comment onto it with `Q escalate`, so name the ticket (`Closes #<n>`) in the PR comment. Then stop; the PR waits for Scott. Remove `$HOME/.t3/worktrees/card-game/pr-<n>` if you created it.
+Add the `needs-triage` label and post one comment headed `## Needs you`, framed as a **decision**: the question, the options with their consequences, your recommendation, and how to hand back (Scott comments his answer, then swaps `needs-triage` for `ready-for-agent`). It must read on its own, without a thread link. When the PR closes a ticket, the ticket is where Scott answers and swaps labels: `work-ticket` mirrors this comment onto it with `Q escalate`, so name the ticket (`Closes #<n>`) in the PR comment. Then stop; the PR waits for Scott. Remove `$HOME/.t3/worktrees/card-game/pr-<n>` if you created it.
 
 ## Every outcome
 

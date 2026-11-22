@@ -2,7 +2,6 @@
   "enabled": true,
   "maxInProgress": 4,
   "maxDailyClaims": 12,
-  "maxEscalated": 2,
   "staleHours": 8,
   "implement": {
     "claudeShare": 0.5

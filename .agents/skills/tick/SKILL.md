@@ -14,20 +14,20 @@ The queue is label-driven, and the tick is the only writer of claims:
 
 ```text
 ready-for-agent ──claim──▶ in-progress ──PR merged──▶ closed
-      ▲                        ├── escalated by its thread ──▶ ready-for-human (`## Needs you` comment)
+      ▲                        ├── escalated by its thread ──▶ needs-triage (`## Needs you` comment)
       │                        └── no sign of life ──▶ CHECK: thread alive → heartbeat; dead → released
-      └── Scott answers, swaps ready-for-human ◀─────────────────────────────────┘ for ready-for-agent
+      └── Scott answers, swaps needs-triage ◀─────────────────────────────────┘ for ready-for-agent
 ```
 
-Each label answers "whose turn is it": `ready-for-agent` an agent's, `in-progress` an agent is working, `ready-for-human` Scott's (always with a `## Needs you` comment). Only `queue.sh escalate` sets `ready-for-human` on a claimed ticket, so `maxEscalated` counts real handoffs. A stale claim is not one: the tick asks T3 whether the thread lives (**Check**) instead of timing the claim.
+Each label answers "whose turn is it": `ready-for-agent` an agent's, `in-progress` an agent is working, `needs-triage` not yet ready, settled by the nightly task. `queue.sh escalate` releases the claim into `needs-triage` for triage. A stale claim is not one: the tick asks T3 whether the thread lives (**Check**) instead of timing the claim.
 
-Planners run beside implementers: one at a time, tracked by an open `planning` issue, rotating through `planning.categories` least recently run first. They skip the WIP and daily-claim caps (they only file tickets) but stop with everything else when tickets waiting on Scott hit `maxEscalated`.
+Planners run beside implementers: one at a time, tracked by an open `planning` issue, rotating through `planning.categories` least recently run first. They skip the WIP and daily-claim caps (they only file tickets) and continue regardless of the number of escalations.
 
-Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (every claim holds a slot while it lives), claims per UTC day, tickets automation has handed to Scott (`escalate`d ones only), hours without a sign of life before a claim is checked. The `planning` block holds the planner's own: on/off, runs per UTC day, tickets per run, and the category rotation. `implement.claudeShare` (0 to 1) is the fraction of tickets Claude implements while both providers are working; the rest go to Codex, and the cross-family review lands on the other subscription. No usage meter can be read reliably, so the tick finds out which provider refuses by launching on it (**Providers**), never from a number. Tune the caps and the share there (through a PR); `"enabled": false` stops dispatch and planning, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
+Caps live in [`config.json`](config.json) and are read from `origin/main`: tickets in progress (every claim holds a slot while it lives), claims per UTC day, hours without a sign of life before a claim is checked. The `planning` block holds the planner's own: on/off, runs per UTC day, tickets per run, and the category rotation. `implement.claudeShare` (0 to 1) is the fraction of tickets Claude implements while both providers are working; the rest go to Codex, and the cross-family review lands on the other subscription. No usage meter can be read reliably, so the tick finds out which provider refuses by launching on it (**Providers**), never from a number. Tune the caps and the share there (through a PR); `"enabled": false` stops dispatch and planning, and pausing the T3 schedule stops the runs themselves. Changing `queue.sh` means running [`test/test-queue.sh`](test/test-queue.sh).
 
 Steps 1–4 are a loop: after recording a launch, or resolving a **Check**, go back to step 1. Keep the list of tickets this run has claimed (`<claimed>` below, space-separated, empty at first) and pass it to every `next` and `plan-open`: GitHub's listings can lag a label write by more than the seconds between calls, so `queue.sh` counts those claims against the caps itself and never offers them again. The caps end the loop: every claim uses an in-progress slot and a daily claim, and once a planner is open, `next` returns `NOOP`. The run ends when the loop ends, after the **Plan** step when `next` returns `PLAN`, or early on an error or refusal. Your reply covers the whole run: every ticket launched, the planner if one started, and why it ended: the `NOOP` line, the planner it started, or the error or refusal.
 
-Completed parent specs stay open for Scott: `queue.sh parent-done <child>` swaps `ready-for-agent` for `ready-for-human` and comments once after all children close. Nothing waits on the spec. These unclaimed specs do not count toward `maxEscalated`, which counts claim history.
+Completed parent specs close automatically: `queue.sh parent-done <child>` posts one comment listing children and closes the spec once all children close.
 
 ## Providers
 
@@ -68,7 +68,7 @@ git show origin/main:.agents/skills/tick/queue.sh | bash -s -- resume-info <n>  
 
 A failed `t3_thread_send` to a thread you just read is a transport error, not proof the thread is gone: stop the run like a failed read and keep the claim (a later tick tries again). Release only on confirmed absence.
 
-If the read itself errors, stop the run: claim nothing more, and mention the error in the reply. (`next` would offer the same ticket again, so retrying here never ends.) `alive` and `release` change what `next` offers, so every other outcome terminates. `release` refuses a ticket whose thread escalated in the meantime; leave that one for Scott (a later `next` finishes an escalation whose claim removal failed, and drops the dead claim if Scott already handed the ticket back, so neither recurs as a CHECK). `<nudges>` counts only wakes since the current claim began, so a hand-back starts a fresh budget. `alive` also clears a `ready-for-human` the retired stale sweep left on a claimed ticket, recognised by that sweep's own comment (`the claim keeps its slot until you remove`); a `ready-for-human` without it belongs to an escalation, so `alive` leaves it and `release` refuses.
+If the read itself errors, stop the run: claim nothing more, and mention the error in the reply. (`next` would offer the same ticket again, so retrying here never ends.) `alive` and `release` change what `next` offers, so every other outcome terminates. `release` refuses a ticket whose thread escalated in the meantime; leave that one for Scott (a later `next` finishes an escalation whose claim removal failed, and drops the dead claim if Scott already handed the ticket back, so neither recurs as a CHECK). `<nudges>` counts only wakes since the current claim began, so a hand-back starts a fresh budget. `alive` preserves `needs-triage`; `release` refuses it because an escalation may be in flight.
 
 ## 2. Claim
 
