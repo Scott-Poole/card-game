@@ -216,3 +216,12 @@ test("assertLocationPool rejects duplicate ids", () => {
     assertLocationPool([first, { ...first }, ...valid.slice(2)]);
   }).toThrow("location pool: locations need a unique id per entry");
 });
+
+test("reports arbitrary extra effect keys as effect issues", () => {
+  expect(
+    validateLocations([
+      { ...first, effect: { kind: "none", note: "extra" } },
+      ...valid.slice(1),
+    ]),
+  ).toEqual([{ code: "effect", index: 0 }]);
+});
