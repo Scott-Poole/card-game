@@ -87,7 +87,7 @@ try {
   );
   const third = JSON.parse(readFileSync(env.CARD_GAME_USAGE_FILE));
   assert.equal(third.providers.claudeAgent.windows[2].usedPercent, 40);
-  assert.equal(third.providers.claudeAgent.posture, "conserve");
+  assert.equal(third.providers.claudeAgent.posture, "neutral");
   assert.equal(third.providers.opencode.posture, "out");
   assert.equal(third.providers.codex.resetCredits.length, 1);
   console.log("usage fixture tests passed");
@@ -116,6 +116,10 @@ try {
   );
   assert.equal(route("plan")[0].providerInstanceId, "codex");
   assert.equal(route("implementation-share"), 0.2);
+  assert.equal(route("implement.claude")[0].providerInstanceId,"claudeAgent");
+  writeFileSync(file,JSON.stringify({fetchedAt:new Date().toISOString(),providers:{opencode:{posture:"out"}}}));
+  assert.equal(route("review.two-family").length,1);
+  assert.equal(route("review.two-family")[0].model,JSON.parse(readFileSync(".agents/skills/delegate/routing.json")).aliases["flash.paid"].model);
   writeFileSync(
     file,
     JSON.stringify({
