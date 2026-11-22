@@ -227,8 +227,27 @@ test("a new match starts with every zone empty", () => {
 test.each([0, 1] satisfies PlayerId[])(
   "forfeit clears both players' planning state when only player %i committed",
   (committer) => {
+    const board: MatchState = {
+      ...state,
+      locations: state.locations.map((location, lane) =>
+        lane === 1
+          ? { ...location, effect: { kind: "power-per-card", amount: 2 } }
+          : location,
+      ),
+      players: [
+        state.players[0],
+        {
+          ...state.players[1],
+          lanes: [
+            [],
+            [{ ...card("enemy"), power: 5, printed: card("enemy") }],
+            [],
+          ],
+        },
+      ],
+    };
     const staged = unwrap(
-      stage(state, 0, [{ cardId: "hand-secret-0", lane: 1 }]),
+      stage(board, 0, [{ cardId: "hand-secret-0", lane: 1 }]),
     );
     const locked = unwrap(commit(staged, committer));
     const ended = forfeit(locked, 1);
@@ -238,8 +257,8 @@ test.each([0, 1] satisfies PlayerId[])(
       expect(view.own.committed).toBe(false);
       expect(view.opponent.committed).toBe(false);
       expect(view.result).toEqual({
-        lanes: [null, null, null],
-        power: [2, 2],
+        lanes: [0, 1, null],
+        power: [2, 7],
         winner: 0,
       });
       expect(view.own.hand).toEqual(state.players[id].hand);
