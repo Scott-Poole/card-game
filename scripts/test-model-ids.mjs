@@ -29,6 +29,16 @@ try {
     assert.equal(check().status, 1, id);
     assert.match(check().stderr, /SKILL.md:1/);
   }
+  writeFileSync(path, "Use aliases.");
+  for (const extension of ["mjs", "sh", "yml"]) {
+    const script = join(root, `.agents/skills/example/run.${extension}`);
+    writeFileSync(script, "gpt-example");
+    assert.equal(check().status, 1, extension);
+    rmSync(script);
+  }
+  execFileSync("git", ["-C", root, "add", "."]);
+  rmSync(path);
+  assert.equal(check().status, 0, "pending deletion");
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

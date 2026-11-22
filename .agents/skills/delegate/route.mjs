@@ -9,9 +9,17 @@ try {
   if (!Object.hasOwn(routing.tiers, tier))
     throw new Error(`unknown tier: ${tier}`);
   const out = new Set(
-    (args[1] ?? "").split(",").map((p) => (p === "claude" ? "claudeAgent" : p)),
+    (args[1] ?? "").split(",").map((value) => {
+      const p = value.trim();
+      return p === "claude" ? "claudeAgent" : p;
+    }),
   );
+  for (const provider of out) {
+    if (provider && !["codex", "claudeAgent", "opencode"].includes(provider))
+      throw new Error(`unknown out provider: ${provider}`);
+  }
   const routes = routing.tiers[tier]
+    .flatMap((alias) => routing.groups?.[alias] ?? [alias])
     .map((alias) => {
       const entry = routing.aliases[alias];
       if (!entry) throw new Error(`unknown alias: ${alias}`);
@@ -19,10 +27,7 @@ try {
         ...entry,
         options: {
           ...entry.options,
-          ...(tier.startsWith("review.") &&
-          entry.providerInstanceId === "opencode"
-            ? { variant: "high" }
-            : {}),
+          ...routing.tierOptions?.[tier]?.[entry.providerInstanceId],
         },
       };
     })

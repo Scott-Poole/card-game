@@ -67,25 +67,46 @@
   },
   "tiers": {
     "judge": ["claude.judge"],
-    "explore": ["claude.explore", "flash.free", "flash.paid"],
+    "explore": [
+      "claude.explore",
+      "flash",
+      "codex.review-fallback",
+      "codex.grunt"
+    ],
     "implement": ["codex.workhorse", "claude.workhorse"],
     "implement.codex": ["codex.workhorse", "claude.workhorse"],
     "implement.claude": ["claude.workhorse", "codex.workhorse"],
     "plan": ["claude.workhorse", "codex.workhorse"],
-    "review.codex": ["claude.workhorse", "flash.free", "flash.paid"],
-    "review.claude": [
-      "codex.workhorse",
-      "codex.review-fallback",
-      "flash.free",
-      "flash.paid"
-    ],
+    "review.codex": ["claude.workhorse", "flash"],
+    "review.claude": ["codex.workhorse", "codex.review-fallback", "flash"],
     "review.flash": ["claude.workhorse", "codex.workhorse"],
-    "grunt": ["flash.free", "flash.paid", "claude.explore", "codex.grunt"],
+    "grunt": ["flash", "claude.explore", "codex.grunt"],
     "hard": ["codex.hard", "codex.rare", "claude.judge"],
-    "flash": ["flash.free", "flash.paid"]
+    "flash": ["flash"],
+    "review.two-family": ["flash"]
   },
   "orchestrator": {
     "alias": "claude.workhorse",
     "note": "Documentation only: the T3 tick schedule is pinned separately."
+  },
+  "tierOptions": {
+    "review.claude": {
+      "opencode": {
+        "variant": "high"
+      }
+    },
+    "review.codex": {
+      "opencode": {
+        "variant": "high"
+      }
+    },
+    "review.two-family": {
+      "opencode": {
+        "variant": "high"
+      }
+    }
+  },
+  "groups": {
+    "flash": ["flash.free", "flash.paid"]
   }
 }
