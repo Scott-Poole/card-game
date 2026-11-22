@@ -19,15 +19,15 @@ State the **intent** (what the author is trying to achieve) in one or two senten
 
 Fix the diff range. When the caller passes explicit base and head SHAs and a checkout path (as `land` does), use exactly those, and put them in every brief; otherwise use `<base>...HEAD` in the current checkout. `git diff --stat <base>...<head>`: size picks the reviewers (lenses in [LENSES.md](LENSES.md)):
 
-| Size | Reviewers |
-|---|---|
-| < 50 lines, 1–2 files | Skeptic |
-| 50–200 lines, 3–5 files | Skeptic, Architect |
-| 200+ lines or 5+ files | Skeptic, Architect, Minimalist |
+| Size                    | Reviewers                      |
+| ----------------------- | ------------------------------ |
+| < 50 lines, 1–2 files   | Skeptic                        |
+| 50–200 lines, 3–5 files | Skeptic, Architect             |
+| 200+ lines or 5+ files  | Skeptic, Architect, Minimalist |
 
 ## 2. Spawn reviewers
 
-Use the `delegate` skill's **review** tier: the family that did *not* write the code (its table also names the fallback when Codex is out of usage). Launch all reviewers in parallel with `delegate_task`, `role: "review"`, `isolation: "shared"`.
+Use the `delegate` skill's **review** policy and select its author-specific `review.*` router tier: the family that did _not_ write the code (its table also names the fallback when Codex is out of usage). Launch all reviewers in parallel with `delegate_task`, `role: "review"`, `isolation: "shared"`.
 
 Each brief contains: the intent, the checkout path, the exact `git diff <base>...<head>` command to run, the full text of its one lens from LENSES.md, and this instruction:
 
