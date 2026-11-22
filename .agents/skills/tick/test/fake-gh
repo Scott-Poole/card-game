@@ -24,6 +24,15 @@ def fail(msg, code=1):
 
 def main():
     args = sys.argv[1:]
+    if args[:2] == ["label", "create"]:
+        return
+    if args[:2] == ["issue", "list"]:
+        with open(os.environ["FAKE_GH_STATE"]) as f:
+            state = json.load(f)
+        found = [i for i in state["issues"].values()
+                 if i["state"] == "open" and any(l["name"] == "grilling" for l in i["labels"])]
+        print(min(10, len(found)))
+        return
     if not args or args[0] != "api":
         fail(f"fake-gh: unsupported command {args}")
     args = args[1:]
