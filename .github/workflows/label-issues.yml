@@ -4,6 +4,9 @@ on:
     types: [opened, labeled]
 permissions:
   issues: write
+concurrency:
+  group: label-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
 jobs:
   label:
     runs-on: ubuntu-latest
