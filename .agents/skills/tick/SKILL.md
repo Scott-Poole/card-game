@@ -19,7 +19,7 @@ ready-for-agent ──claim──▶ in-progress ──PR merged──▶ closed
       └── Scott answers, swaps needs-triage ◀─────────────────────────────────┘ for ready-for-agent
 ```
 
-Each label answers "whose turn is it": `ready-for-agent` an agent's, `in-progress` an agent is working, `needs-triage` not yet ready, settled by the nightly task. `queue.sh escalate` releases the claim into `needs-triage` for triage. A stale claim is not one: the tick asks T3 whether the thread lives (**Check**) instead of timing the claim.
+Each label answers "whose turn is it": `ready-for-agent` an agent's, `in-progress` an agent is working, `needs-triage` not yet ready, settled by the nightly task. `queue.sh escalate` releases the claim into `needs-triage`; work-ticket and land immediately follow [triage’s launch flow](../triage/SKILL.md#launch-a-grilling-thread) to open a dedicated T3 grill. A stale claim is not one: the tick asks T3 whether the thread lives (**Check**) instead of timing the claim.
 
 Planners run beside implementers: one at a time, tracked by an open `planning` issue, rotating through `planning.categories` least recently run first. They skip the WIP and daily-claim caps (they only file tickets) and continue regardless of the number of escalations.
 

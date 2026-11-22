@@ -101,6 +101,13 @@ setup "[$(issue 6 needs-triage '{"user":{"login":"stranger"}}')]"
 run grill-start 6
 check "grill refuses untrusted author" is "$CODE:$(labels 6)" "1:needs-triage"
 
+setup "[$(issue 6 needs-triage)]"
+FAKE_GH_FAIL="GET issues/6" FAKE_GH_FAIL_SKIP=2 FAKE_GH_FAIL_ONCE=1 run grill-start 6
+check "reservation verification failure rolls back" is "$CODE:$(labels 6)" "1:needs-triage"
+setup "[$(issue 6 ready-for-agent,grilling),$(issue 7 ready-for-agent)]"
+run next
+check "open grilling thread excludes ticket from frontier" is "$OUT" "LAUNCH 7 Ticket 7"
+
 # --- completed parent specs --------------------------------------------------------------
 setup "[$(issue 3 ready-for-agent), $(issue 4 '' '{"state":"closed","parent_issue_url":"https://api.github.com/repos/Scott-Poole/card-game/issues/3"}')]"
 run parent-done 4
