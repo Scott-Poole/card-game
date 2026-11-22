@@ -372,3 +372,21 @@ test.each([
   expect(issues.some((issue) => issue.code === "effect")).toBe(badEffect);
   expect(issues.some((issue) => issue.code === "effect-text")).toBe(badText);
 });
+
+test("reports arbitrary extra effect keys as effect issues", () => {
+  expect(
+    validateRoster([
+      {
+        ...first,
+        card: {
+          ...first.card,
+          ability: {
+            text: "Gain 1 power.",
+            effect: { kind: "boost-self", amount: 1, note: "extra" },
+          },
+        },
+      },
+      ...valid.slice(1),
+    ]),
+  ).toEqual([{ code: "effect", index: 0 }]);
+});
