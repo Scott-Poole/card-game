@@ -8,7 +8,7 @@ description: >-
 
 # Plan
 
-Owned by this repo. You are one thread, launched by the [`tick`](../tick/SKILL.md) skill because the ticket queue ran dry, in a fresh worktree from `origin/main`. You carry one **category** and one open **planning issue** (label `planning`, title `Plan: <category>`). Your output is **tickets**: you change no code and push nothing. Resolved tickets go straight to `ready-for-agent`, and a `work-ticket` thread takes it from claim to merge with no human reading it first, so the ticket itself is the spec.
+Owned by this repo. You are one thread, launched by the [`tick`](../tick/SKILL.md) skill because the ticket queue ran dry, in a fresh worktree from `origin/main`. You carry one **category** and one open **planning issue** (label `planning`, title `Plan: <category>`). Your output is **tickets**: you change no code and push nothing. Resolved tickets go straight to `ready-for-agent`, and a `work-ticket` thread takes each from claim to merge with no human reading it first, so the ticket itself is the spec.
 
 Read and apply [the decision rule](../../../docs/agents/decision-rule.md) before deciding, filing tickets or escalating. Course-correct first; escalate only for its three qualifying categories. Settle agent-owned questions and fold the answers into the ticket body before filing it.
 
@@ -64,7 +64,7 @@ Your planning issue is your **lease**. Immediately before each ticket, confirm t
 	gh issue create --title "<title>" --label ready-for-agent --body-file <file>
 ```
 
-A candidate with a decision that qualifies under the decision rule is `needs-triage`. Put the question, options, recommendation and evidence in its body before filing it with that label. Triage resolves it before the tick claims it. See `docs/agents/triage-labels.md`.
+A candidate with a decision that qualifies under the decision rule is `needs-triage`. Put the question, options, recommendation and evidence in its body before filing it with that label, then post a `## Needs you` comment pointing to that decision. Triage resolves it before the tick claims it. See `docs/agents/triage-labels.md`.
 
 Done when every filed ticket shows up in `gh issue list --label ready-for-agent` (or `needs-triage`, for decisions).
 
