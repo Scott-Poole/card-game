@@ -1,31 +1,11 @@
-import { createServer } from "node:net";
 import { afterEach, expect, test } from "vitest";
+import { freePort, startOnExplicitPort } from "./occupied-port.test-support.ts";
 import { decodeServerMessage } from "../protocol/messages.ts";
 import type { LocationDefinition } from "../rules/index.ts";
 import { startServer, type ServerHandle } from "./index.ts";
 
 let server: ServerHandle | undefined;
 afterEach(() => server?.close());
-
-// Linux only lets a second uWebSockets.js server share a port when the first bound it
-// explicitly (SO_REUSEPORT); a port-0 bind gets an ephemeral port the kernel never shares.
-// So these tests claim a free port number first and bind it by name.
-async function freePort() {
-  const probe = createServer();
-  await new Promise<void>((resolve, reject) => {
-    probe.once("error", reject);
-    probe.listen(0, "127.0.0.1", resolve);
-  });
-  const address = probe.address();
-  await new Promise<void>((resolve) => {
-    probe.close(() => {
-      resolve();
-    });
-  });
-  if (address === null || typeof address === "string")
-    throw new Error("No port bound");
-  return address.port;
-}
 
 function nextMessage(socket: WebSocket): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -58,13 +38,33 @@ test("a client receives a protocol welcome on a dynamically bound port", async (
   socket.close();
 });
 
-test("refuses to start on a port another server already holds", async () => {
-  const port = await freePort();
-  server = await startServer({ port, clientDirectory: "dist" });
-  await expect(startServer({ port, clientDirectory: "dist" })).rejects.toThrow(
-    `Unable to listen on port ${String(port)}`,
-  );
-});
+test.each([false, true])(
+  "refuses an occupied port (setup collision: %s)",
+  async (collision) => {
+    const blocker = collision
+      ? await startServer({ port: 0, clientDirectory: "dist" })
+      : undefined;
+    let firstProbe = true;
+    try {
+      server = await startOnExplicitPort(
+        (port) => startServer({ port, clientDirectory: "dist" }),
+        async () => {
+          if (firstProbe && blocker) {
+            firstProbe = false;
+            return blocker.port;
+          }
+          return freePort();
+        },
+      );
+    } finally {
+      blocker?.close();
+    }
+    const port = server.port;
+    await expect(
+      startServer({ port, clientDirectory: "dist" }),
+    ).rejects.toThrow(`Unable to listen on port ${String(port)}`);
+  },
+);
 
 test.each(["{", '{"type":"unknown"}'])(
   "rejects %s and keeps the connection open",
