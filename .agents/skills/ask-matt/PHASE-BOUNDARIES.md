@@ -24,7 +24,7 @@ Work top to bottom at the boundary. The first **yes** wins.
 
 The cost of getting this wrong is one-way. Clear a *relevant* context and you lose the **why** behind what you built, and no amount of reading the diff back gets it returned.
 
-**3. Do you need to hand off?** a handoff summary is narrow. You need it only when you are:
+**3. Do you need to hand off?** A handoff summary is narrow. You need it only when you are:
 
 - swapping to a **new harness** (Claude → Codex),
 - moving to a **new directory** or repo,
