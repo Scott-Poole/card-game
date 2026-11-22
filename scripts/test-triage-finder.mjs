@@ -5,7 +5,14 @@ import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 const dir = mkdtempSync(join(tmpdir(), "triage-"));
 try {
-  writeFileSync(join(dir, "gh"), '#!/bin/sh\ncat "$FIXTURE"\n');
+  writeFileSync(
+    join(dir, "gh"),
+    `#!/bin/sh
+[ "$1" = api ] && [ "$2" = --paginate ] && [ "$3" = --jq ] && [ "$4" = '.[] | @json' ] && [ "$5" = 'repos/Scott-Poole/card-game/issues?state=open&per_page=100' ] || exit 9
+[ -z "$GH_FAIL" ] || exit 7
+cat "$FIXTURE"
+`,
+  );
   chmodSync(join(dir, "gh"), 0o755);
   const configFile = join(dir, "config.json");
   writeFileSync(
@@ -19,7 +26,7 @@ try {
     labels: labels.map((name) => ({ name })),
     created_at,
   });
-  const run = (issues, states) => {
+  const run = (issues, states, extraEnv = {}) => {
     const stateFile = join(dir, "states.json");
     if (states) writeFileSync(stateFile, JSON.stringify(states));
     writeFileSync(
@@ -39,6 +46,7 @@ try {
           PATH: `${dir}:${process.env.PATH}`,
           FIXTURE: fixture,
           TRIAGE_CONFIG: configFile,
+          ...extraEnv,
         },
       },
     );
@@ -69,6 +77,21 @@ try {
   };
   assert.equal(run([pr]).stdout, "");
   assert.equal(run([]).stdout, "");
+  assert.equal(
+    run([{ ...pending, labels: [{ name: "grilling" }] }], { 3: "missing" })
+      .stdout,
+    "STALE 3\n",
+  );
+  assert.equal(run([{ ...pending, user: null }]).stdout, "");
+  assert.notEqual(run([], undefined, { GH_FAIL: "1" }).status, 0);
+  assert.equal(run([], undefined, { GH_FAIL: "1" }).stdout, "");
+  assert.equal(
+    run([
+      issue(7, "Scott-Poole", ["needs-triage"], "2020-01-01T00:00:00Z"),
+      issue(6, "Scott-Poole", ["needs-triage"], "2020-01-01T00:00:00Z"),
+    ]).stdout,
+    "TRIAGE 6\nTRIAGE 7\n",
+  );
   const ordered = run([
     issue(9, "Scott-Poole", ["needs-triage"], "2022-01-01"),
     issue(4, "Scott-Poole", ["needs-triage"], "2020-01-01"),
