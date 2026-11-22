@@ -18,7 +18,7 @@ Tickets have two readiness buckets: `ready-for-agent` means every question is re
 
 `queue.sh escalate` adds `needs-triage`, removes `ready-for-agent` and `in-progress`, and requires a comment beginning `## Needs you`. The comment states the decision or action, options and consequences, recommendation, and evidence (PR or failed check). It reads on its own from GitHub.
 
-Triage resolves the question and folds the answer into the ticket. When ready, replace `needs-triage` with `ready-for-agent`. The tick resumes prior work using claim history and the latest trusted comments. An unresolved ticket stays in `needs-triage` for a grilling thread.
+Triage resolves the question and folds the answer into the ticket. Work-ticket and land immediately launch the dedicated T3 flow in `.agents/skills/triage/SKILL.md`. Its queue helpers reserve a slot (`grill-start`, at most 10 open grills), record the thread link (`grill-launched`), or clear a failed or confirmed missing thread (`grill-clear`). When ready, rewrite the body, post one resolution comment, remove `grilling`, replace `needs-triage` with `ready-for-agent`, and archive the thread. The tick resumes prior work using claim history and the latest trusted comments. An unresolved ticket stays in `needs-triage` for a grilling thread.
 
 A stale claim is checked through T3, then refreshed, woken, or released; age alone is not an escalation. Escalations do not cap implementation or planning.
 

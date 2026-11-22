@@ -24,6 +24,17 @@ def fail(msg, code=1):
 
 def main():
     args = sys.argv[1:]
+    if args[:2] == ["issue", "list"]:
+        with open(os.environ["FAKE_GH_STATE"]) as f:
+            state = json.load(f)
+        expected = ["issue", "list", "--repo", "Scott-Poole/card-game", "--label", "grilling",
+                    "--state", "open", "--limit", "10", "--json", "number", "--jq", "length"]
+        if args != expected:
+            fail(f"fake-gh: unexpected issue list invocation {args}")
+        found = [i for i in state["issues"].values()
+                 if i["state"] == "open" and any(l["name"] == "grilling" for l in i["labels"])]
+        print(min(10, len(found)))
+        return
     if not args or args[0] != "api":
         fail(f"fake-gh: unsupported command {args}")
     args = args[1:]

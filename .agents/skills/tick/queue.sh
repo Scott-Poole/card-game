@@ -236,7 +236,7 @@ cmd_next() {
 			and (.assignees | length) == 0
 			and ((.sub_issues_summary.total // 0) == 0)
 			and ((.issue_dependencies_summary.blocked_by // 0) == 0)
-			and (any(.labels[]; .name == \"$CLAIMED\" or .name == \"$TRIAGE\") | not)
+			and (any(.labels[]; .name == \"$CLAIMED\" or .name == \"$TRIAGE\" or .name == \"grilling\") | not)
 		)] | first // empty | \"\(.number) \(.title)\"")
 	if [[ -z $pick ]]; then
 		plan_next "$cfg" "$now" "$stale_hours"
@@ -523,7 +523,33 @@ cmd_escalate() {
 	log "escalated #$n"
 }
 
+# T3 is a tool boundary, so launch is a three-command handshake. The caller must
+# clear the reservation on a failed launch; a successful launch is recorded separately.
+cmd_grill_start() {
+	local n=$1 labels count author allowed
+	labels=" $(labels_of "$n") "
+	[[ $labels != *" grilling "* ]] || { log "already grilling #$n"; return 1; }
+	[[ $labels == *" $TRIAGE "* ]] || { log "#$n is not awaiting triage"; return 1; }
+	author=$(gh api "$API/issues/$n" --jq .user.login)
+	allowed=$(config | jq -r --arg author "$author" '.trustedAuthors | index($author) != null')
+	[[ $allowed == true ]] || { log "untrusted issue author"; return 1; }
+	count=$(gh issue list --repo "$REPO" --label grilling --state open --limit 10 --json number --jq length)
+	((count < 10)) || { log "grilling cap reached (10)"; return 1; }
+	arm "$n" "" grilling
+	transition "$n" grilling ""
+	disarm
+}
+cmd_grill_launched() {
+	local labels
+	labels=" $(labels_of "$1") "
+	[[ $labels == *" grilling "* ]] || { log "no grilling reservation"; return 1; }
+	comment "$1" "triage thread: $2"
+}
+
 case ${1:-} in
+grill-start) cmd_grill_start "${2:?issue number}" ;;
+grill-launched) cmd_grill_launched "${2:?issue number}" "${3:?thread link}" ;;
+grill-clear) transition "${2:?issue number}" "" grilling ;;
 next) shift; cmd_next "$@" ;;
 parent-done) cmd_parent_done "${2:?child issue number}" ;;
 claim) cmd_claim "${2:?issue number}" ;;
