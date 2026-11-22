@@ -223,3 +223,28 @@ test("a new match starts with every zone empty", () => {
   for (const p of match.players)
     expect(p.zones).toEqual({ destroyed: [], discarded: [], banished: [] });
 });
+
+test.each([0, 1] satisfies PlayerId[])(
+  "forfeit clears both players' planning state when only player %i committed",
+  (committer) => {
+    const staged = unwrap(
+      stage(state, 0, [{ cardId: "hand-secret-0", lane: 1 }]),
+    );
+    const locked = unwrap(commit(staged, committer));
+    const ended = forfeit(locked, 1);
+    for (const id of [0, 1] satisfies PlayerId[]) {
+      const view = playerView(ended, id);
+      expect(view.own.staged).toEqual([]);
+      expect(view.own.committed).toBe(false);
+      expect(view.opponent.committed).toBe(false);
+      expect(view.result).toEqual({
+        lanes: [null, null, null],
+        power: [2, 2],
+        winner: 0,
+      });
+      expect(view.own.hand).toEqual(state.players[id].hand);
+    }
+    expect(playerView(locked, 0).own.staged).toHaveLength(1);
+    expect(playerView(locked, committer).own.committed).toBe(true);
+  },
+);
