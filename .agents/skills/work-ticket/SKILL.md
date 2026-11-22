@@ -8,9 +8,9 @@ description: >-
 
 # Work ticket
 
-Owned by this repo. You are one thread, launched by the `tick` skill, in a fresh worktree from `origin/main` on branch `ticket/<n>-<slug>`. The issue already carries `in-progress`; the claim is yours. You own the ticket **from claim to merge**: you write the code, run the review, act on the findings with your full context, and merge. Iterate on reproducible implementation, test and CI failures while making progress. Follow land's progress-based escalation policy; hand off decisions or blockers you cannot resolve, with evidence.
+Owned by this repo. You are one thread, launched by the `tick` skill, in a fresh worktree from `origin/main` on branch `ticket/<n>-<slug>`. The issue already carries `in-progress`; the claim is yours. You own the ticket **from claim to merge**: you write the code, run the review, act on the findings with your full context, and merge. Iterate on reproducible implementation, test and CI failures while making progress.
 
-Scott decides direction; you decide everything reversible. An ambiguous criterion with a sensible reading gets that reading, noted in the PR body, not an escalation.
+Read and apply [the decision rule](../../../docs/agents/decision-rule.md) before deciding, filing tickets or escalating. Course-correct first; escalate only for its three qualifying categories. Decide reversible points yourself and record them in the PR body.
 
 ## 1. Orient
 
@@ -27,7 +27,9 @@ The repo is public, so trust is per author. Scope comes only from the issue body
 
 **Out providers.** The tick ends your launch message with a `Providers out: …` line (or `Providers out: none.`). That line is your starting out-set in `delegate`'s sense: skip a provider it names whenever you pick a model, review included, so a reviewer launch never spends its first try on a provider the tick already knows refuses. The newest such line in this thread replaces older ones, and a line older than `providerOutHours` no longer counts. With no usable line (an old thread, a manual run), read this project's threads with `t3_thread_list` (`limit: 30`, no status filter, subagent threads included) and compute the set yourself: Claude and Codex are each **out** when they have a thread with status `failed` and `itemCount` of 3 or less, updated within `providerOutHours` (`git show origin/main:.agents/skills/tick/config.json | jq .providerOutHours`; 2 when absent), unless a later thread on that provider is running or has completed. `opencode` is never out. The full rule is in `delegate`. A provider the line leaves out may still refuse; treat that refusal as `delegate` says.
 
-Done when you can list every acceptance criterion and the seam each one is proved at.
+**Readiness check, before implementation.** Settle agent-owned questions and fold the answers into the ticket body. If the body still has unresolved questions or an escalation, use the step-5 escalation path to return it to `needs-triage` and end this run. Name the qualifying category and question; a claim is not evidence that a ticket is ready.
+
+Done when the body has no unresolved questions or escalation and you can list every acceptance criterion and the seam each one is proved at.
 
 ## 2. Build
 
@@ -67,7 +69,9 @@ Q() { git show origin/main:.agents/skills/tick/queue.sh | bash -s -- "$@"; }
 
 - **Merged**: the ticket closes itself. Confirm the merged ticket is closed via `gh issue view <n> --json state` before running `Q parent-done <n>` (GitHub closure can lag the merge). Retry transient query/write failures; if unavailable infrastructure prevents reconciliation, report the failure and leave it for the planner backstop rather than escalating the closed ticket. The command: when all siblings are closed, the parent spec closes with one comment listing its children. Then remove your worktree, last, per `AGENTS.md`. Done.
 - **Escalated** by land (`needs-triage` or `review-blocked` on the PR): `Q escalate <n> "<comment>"`, a comment that opens with `## Needs you` and links the PR.
-- **Stuck** (a criterion you can't meet, a ticket that contradicts the spec, a check you can't make pass): push what you have as a draft PR if you committed anything, then `Q escalate <n> "<comment>"`.
+- **Qualifying decision** under the decision rule, including one caught by the readiness check: push what you have as a draft PR if you committed anything, then `Q escalate <n> "<comment>"`.
+
+After escalation, stop work on this ticket. File work independent of the answer as its own ticket per [`to-tickets`](../to-tickets/SKILL.md).
 
 Every `Q escalate` comment starts with `## Needs you` (the command refuses anything else) and reads cold from GitHub, without a thread link: the decision or action, the options with their consequences, your recommendation, the draft PR or evidence, and the hand-back: triage resolves the question, folds the answer into the ticket, then swaps `needs-triage` for `ready-for-agent`, and the tick resumes the ticket.
 
