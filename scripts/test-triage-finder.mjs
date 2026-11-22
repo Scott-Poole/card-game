@@ -1,0 +1,70 @@
+import { mkdtempSync, writeFileSync, chmodSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import assert from "node:assert/strict";
+const dir = mkdtempSync(join(tmpdir(), "triage-"));
+try {
+  writeFileSync(join(dir, "gh"), '#!/bin/sh\ncat "$FIXTURE"\n');
+  chmodSync(join(dir, "gh"), 0o755);
+  const fixture = join(dir, "issues.json");
+  const issue = (number, author, labels, created_at) => ({
+    number,
+    user: { login: author },
+    labels: labels.map((name) => ({ name })),
+    created_at,
+  });
+  const run = (issues, states) => {
+    const stateFile = join(dir, "states.json");
+    if (states) writeFileSync(stateFile, JSON.stringify(states));
+    writeFileSync(
+      fixture,
+      issues.map((issue) => JSON.stringify(issue)).join("\n"),
+    );
+    return spawnSync(
+      process.execPath,
+      [
+        resolve("scripts/triage-finder.mjs"),
+        ...(states ? ["--grills", stateFile] : []),
+      ],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${dir}:${process.env.PATH}`,
+          FIXTURE: fixture,
+        },
+      },
+    );
+  };
+  assert.equal(
+    run([
+      issue(2, "stranger", ["needs-triage"], "2020-01-01"),
+      issue(1, "Scott-Poole", ["needs-triage"], "2021-01-01"),
+    ]).stdout,
+    "TRIAGE 1\n",
+  );
+  console.log("PASS trusted authors");
+  const pending = issue(
+    3,
+    "Scott-Poole",
+    ["needs-triage", "grilling"],
+    "2020-01-01",
+  );
+  assert.equal(run([pending], { 3: "live" }).stdout, "");
+  assert.equal(run([pending]).stdout, "CHECK 3\n");
+  assert.equal(run([pending], { 3: "missing" }).stdout, "STALE 3\n");
+  assert.notEqual(run([pending], {}).status, 0);
+  assert.equal(run([]).stdout, "");
+  const ordered = run([
+    issue(9, "Scott-Poole", ["needs-triage"], "2022-01-01"),
+    issue(4, "Scott-Poole", ["needs-triage"], "2020-01-01"),
+  ]);
+  assert.equal(ordered.status, 0);
+  assert.equal(ordered.stdout, "TRIAGE 4\nTRIAGE 9\n");
+  console.log(
+    "PASS grilling excluded, stale grilling, unknown fails closed, ordering, empty",
+  );
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}

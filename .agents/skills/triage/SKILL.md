@@ -5,6 +5,8 @@ description: Resolve one ticket in a dedicated T3 grilling thread, or launch tha
 
 # Triage
 
+For a nightly scheduled run, follow [nightly.md](nightly.md).
+
 ## Dedicated per-ticket thread
 
 Read and apply [the decision rule](../../../docs/agents/decision-rule.md).
