@@ -1,18 +1,14 @@
+import PlayerTag from "./PlayerTag.tsx";
 import { useReveal } from "./useReveal.ts";
 import { flushSync } from "react-dom";
 import { animate } from "motion/react";
 import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
-import type { Card as CardData } from "../protocol/messages.ts";
+import type { Inspection } from "./inspection.ts";
 import { useRef, useState, useLayoutEffect } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
-import {
-  DragPreview,
-  HandCard,
-  Inspect,
-  PlayTarget,
-} from "./PlayInteractions.tsx";
+import { DragPreview, HandCard, PlayTarget } from "./PlayInteractions.tsx";
 import Card from "./Card.tsx";
-import PlayerSheet from "./PlayerSheet.tsx";
+import InspectionSheet from "./InspectionSheet.tsx";
 import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
 import {
@@ -48,12 +44,7 @@ export default function ProtocolGame() {
 function Game() {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
-  const [inspection, setInspection] = useState<
-    | { kind: "card"; card: CardData }
-    | { kind: "lane"; number: number }
-    | { kind: "player"; side: "own" | "opponent" }
-    | null
-  >(null);
+  const [inspection, setInspection] = useState<Inspection | null>(null);
   const transition = useGameMotion();
   const drop = useRef<{ cardId: string; lane: number } | null>(null);
   const slots = useRef(new Map<string, HTMLDivElement>());
@@ -469,54 +460,17 @@ function Game() {
           }}
         </DragOverlay>
         {inspection && (
-          <Inspect
-            name={
-              inspection.kind === "card"
-                ? inspection.card.name
-                : inspection.kind === "lane"
-                  ? (view?.locations[inspection.number - 1]?.name ??
-                    `Lane ${String(inspection.number)}`)
-                  : inspection.side === "own"
-                    ? `You · Player ${String((view?.player ?? 0) + 1)}`
-                    : `Opponent · Player ${String(view ? opponentOf(view.player) + 1 : 1)}`
-            }
+          <InspectionSheet
+            inspection={inspection}
+            view={view}
+            selected={selected}
+            locked={locked}
+            available={available}
             onClose={(cancelSelection) => {
               if (cancelSelection) setSelected(null);
               setInspection(null);
             }}
-          >
-            {inspection.kind === "card" ? (
-              <>
-                <p>
-                  Cost {inspection.card.cost} · Power {inspection.card.power}
-                </p>
-                <p>
-                  {inspection.card.ability?.text ??
-                    "No ability description available."}
-                </p>
-                {selected === inspection.card.id &&
-                  !locked &&
-                  available.some(
-                    (play) => play.cardId === inspection.card.id,
-                  ) && <p>Choose a lane to play this card.</p>}
-              </>
-            ) : inspection.kind === "lane" ? (
-              <>
-                <p>Lane {inspection.number}</p>
-                <p>
-                  {view?.locations[inspection.number - 1]?.text ??
-                    "No location effect."}
-                </p>
-              </>
-            ) : view ? (
-              <PlayerSheet
-                // Switching sides by keyboard keeps this sheet mounted: reset the open zone.
-                key={inspection.side}
-                view={view}
-                side={inspection.side}
-              />
-            ) : null}
-          </Inspect>
+          />
         )}
       </DragDropProvider>
     </CardMotionScope>
@@ -545,56 +499,5 @@ function ConnectionIndicator({
     >
       {status}
     </p>
-  );
-}
-
-/** Opens the player-info sheet; lights up when this player's cards reveal first. */
-function PlayerTag({
-  label,
-  revealsFirst,
-  onInspect,
-}: {
-  label: string;
-  revealsFirst: boolean;
-  onInspect: () => void;
-}) {
-  return (
-    <button
-      data-reveals-first={revealsFirst || undefined}
-      className={cx(
-        button(),
-        css({
-          display: "flex",
-          alignItems: "center",
-          gap: "xs",
-          m: "none",
-          p: "xs",
-          fontSize: "small",
-          color: "text",
-          bg: "panel",
-          minW: "[0]",
-          lineHeight: "heading",
-          "&[data-reveals-first]": { borderColor: "accent", bg: "raised" },
-        }),
-      )}
-      aria-haspopup="dialog"
-      onClick={onInspect}
-    >
-      <span
-        aria-hidden="true"
-        className={css({
-          flexShrink: 0,
-          width: "laneBadge",
-          height: "laneBadge",
-          border: "panel",
-          borderRadius: "control",
-          bg: "raised",
-        })}
-      />
-      <span>
-        {label}
-        {revealsFirst && " · Reveals first"}
-      </span>
-    </button>
   );
 }
