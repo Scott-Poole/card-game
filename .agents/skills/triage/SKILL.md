@@ -32,6 +32,8 @@ Two readiness buckets:
 - `needs-triage`: not yet ready; the nightly task settles it, including missing information and decisions.
 - `ready-for-agent`: fully specified and implementable.
 
+For a PR, readiness applies to the next step on its attached diff: `ready-for-agent` means an agent can act from the brief; unresolved questions stay in `needs-triage`.
+
 `wontfix` closes rejected requests. `grilling` marks an open grilling thread; it is separate from readiness. Use the label meanings in `docs/agents/triage-labels.md`.
 
 State transitions: unlabeled or `needs-triage` goes to `ready-for-agent`, closes as `wontfix`, or stays in `needs-triage` for a grilling thread. Fold resolved answers into the body before marking ready.

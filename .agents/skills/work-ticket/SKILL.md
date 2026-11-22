@@ -69,6 +69,6 @@ Q() { git show origin/main:.agents/skills/tick/queue.sh | bash -s -- "$@"; }
 - **Escalated** by land (`needs-triage` or `review-blocked` on the PR): `Q escalate <n> "<comment>"`, a comment that opens with `## Needs you` and links the PR.
 - **Stuck** (a criterion you can't meet, a ticket that contradicts the spec, a check you can't make pass): push what you have as a draft PR if you committed anything, then `Q escalate <n> "<comment>"`.
 
-Every `Q escalate` comment starts with `## Needs you` (the command refuses anything else) and reads cold from GitHub, without a thread link: the decision or action, the options with their consequences, your recommendation, the draft PR or evidence, and the hand-back: Scott comments his answer, then swaps `needs-triage` for `ready-for-agent`, and the tick resumes the ticket.
+Every `Q escalate` comment starts with `## Needs you` (the command refuses anything else) and reads cold from GitHub, without a thread link: the decision or action, the options with their consequences, your recommendation, the draft PR or evidence, and the hand-back: triage resolves the question, folds the answer into the ticket, then swaps `needs-triage` for `ready-for-agent`, and the tick resumes the ticket.
 
 Done when the ticket is closed by your merge, or carries `needs-triage` with a comment Scott can act on cold.
