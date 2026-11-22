@@ -2,9 +2,11 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 const config = JSON.parse(
-  execFileSync("git", ["show", "origin/main:.agents/skills/tick/config.json"], {
-    encoding: "utf8",
-  }),
+  readFileSync(
+    process.env.TRIAGE_CONFIG ??
+      new URL("../.agents/skills/tick/config.json", import.meta.url),
+    "utf8",
+  ),
 );
 if (
   !Array.isArray(config.trustedAuthors) ||
@@ -46,7 +48,7 @@ for (const issue of issues
     if (grills === null) output.push(`CHECK ${issue.number}`);
     else if (
       grills[issue.number] === "missing" ||
-      grills[issue.number] === "failed"
+      grills[issue.number] === "terminal-failed"
     )
       output.push(`STALE ${issue.number}`);
     else if (grills[issue.number] !== "live")

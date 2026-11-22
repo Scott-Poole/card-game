@@ -11,10 +11,12 @@ GitHub, not the checkout.
    paginated trusted history, read its linked T3 thread, or search for the exact
    title when no link exists. Waiting threads are live. Failed reads are errors,
    never evidence of absence. Write a temporary JSON object mapping each checked
-   issue number to `live`, `missing`, or `failed`. Rerun the finder with
+   issue number to `live`, `missing`, or `terminal-failed` (only a successfully read thread
+   whose status is failed; transport/read failures abort the run). Rerun the finder with
    `--grills <absolute-temp-file>`. Clear every `STALE <n>` via the landed
    `Q grill-clear <n>` before processing tickets; include cleared tickets in the
-   oldest-first worklist alongside `TRIAGE` entries. The file is run-local evidence,
+   worklist alongside `TRIAGE` entries, preserving the order from the second
+   finder output (which sorts both types together). The file is run-local evidence,
    never a persistent thread cache.
 3. For each listed ticket, re-read its live labels, body and all paginated comments.
    Skip closed tickets, untrusted authors, or those no longer needing triage; skip

@@ -7,6 +7,11 @@ const dir = mkdtempSync(join(tmpdir(), "triage-"));
 try {
   writeFileSync(join(dir, "gh"), '#!/bin/sh\ncat "$FIXTURE"\n');
   chmodSync(join(dir, "gh"), 0o755);
+  const configFile = join(dir, "config.json");
+  writeFileSync(
+    configFile,
+    JSON.stringify({ trustedAuthors: ["Scott-Poole"] }),
+  );
   const fixture = join(dir, "issues.json");
   const issue = (number, author, labels, created_at) => ({
     number,
@@ -33,6 +38,7 @@ try {
           ...process.env,
           PATH: `${dir}:${process.env.PATH}`,
           FIXTURE: fixture,
+          TRIAGE_CONFIG: configFile,
         },
       },
     );
@@ -55,6 +61,13 @@ try {
   assert.equal(run([pending]).stdout, "CHECK 3\n");
   assert.equal(run([pending], { 3: "missing" }).stdout, "STALE 3\n");
   assert.notEqual(run([pending], {}).status, 0);
+  assert.notEqual(run([pending], { 3: "failed" }).status, 0);
+  assert.equal(run([pending], { 3: "terminal-failed" }).stdout, "STALE 3\n");
+  const pr = {
+    ...issue(8, "Scott-Poole", ["needs-triage"], "2020-01-01"),
+    pull_request: {},
+  };
+  assert.equal(run([pr]).stdout, "");
   assert.equal(run([]).stdout, "");
   const ordered = run([
     issue(9, "Scott-Poole", ["needs-triage"], "2022-01-01"),

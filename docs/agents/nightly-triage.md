@@ -15,5 +15,14 @@ The scheduler API does not expose model or effort fields. The task prompt theref
 routes execution to Claude Sonnet 5.5 high through delegate; the scheduled session
 only orchestrates that run. Empty finder output ends before delegation.
 
-Schedule ID: `scheduled-task:552d0780-68b7-4715-82f1-2e817a0c7bcb`.
-Next run when created: 2026-11-23 10:00 UTC (02:00 Pacific).
+To recreate the schedule, call `schedule_task` with `freshSession: true`,
+`bindToCurrentThread: false`, and `schedule: {type: "fixed_time", timeOfDay: "02:00"}`.
+Use this prompt:
+
+> Run nightly ticket triage for Scott-Poole/card-game. Load read-main and use its
+> landed read-only checkout. Run node scripts/triage-finder.mjs there first. Empty
+> stdout ends immediately with zero launches. Otherwise load delegate and launch
+> one shared, read-only general child on claudeAgent / claude-sonnet-5-5 with effort
+> high. Give it the checkout path and tell it to follow .agents/skills/triage/nightly.md
+> exactly. Await its outcome and report failures; do not substitute another model.
+> Do not edit the primary checkout.
