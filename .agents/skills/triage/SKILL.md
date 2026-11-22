@@ -47,8 +47,8 @@ Q() { git show origin/main:.agents/skills/tick/queue.sh | bash -s -- "$@"; }
    `Triage #<n>`, with the message: "Read .agents/skills/triage/SKILL.md and run
    its dedicated per-ticket flow for Scott-Poole/card-game #<n>. Ask unresolved
    questions here in T3 and finish the GitHub hand-back before archiving."
-   Use delegate's judge tier. Bind a fresh worktree from origin/main if files may
-   change; never edit the primary checkout. Follow the launch with a thread read.
+   Use delegate's judge tier. Always bind a fresh worktree from origin/main so the thread reads the landed
+   skill, even when it only writes GitHub; never use the primary checkout. Follow the launch with a thread read.
 3. On launch failure or immediate terminal failure, run `Q grill-clear <n>`
    to roll back the reservation, report the error, and leave needs-triage.
    If the launch reply is lost, search T3 by title before retrying or clearing.
@@ -58,5 +58,7 @@ Q() { git show origin/main:.agents/skills/tick/queue.sh | bash -s -- "$@"; }
 
 For a stale grilling label, read the newest trusted `triage thread:` comment from
 the paginated issue history and read that thread in T3. If no link was recorded,
-search T3 for the exact launch title `Triage #<n>` before clearing. Only confirmed absence
+search T3 for the exact launch title `Triage #<n>` before clearing. Match only
+a non-archived thread created after the latest trusted escalation; an older
+archived grill does not belong to this reservation. Only confirmed absence
 permits `Q grill-clear <n>`; a failed read is not absence. It can then be relaunched. A failed thread also permits rollback; a waiting thread does not.
