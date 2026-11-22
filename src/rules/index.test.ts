@@ -224,12 +224,7 @@ for (const { guard, effects } of [
     expect(guard({ ...effect, kind: 1 })).toBe(false);
     expect(guard(Object.assign(Object.create(null), effect))).toBe(true);
     expect(guard(Object.create(effect))).toBe(false);
-    class EffectInstance {
-      constructor() {
-        Object.assign(this, effect);
-      }
-    }
-    expect(guard(new EffectInstance())).toBe(false);
+    expect(guard(Object.assign(new Date(0), effect))).toBe(false);
     expect(
       guard(Object.defineProperty({ ...effect }, "extra", { value: true })),
     ).toBe(false);
