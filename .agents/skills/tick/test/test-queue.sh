@@ -90,9 +90,16 @@ run grill-start 6
 run grill-clear 6
 check "launch failure rolls back reservation" is "$CODE:$(labels 6):$(comments 6)" "0:needs-triage:0"
 
-setup "[$(issue 6 needs-triage),$(for n in {10..19}; do issue "$n" grilling; done | jq -s '.[]' | jq -sc '. | map(.)' | jq -c '.[]' | paste -sd,)]"
+setup "[$(issue 6 needs-triage),$(for n in {10..19}; do issue "$n" grilling; done | jq -c . | paste -sd,)]"
 run grill-start 6
 check "ten open grills refuse launch" is "$CODE:$(labels 6):$(comments 6)" "1:needs-triage:0"
+
+setup "[$(issue 6 ready-for-agent)]"
+run grill-start 6
+check "grill refuses ready ticket" is "$CODE:$(labels 6)" "1:ready-for-agent"
+setup "[$(issue 6 needs-triage '{"user":{"login":"stranger"}}')]"
+run grill-start 6
+check "grill refuses untrusted author" is "$CODE:$(labels 6)" "1:needs-triage"
 
 # --- completed parent specs --------------------------------------------------------------
 setup "[$(issue 3 ready-for-agent), $(issue 4 '' '{"state":"closed","parent_issue_url":"https://api.github.com/repos/Scott-Poole/card-game/issues/3"}')]"

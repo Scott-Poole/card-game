@@ -526,24 +526,22 @@ cmd_escalate() {
 # T3 is a tool boundary, so launch is a three-command handshake. The caller must
 # clear the reservation on a failed launch; a successful launch is recorded separately.
 cmd_grill_start() {
- local n=$1 labels count author allowed
- labels=" $(labels_of "$n") "
- [[ $labels != *" grilling "* ]] || { log "already grilling #$n"; return 1; }
- [[ $labels == *" $TRIAGE "* ]] || { log "#$n is not awaiting triage"; return 1; }
- author=$(gh api "$API/issues/$n" --jq .user.login)
- allowed=$(config | jq -r --arg author "$author" '.trustedAuthors | index($author) != null')
- [[ $allowed == true ]] || { log "untrusted issue author"; return 1; }
- count=$(gh issue list --repo "$REPO" --label grilling --state open --limit 10 --json number --jq length)
- ((count < 10)) || { log "grilling cap reached (10)"; return 1; }
- gh label create grilling --repo "$REPO" --color BFD4F2 --description "Open per-ticket T3 grilling thread" --force
- transition "$n" grilling ""
+	local n=$1 labels count author allowed
+	labels=" $(labels_of "$n") "
+	[[ $labels != *" grilling "* ]] || { log "already grilling #$n"; return 1; }
+	[[ $labels == *" $TRIAGE "* ]] || { log "#$n is not awaiting triage"; return 1; }
+	author=$(gh api "$API/issues/$n" --jq .user.login)
+	allowed=$(config | jq -r --arg author "$author" '.trustedAuthors | index($author) != null')
+	[[ $allowed == true ]] || { log "untrusted issue author"; return 1; }
+	count=$(gh issue list --repo "$REPO" --label grilling --state open --limit 10 --json number --jq length)
+	((count < 10)) || { log "grilling cap reached (10)"; return 1; }
+	transition "$n" grilling ""
 }
 cmd_grill_launched() {
- [[ $2 == t3-thread://* ]] || { log "invalid T3 thread link"; return 1; }
- local labels
- labels=" $(labels_of "$1") "
- [[ $labels == *" grilling "* ]] || { log "no grilling reservation"; return 1; }
- comment "$1" "triage thread: $2"
+	local labels
+	labels=" $(labels_of "$1") "
+	[[ $labels == *" grilling "* ]] || { log "no grilling reservation"; return 1; }
+	comment "$1" "triage thread: $2"
 }
 
 case ${1:-} in
