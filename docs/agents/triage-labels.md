@@ -1,63 +1,27 @@
-# Triage Labels
+# Triage labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
-
-| Label in mattpocock/skills | Label in our tracker | Meaning                                                                                                                                 |
-| -------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Nobody has classified this yet; never used for "needs a decision"                                                                       |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information                                                                                                |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent                                                                                                 |
-| `ready-for-human`          | `ready-for-human`    | Scott’s turn: a decision or action, always with a `## Needs you` comment; on a parent spec: all children closed, awaiting Scott’s close |
-| `wontfix`                  | `wontfix`            | Will not be actioned                                                                                                                    |
-
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
-
-Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
+Tickets have two readiness buckets: `ready-for-agent` means every question is resolved and the ticket is implementable; `needs-triage` means it is not yet ready and the nightly task settles it. Blocking dependencies are separate from readiness. `wontfix` records a rejected request on a closed issue.
 
 ## Whose turn is it
 
-Each label says who acts next, so the board reads without opening a ticket:
+| Label                      | Whose turn              | Next action                                                                                               |
+| -------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| _(none)_ or `needs-triage` | Triage                  | Resolve questions, then mark ready or close as `wontfix`; unresolved questions stay for a grilling thread |
+| `ready-for-agent`          | An agent                | Claim or resume the ticket                                                                                |
+| `grilling`                 | An open grilling thread | Settle the remaining questions                                                                            |
+| `in-progress`              | The working agent       | Merge, escalate, or have its stale claim checked                                                          |
+| `planning`                 | A planner               | File tickets and close its tracking issue                                                                 |
+| `research`                 | A researcher            | Publish findings                                                                                          |
+| `review-blocked`           | Review workflow         | Obtain the missing review before merging                                                                  |
 
-| Label             | Whose turn                | What happens next                                                            |
-| ----------------- | ------------------------- | ---------------------------------------------------------------------------- |
-| _(none)_          | Nobody has looked         | `/triage` classifies it                                                      |
-| `needs-triage`    | Whoever runs triage       | Triage moves it to one of the labels below                                   |
-| `ready-for-agent` | An agent                  | The tick claims it, or resumes it if it was handed back                      |
-| `in-progress`     | An agent, already working | The thread merges it, escalates it, or the tick wakes or releases the thread |
-| `ready-for-human` | Scott                     | Read the latest `## Needs you` comment, answer it, hand it back              |
-| `needs-info`      | The reporter              | Back to `needs-triage` when they reply                                       |
+## Escalation and hand-back
 
-Planners and agents file anything that needs a decision as `ready-for-human` with a `## Needs you` comment, not `needs-triage`.
+`queue.sh escalate` adds `needs-triage`, removes `ready-for-agent` and `in-progress`, and requires a comment beginning `## Needs you`. The comment states the decision or action, options and consequences, recommendation, and evidence (PR or failed check). It reads on its own from GitHub.
 
-### The `## Needs you` comment
+Triage resolves the question and folds the answer into the ticket. When ready, replace `needs-triage` with `ready-for-agent`. The tick resumes prior work using claim history and the latest trusted comments. An unresolved ticket stays in `needs-triage` for a grilling thread.
 
-Every time an agent or planner hands a ticket to Scott it posts one comment (a completed parent spec is the exception: `queue.sh parent-done` posts its own "close this spec" notice), headed exactly `## Needs you`, that stands alone on GitHub (no thread link needed):
+A stale claim is checked through T3, then refreshed, woken, or released; age alone is not an escalation. Escalations do not cap implementation or planning.
 
-```markdown
-## Needs you
+## Completed specs
 
-**Decision (or action):** the one thing Scott must settle or do.
-
-| Option | Consequence |
-| ------ | ----------- |
-| A      | ...         |
-| B      | ...         |
-
-**Recommendation:** A, because ...
-
-**To answer:** comment your choice, then remove `ready-for-human` and add `ready-for-agent`.
-```
-
-`queue.sh escalate` refuses a comment that does not start with `## Needs you`, and the needs-you view finds handoffs the same way, so the heading comes first even in comments the triage skill writes (its AI disclaimer goes on the next line). Add the evidence (a draft PR, a failing check) under the recommendation when the stop was a blocker.
-
-### Handing back
-
-Scott comments the answer, then swaps `ready-for-human` for `ready-for-agent`. The next tick treats a ticket with claim history as a resume: it wakes the original thread when it still exists, otherwise launches a fresh one that continues from the ticket's branch or PR and reads the comments after the last `## Needs you` as the answer.
-
-A stale claim (an `in-progress` ticket with no sign of life for `staleHours`) is not a handoff and never gets `ready-for-human`: the tick reads the thread, then records a heartbeat, wakes it, or releases the claim. Only real escalations count toward `maxEscalated`.
-
-## Automation labels
-
-Outside the triage roles, the `tick` and `plan` skills use `in-progress` (a claimed ticket), `planning` (a planner run's tracking issue, open while it runs), and `review-blocked` (set by `land`). Trivial merges carry no label and no follow-up queue (retired in #138).
-
-Completed parent specs stay open: `queue.sh parent-done <child>` replaces `ready-for-agent` with `ready-for-human` and comments once. Scott closes the spec when the outcome matches; nothing waits on it.
+`queue.sh parent-done <child>` closes a parent once all children are closed, with one comment listing the children. Repeating it changes nothing.

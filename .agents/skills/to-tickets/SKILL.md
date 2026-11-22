@@ -63,7 +63,7 @@ Publish the approved tickets to GitHub:
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
-Keep parent specs open for Scott. When all children are closed, `queue.sh parent-done <child>` swaps the parent’s `ready-for-agent` for `ready-for-human` and comments once asking Scott to close it when the outcome matches; nothing waits on that spec.
+When all children are closed, `queue.sh parent-done <child>` closes the parent with one comment listing the children.
 
 <issue-template>
 

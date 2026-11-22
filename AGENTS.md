@@ -51,7 +51,7 @@ GitHub Issues on `Scott-Poole/card-game` via `gh`. See `docs/agents/issue-tracke
 
 ### Triage labels
 
-Default vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+Default vocabulary (`needs-triage`, `ready-for-agent`, `wontfix`). See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
