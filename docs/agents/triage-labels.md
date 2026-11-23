@@ -1,6 +1,6 @@
 # Triage labels
 
-Tickets have three readiness buckets: `ready-for-agent` means every question is resolved and the ticket is implementable; `needs-triage` means it is not yet ready and the nightly task settles it. `backlog` means parked on purpose: automation never settles, grills, claims, promotes, or closes it. Only Scott or a thread he directs promotes it by replacing `backlog` with `needs-triage` or `ready-for-agent`. It overrides either label in a conflict and has no expiry. Blocking dependencies are separate from readiness. `wontfix` records a rejected request on a closed issue.
+Tickets have three readiness buckets: `ready-for-agent` means every question is resolved and the ticket is implementable; `needs-triage` means it is not yet ready and the nightly task settles it. `backlog` means parked on purpose: automation never settles, grills, claims, promotes, or closes it. Only Scott or a thread he directs promotes it by replacing `backlog` with `needs-triage` or `ready-for-agent`. For promotion, remove `backlog` first, then add the destination label and verify the result; adding `needs-triage` while backlog remains lets the Action remove it. It overrides either label in a conflict and has no expiry. Blocking dependencies are separate from readiness. `wontfix` records a rejected request on a closed issue.
 
 ## Whose turn is it
 
