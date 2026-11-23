@@ -1,10 +1,9 @@
+import { usePlayInteraction } from "./usePlayInteraction.ts";
 import PlayerTag from "./PlayerTag.tsx";
 import { useReveal } from "./useReveal.ts";
-import { flushSync } from "react-dom";
-import { animate } from "motion/react";
-import { GameMotion, CardMotionScope, useGameMotion } from "./motion.tsx";
+import { GameMotion, CardMotionScope } from "./motion.tsx";
 import type { Inspection } from "./inspection.ts";
-import { useRef, useState, useLayoutEffect } from "react";
+import { useRef, useState } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { DragPreview, HandCard, PlayTarget } from "./PlayInteractions.tsx";
 import Card from "./Card.tsx";
@@ -12,7 +11,6 @@ import InspectionSheet from "./InspectionSheet.tsx";
 import Lane from "./Lane.tsx";
 import { selectLaneTotals } from "./laneTotals.ts";
 import {
-  selectActionLocked,
   selectCommitLabel,
   selectEnded,
   selectSpentEnergy,
@@ -24,7 +22,7 @@ import RevealLog from "./RevealLog.tsx";
 import { summarizeResult } from "./matchResult.ts";
 import { boardStyles } from "./boardStyles.ts";
 import Stage from "./Stage.tsx";
-import { laneIsFull, legalPlays, opponentOf } from "../rules/index.ts";
+import { opponentOf } from "../rules/index.ts";
 import { css, cx } from "../../styled-system/css/index.js";
 import { button } from "../../styled-system/recipes/index.js";
 import { useAppDispatch, useAppSelector } from "./hooks.ts";
@@ -42,88 +40,48 @@ export default function ProtocolGame() {
 }
 
 function Game() {
-  const [selected, setSelected] = useState<string | null>(null);
-  const [dragging, setDragging] = useState<string | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
-  const transition = useGameMotion();
-  const drop = useRef<{ cardId: string; lane: number } | null>(null);
-  const slots = useRef(new Map<string, HTMLDivElement>());
-  const [settling, setSettling] = useState(false);
   const hand = useRef<HTMLElement>(null);
   const result = useRef<HTMLElement>(null);
-  const wasRevealing = useRef(false);
   const dispatch = useAppDispatch();
   const { status, notice, waiting } = useAppSelector(selectConnection);
   const { view: latest, pending } = useAppSelector(selectMatch);
   const { view, active: revealing, skip, step } = useReveal(latest);
   const stagedPlays = useAppSelector(selectStaging);
   const staged = revealing ? [] : stagedPlays;
-  const actionLocked = selectActionLocked({
+  const {
+    selected,
+    setSelected,
+    dragging,
+    locked,
+    available,
+    canStage,
+    stage,
+    laneFull,
+    onDragStart,
+    onDragEnd,
+    registerSlot,
+    dropAnimation,
+  } = usePlayInteraction({
     view,
+    staged,
     revealing,
     pending,
     status,
+    hand,
+    onStage: () => {
+      setInspection(null);
+    },
   });
-  const locked = actionLocked || settling;
   const spent = selectSpentEnergy(view?.own.hand ?? [], staged);
-  const available = view
-    ? legalPlays({ ...view, own: { ...view.own, staged } })
-    : [];
-  // The "Lane full" reason applies until the turn is over: an in-flight stage
-  // (`pending`) still leaves the lane full.
-  const turnOver =
-    revealing || (view?.own.committed ?? false) || view?.phase === "ended";
-  const laneFull = (lane: number) =>
-    view !== null &&
-    !turnOver &&
-    laneIsFull({ ...view, own: { ...view.own, staged } }, lane);
   const totals = view ? selectLaneTotals(view) : null;
   const ended = selectEnded(view, revealing);
   const commitLabel = selectCommitLabel(view, revealing);
   const standing = view ? selectStanding(view, revealing) : null;
   const playing = view?.phase === "planning" || revealing;
-  function canStage(
-    cardId: string | null,
-    lane: number,
-    finishingDrop = false,
-  ) {
-    return (
-      !actionLocked &&
-      (!settling || finishingDrop) &&
-      available.some((play) => play.cardId === cardId && play.lane === lane)
-    );
-  }
-  function stage(cardId: string | null, lane: number, finishingDrop = false) {
-    if (cardId === null || !canStage(cardId, lane, finishingDrop)) return;
-    dispatch(send({ type: "stage", plays: [...staged, { cardId, lane }] }));
-    setSelected(null);
-    setInspection(null);
-    hand.current?.focus();
-  }
-  const finishStage = useRef(stage);
-  useLayoutEffect(() => {
-    finishStage.current = stage;
-    if (wasRevealing.current && !revealing) hand.current?.focus();
-    wasRevealing.current = revealing;
-  });
   return (
     <CardMotionScope dragging={dragging}>
-      <DragDropProvider
-        onDragStart={(event) => {
-          setDragging(String(event.operation.source?.id));
-        }}
-        onDragEnd={(event) => {
-          const { source, target } = event.operation;
-          drop.current =
-            !event.canceled &&
-            source &&
-            typeof target?.id === "number" &&
-            canStage(String(source.id), target.id)
-              ? { cardId: String(source.id), lane: target.id }
-              : null;
-          setSettling(true);
-        }}
-      >
+      <DragDropProvider onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <Stage active={playing}>
           <section
             onKeyDown={(event) => {
@@ -205,9 +163,7 @@ function Game() {
                             : undefined
                       }
                       registerSlot={(slot, element) => {
-                        const key = `${String(lane)}:${String(slot)}`;
-                        if (element) slots.current.set(key, element);
-                        else slots.current.delete(key);
+                        registerSlot(lane, slot, element);
                       }}
                       number={lane + 1}
                       location={view.locations[lane]}
@@ -222,9 +178,7 @@ function Game() {
                           lane={lane}
                           full={laneFull(lane)}
                           active={dragging !== null || selected !== null}
-                          enabled={
-                            !settling && canStage(dragging ?? selected, lane)
-                          }
+                          enabled={canStage(dragging ?? selected, lane)}
                           onPlay={() => {
                             stage(selected, lane);
                           }}
@@ -408,50 +362,7 @@ function Game() {
             )}
           </section>
         </Stage>
-        <DragOverlay
-          dropAnimation={async ({ feedbackElement, element, placeholder }) => {
-            const play = drop.current;
-            // Keep the source in the hand until the overlay finishes: no duplicate lane card.
-            const slotIndex = play
-              ? (view?.own.lanes[play.lane]?.length ?? 0) +
-                staged.filter((item) => item.lane === play.lane).length
-              : 0;
-            const slot = play
-              ? slots.current.get(`${String(play.lane)}:${String(slotIndex)}`)
-              : null;
-            const destination = slot ?? placeholder ?? element;
-            const from = (
-              feedbackElement.firstElementChild ?? feedbackElement
-            ).getBoundingClientRect();
-            const to = destination.getBoundingClientRect();
-            try {
-              if (feedbackElement instanceof HTMLElement) {
-                feedbackElement.style.transformOrigin = "top left";
-                await animate(
-                  feedbackElement,
-                  {
-                    // dnd-kit pins transform !important to this variable while dragging.
-                    "--dnd-transform": [
-                      "translate(0px, 0px) scale(1, 1)",
-                      `translate(${String(to.x - from.x)}px, ${String(to.y - from.y)}px) scale(${String(to.width / from.width)}, ${String(to.height / from.height)})`,
-                    ],
-                  },
-                  transition,
-                );
-              }
-            } catch {
-              // A detached overlay may cancel its cosmetic animation; still apply the play.
-            } finally {
-              // Commit the destination before dnd-kit removes the overlay and reveals its source.
-              flushSync(() => {
-                if (play) finishStage.current(play.cardId, play.lane, true);
-                if (drop.current === play) drop.current = null;
-                setDragging(null);
-                setSettling(false);
-              });
-            }
-          }}
-        >
+        <DragOverlay dropAnimation={dropAnimation}>
           {(source) => {
             const card = view?.own.hand.find((card) => card.id === source.id);
             return card ? (
