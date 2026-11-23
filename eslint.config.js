@@ -35,7 +35,12 @@ export default tseslint.config(
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
   {
-    files: ["src/**/*.{ts,tsx}", "*.config.ts", "e2e/**/*.ts"],
+    files: [
+      "src/**/*.{ts,tsx}",
+      "*.config.ts",
+      "e2e/**/*.ts",
+      ".storybook/*.ts",
+    ],
     languageOptions: {
       parserOptions: {
         project: [
@@ -49,10 +54,16 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**/*.mjs", "eslint.config.js"],
+    files: ["scripts/**/*.mjs", ".agents/skills/**/*.mjs", "eslint.config.js"],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
-      globals: { process: "readonly", console: "readonly" },
+      globals: {
+        process: "readonly",
+        console: "readonly",
+        URL: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+      },
     },
   },
   {
