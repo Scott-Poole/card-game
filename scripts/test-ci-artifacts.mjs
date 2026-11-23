@@ -26,10 +26,18 @@ export function findUploadDrift(workflow) {
     /^\s*-\s+uses:\s*actions\/upload-artifact@/.test(line),
   );
   if (start === -1) return ["check.yml has no actions/upload-artifact step"];
+  // `failure()` only sees steps that ran before it, so the upload must follow `pnpm check`.
+  const check = lines.findIndex((line) =>
+    /^\s*-\s+run:\s*pnpm check\s*$/.test(line),
+  );
+  const problems = [];
+  if (check === -1 || check > start) {
+    if (check === -1) problems.push("check.yml must run `pnpm check`");
+    else problems.push("the upload-artifact step must come after `pnpm check`");
+  }
   let end = start + 1;
   while (end < lines.length && !/^\s*-\s/.test(lines[end])) end += 1;
   const step = lines.slice(start, end).join("\n");
-  const problems = [];
   if (!/^\s+if:\s*failure\(\)\s*$/m.test(step)) {
     problems.push("the upload-artifact step must run `if: failure()`");
   }
@@ -100,6 +108,21 @@ assert.equal(
   1,
   "ignoring missing files is caught",
 );
+{
+  // Moving the upload before `pnpm check` means it never sees the failure.
+  const stepLines = workflow.split("\n");
+  const first = stepLines.findIndex((line) =>
+    line.includes("upload-artifact@"),
+  );
+  const upload = stepLines.splice(first, stepLines.length - first - 1);
+  const check = stepLines.findIndex((line) => /run: pnpm check/.test(line));
+  stepLines.splice(check, 0, ...upload);
+  assert.equal(
+    findUploadDrift(stepLines.join("\n")).length,
+    1,
+    "an upload before `pnpm check` is caught",
+  );
+}
 console.log("check.yml uploads Playwright evidence on failure");
 
 // The real Playwright config must leave a trace and an HTML report when a test fails
