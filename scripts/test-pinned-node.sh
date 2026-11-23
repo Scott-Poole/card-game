@@ -11,11 +11,13 @@ fake_node() { # <dir> <version>
   chmod +x "$1/node"
 }
 
-# A clean environment: the helper sees only the PATH and NVM_DIR the case gives it.
-# `sh -c` hands the helper to bash exactly as an agent shell sources it.
+# A clean environment: the helper sees only the PATH and NVM_DIR the case gives it, and
+# is sourced by relative path from the repo root, as agents do. SHELL_BIN picks the shell;
+# CDPATH=. is the hostile value that once broke a `cd`-based lookup.
+SHELL_BIN=bash
 sourced() { # <nvm-dir> <path> -> prints "<status> <PATH after> <node -v after>"
-  env -i HOME="$WORK/home" ${1:+NVM_DIR="$1"} PATH="$2" ROOT="$ROOT" \
-    bash -c '. "$ROOT/scripts/pinned-node.sh"; status=$?; echo "$status $PATH $(node -v)"'
+  (cd "$ROOT" && env -i HOME="$WORK/home" CDPATH=. ${1:+NVM_DIR="$1"} PATH="$2" \
+    "$SHELL_BIN" -c '. scripts/pinned-node.sh; status=$?; echo "$status $PATH $(node -v)"')
 }
 
 OLD="$WORK/old"
@@ -47,7 +49,15 @@ out=$(sourced "$WORK/missing" "$BASE")
 [[ "$out" == "0 $BASE v1.0.0" ]] || { echo "FAIL: absent directory changed PATH: $out"; exit 1; }
 echo "PASS no-op when the nvm directory is absent"
 
-# 5. A strict shell survives sourcing and the helper leaves no function behind.
-env -i HOME="$WORK/home" NVM_DIR="$WORK/missing" PATH="$BASE" ROOT="$ROOT" \
-  bash -ec '. "$ROOT/scripts/pinned-node.sh"; ! declare -F _pinned_node_main'
+# 5. Any POSIX shell can source it (dash is /bin/sh on Debian and Ubuntu).
+for SHELL_BIN in dash sh zsh; do
+  command -v "$SHELL_BIN" > /dev/null || continue
+  out=$(sourced "$NVM" "$BASE")
+  [[ "$out" == "0 $NVM/versions/node/v$VERSION/bin:$BASE v$VERSION" ]] || { echo "FAIL: $SHELL_BIN: $out"; exit 1; }
+  echo "PASS sourced from $SHELL_BIN"
+done
+
+# 6. A strict shell survives sourcing and the helper leaves no function behind.
+(cd "$ROOT" && env -i HOME="$WORK/home" NVM_DIR="$WORK/missing" PATH="$BASE" \
+  bash -ec '. scripts/pinned-node.sh; ! declare -F _pinned_node_main')
 echo "PASS safe under set -e and leaves no function"
