@@ -1,5 +1,7 @@
 # Nightly triage
 
+For the three readiness states and human-only backlog promotion, follow [triage labels](triage-labels.md).
+
 The nightly T3 task runs at 02:00 local time with a fresh session. Its entry point
 is [.agents/skills/triage/nightly.md](../../.agents/skills/triage/nightly.md).
 It settles trusted-author needs-triage tickets oldest first and sends decisions
@@ -21,7 +23,8 @@ Use this prompt:
 
 > Run nightly ticket triage for Scott-Poole/card-game. Load read-main and use its
 > landed read-only checkout. Run node scripts/triage-finder.mjs there first. Empty
-> stdout ends immediately with zero launches. Otherwise load delegate and launch
+> stdout ends with zero launches after querying and reporting only the backlog count
+> per nightly.md step 1. Otherwise load delegate and launch
 > one shared, read-only general child using the first target from `bash "<read-main path>/.agents/skills/delegate/route.sh" plan`
 > with its returned options. Give it the checkout path and tell it to follow .agents/skills/triage/nightly.md
 > exactly. Await its outcome and report failures; do not substitute another model.

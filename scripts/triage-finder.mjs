@@ -44,6 +44,7 @@ for (const issue of issues
   .sort(
     (a, b) => a.created_at.localeCompare(b.created_at) || a.number - b.number,
   )) {
+  if (issue.labels.some((label) => label.name === "backlog")) continue;
   if (issue.labels.some((label) => label.name === "grilling")) {
     if (grills === null) output.push(`CHECK ${issue.number}`);
     else if (
@@ -53,7 +54,21 @@ for (const issue of issues
       output.push(`STALE ${issue.number}`);
     else if (grills[issue.number] !== "live")
       throw new Error(`Unverified grilling ticket #${issue.number}`);
-  } else if (issue.labels.some((label) => label.name === "needs-triage"))
+  } else if (
+    issue.labels.some((label) => label.name === "needs-triage") ||
+    !issue.labels.some(
+      ({ name }) =>
+        [
+          "ready-for-agent",
+          "backlog",
+          "grilling",
+          "in-progress",
+          "planning",
+          "research",
+          "wontfix",
+        ].includes(name) || name.startsWith("wayfinder:"),
+    )
+  )
     output.push(`TRIAGE ${issue.number}`);
 }
 if (output.length) process.stdout.write(`${output.join("\n")}\n`);

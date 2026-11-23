@@ -8,6 +8,8 @@ description: >-
 
 # Plan
 
+For the three readiness states and human-only backlog promotion, follow [triage labels](../../../docs/agents/triage-labels.md).
+
 Owned by this repo. You are one thread, launched by the [`tick`](../tick/SKILL.md) skill because the ticket queue ran dry, in a fresh worktree from `origin/main`. You carry one **category** and one open **planning issue** (label `planning`, title `Plan: <category>`). Your output is **tickets**: you change no code and push nothing. Resolved tickets go straight to `ready-for-agent`, and a `work-ticket` thread takes each from claim to merge with no human reading it first, so the ticket itself is the spec.
 
 Read and apply [the decision rule](../../../docs/agents/decision-rule.md) before deciding, filing tickets or escalating. Course-correct first; escalate only for its three qualifying categories. Settle agent-owned questions and fold the answers into the ticket body before filing it.
