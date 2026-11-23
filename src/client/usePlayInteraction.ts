@@ -110,12 +110,11 @@ export function usePlayInteraction(
     onDragStart,
     onDragEnd,
     dropAnimation,
-    registerSlot(
-      this: void,
+    registerSlot: (
       lane: number,
       slot: number,
       element: HTMLDivElement | null,
-    ) {
+    ) => {
       const key = `${String(lane)}:${String(slot)}`;
       if (element) slots.current.set(key, element);
       else slots.current.delete(key);

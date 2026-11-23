@@ -19,19 +19,14 @@ export function playAvailability(
   return {
     available,
     locked: actionLocked || settling,
-    canStage(
-      this: void,
-      cardId: string | null,
-      lane: number,
-      finishingDrop = false,
-    ) {
+    canStage: (cardId: string | null, lane: number, finishingDrop = false) => {
       return (
         !actionLocked &&
         (!settling || finishingDrop) &&
         available.some((play) => play.cardId === cardId && play.lane === lane)
       );
     },
-    laneFull(this: void, lane: number) {
+    laneFull: (lane: number) => {
       return stagingView !== null && !turnOver && laneIsFull(stagingView, lane);
     },
   };
