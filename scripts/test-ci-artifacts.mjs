@@ -49,10 +49,12 @@ export function findUploadDrift(workflow) {
         .map((line) => line.trim())
         .filter(Boolean)
     : [];
-  for (const path of ["playwright-report/", "test-results/"]) {
-    if (!uploaded.includes(path)) {
-      problems.push(`the upload-artifact step must upload exactly ${path}`);
-    }
+  // Exactly these two: an extra entry (such as a `!` exclusion) could cancel the evidence.
+  const expected = ["playwright-report/", "test-results/"];
+  if (JSON.stringify([...uploaded].sort()) !== JSON.stringify(expected)) {
+    problems.push(
+      `the upload-artifact step must upload exactly ${expected.join(" and ")}, got ${uploaded.join(", ") || "nothing"}`,
+    );
   }
   // An empty upload must be loud: `ignore` hides a wrong path.
   if (/^\s+if-no-files-found:\s*ignore\s*$/m.test(step)) {
@@ -123,6 +125,16 @@ assert.equal(
     "an upload before `pnpm check` is caught",
   );
 }
+assert.equal(
+  findUploadDrift(
+    workflow.replace(
+      /^(\s+)test-results\/$/m,
+      "$1test-results/\n$1!test-results/**",
+    ),
+  ).length,
+  1,
+  "an exclusion entry is caught",
+);
 console.log("check.yml uploads Playwright evidence on failure");
 
 // The real Playwright config must leave a trace and an HTML report when a test fails
