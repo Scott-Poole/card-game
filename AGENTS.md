@@ -15,6 +15,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 ## Commands
 
 - `pnpm check`: the full local gate, run with `CI=true` for parity with GitHub. It covers static checks, unit tests, regression suites for the repo's own scripts and skills, the Storybook and production builds, and Chromium browser tests. `scripts/gates.mjs` holds the exact ordered list.
+- Agent shells may default to another Node; run `. scripts/pinned-node.sh` first to put the pinned one on `PATH`.
 - `pnpm install --frozen-lockfile` installs Husky hooks. Commits format staged files; pushes run the full check; run `pnpm check` before pushing too. GitHub repeats the same gate as independent verification.
 - `pnpm fix`: format and lint auto-fix.
 - Tests live beside source in `src/`; Vitest config has its own tooling typecheck. ESLint configuration is executed by the lint gate and is not typechecked.

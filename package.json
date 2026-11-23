@@ -34,6 +34,7 @@
     "test:stories": "node scripts/test-stories.mjs",
     "test:working-markdown": "node scripts/test-working-markdown.mjs && node scripts/check-working-markdown.mjs",
     "test:label-issues": "bash scripts/test-label-issues.sh",
+    "test:pinned-node": "bash scripts/test-pinned-node.sh",
     "test:triage-finder": "node scripts/test-triage-finder.mjs",
     "test:routing": "node .agents/skills/delegate/test-usage.mjs && node .agents/skills/delegate/test-route.mjs && node scripts/test-model-ids.mjs && node scripts/check-model-ids.mjs"
   },
