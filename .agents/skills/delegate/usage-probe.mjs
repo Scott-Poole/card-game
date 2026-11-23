@@ -29,7 +29,8 @@ async function codex() {
     function finish(error, result) {
       clearTimeout(timer);
       child.kill();
-      error ? reject(error) : resolve(result);
+      if (error) reject(error);
+      else resolve(result);
     }
     child.on("error", (error) => finish(error));
     child.on("exit", () => finish(new Error("Codex meter exited")));
@@ -246,7 +247,9 @@ try {
     "rev-parse",
     "HEAD",
   ]).trim();
-} catch {}
+} catch {
+  // Keep the installed-copy fallback when Git metadata is unavailable.
+}
 const configHash = createHash("sha256")
   .update(JSON.stringify(config))
   .digest("hex");

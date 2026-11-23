@@ -64,7 +64,15 @@ try {
       if (routes[i].providerInstanceId !== "opencode")
         routes[i] = subscriptions[index++];
   }
-  console.log(JSON.stringify(routes.map(({ alias, ...entry }) => entry)));
+  console.log(
+    JSON.stringify(
+      routes.map((route) => {
+        const entry = { ...route };
+        delete entry.alias;
+        return entry;
+      }),
+    ),
+  );
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;
