@@ -113,14 +113,25 @@ for (const width of [390, 1440]) {
       const hand = page.getByRole("region", { name: "Hand", exact: true });
       const card = hand.getByRole("article", { name, exact: true });
       await card.click({ trial: true });
-      const before = await card.boundingBox();
-      const source = await card
-        .getByRole("img", { name: "Art placeholder" })
-        .boundingBox();
-      const target = await page
+      const art = card.getByRole("img", { name: "Art placeholder" });
+      const destination = page
         .getByRole("region", { name: `Lane ${String(lane)}`, exact: true })
-        .getByRole("group", { name: "Your cards" })
-        .boundingBox();
+        .getByRole("group", { name: "Your cards" });
+      const measure = async () => ({
+        before: await card.boundingBox(),
+        source: await art.boundingBox(),
+        target: await destination.boundingBox(),
+      });
+      let endpoints = await measure();
+      await expect
+        .poll(async () => {
+          endpoints = await measure();
+          return Boolean(
+            endpoints.before && endpoints.source && endpoints.target,
+          );
+        })
+        .toBe(true);
+      const { before, source, target } = endpoints;
       if (!source || !target || !before)
         throw new Error("Missing drag endpoints");
       await page.mouse.move(
