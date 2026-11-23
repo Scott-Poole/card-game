@@ -53,7 +53,6 @@ function Game() {
     selected,
     setSelected,
     dragging,
-    settling,
     locked,
     available,
     canStage,
@@ -179,9 +178,7 @@ function Game() {
                           lane={lane}
                           full={laneFull(lane)}
                           active={dragging !== null || selected !== null}
-                          enabled={
-                            !settling && canStage(dragging ?? selected, lane)
-                          }
+                          enabled={canStage(dragging ?? selected, lane)}
                           onPlay={() => {
                             stage(selected, lane);
                           }}

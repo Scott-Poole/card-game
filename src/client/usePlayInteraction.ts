@@ -1,6 +1,6 @@
 import { useRef, useState, useLayoutEffect } from "react";
 import type { ComponentProps, RefObject } from "react";
-import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
+import type { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { flushSync } from "react-dom";
 import { animate } from "motion/react";
 import { useGameMotion } from "./motion.tsx";
@@ -110,12 +110,11 @@ export function usePlayInteraction(
     onDragStart,
     onDragEnd,
     dropAnimation,
-    registerSlot(
-      this: void,
+    registerSlot: (
       lane: number,
       slot: number,
       element: HTMLDivElement | null,
-    ) {
+    ) => {
       const key = `${String(lane)}:${String(slot)}`;
       if (element) slots.current.set(key, element);
       else slots.current.delete(key);
