@@ -13,6 +13,7 @@ export const gates = [
   "test:read-main",
   "test:boundaries",
   "test:runners",
+  "test:ci-artifacts",
   "test:skill-links",
   "test:working-markdown",
   "test:gates",

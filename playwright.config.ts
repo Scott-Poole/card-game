@@ -6,6 +6,12 @@ export default defineConfig({
   // wall-clock time without oversubscribing a 4-core GitHub runner or a dev machine.
   workers: 4,
   forbidOnly: !!process.env.CI,
-  use: { browserName: "chromium" },
+  // CI keeps failure evidence: a trace per failing test plus an HTML report that
+  // check.yml uploads. No retries, so a flaky test fails the run instead of hiding.
+  retries: 0,
+  reporter: process.env.CI
+    ? [["list"], ["html", { open: "never" }]]
+    : [["list"]],
+  use: { browserName: "chromium", trace: "retain-on-failure" },
   timeout: 15000,
 });
