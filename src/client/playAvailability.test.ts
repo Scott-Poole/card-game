@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { opening } from "./stories/fixtures.ts";
+import { opening, ended } from "./stories/fixtures.ts";
 import { playAvailability } from "./playAvailability.ts";
 
 const input = {
@@ -87,4 +87,26 @@ test("missing views, disconnected, committed and ended matches offer no staging"
       playAvailability({ ...input, ...flags }).canStage("herald", 0, true),
     ).toBe(false);
   }
+});
+
+test("full-lane reasons end when committed or ended", () => {
+  const full = {
+    ...opening,
+    own: { ...opening.own, lanes: [[...opening.own.hand], [], []] },
+  };
+  expect(playAvailability({ ...input, view: full }).laneFull(0)).toBe(true);
+  expect(
+    playAvailability({
+      ...input,
+      view: { ...full, own: { ...full.own, committed: true } },
+    }).laneFull(0),
+  ).toBe(false);
+  expect(
+    playAvailability({ ...input, view: { ...ended, own: full.own } }).laneFull(
+      0,
+    ),
+  ).toBe(false);
+  expect(
+    playAvailability({ ...input, view: ended }).canStage("herald", 0, true),
+  ).toBe(false);
 });
