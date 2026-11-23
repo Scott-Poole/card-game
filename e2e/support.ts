@@ -12,9 +12,6 @@ export const unmodelledAbilities = roster.filter(
     card.id !== "hermes-letterkeeper" &&
     card.id !== "flora-orchardwhisper",
 );
-export const destroyers = roster.filter(
-  ({ card }) => card.ability?.effect.kind === "destroy-weakest-enemy",
-);
 export function stageExcept(entries: typeof roster, lane = "\\d") {
   const names = entries
     .map(({ card }) => card.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
@@ -33,15 +30,6 @@ export const locations = ["Place A", "Place B", "Place C"].map(
 );
 export const commitButton = (page: Page) =>
   page.getByRole("button", { name: /^End turn \d+\/6$/ });
-// Welcome received: the action that needs a connection is enabled, no trouble indicator shown.
-export async function expectConnected(page: Page, action: string) {
-  await expect(
-    page.getByRole("button", { name: action, exact: true }),
-  ).toBeEnabled();
-  await expect(
-    page.getByRole("status").filter({ hasText: /connect|error/ }),
-  ).toHaveCount(0);
-}
 // The Result panel's totals as [yours, opponent's], and its lanes-won counts.
 export async function resultTotals(page: Page) {
   const text = await page

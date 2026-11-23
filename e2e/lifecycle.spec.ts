@@ -1,6 +1,5 @@
 import {
   commitButton,
-  expectConnected,
   resultTotals,
   lanesWon,
   energy,
@@ -8,6 +7,16 @@ import {
   expect,
 } from "./support.ts";
 import type { Page } from "@playwright/test";
+
+// Welcome received: the action that needs a connection is enabled, no trouble indicator shown.
+async function expectConnected(page: Page, action: string) {
+  await expect(
+    page.getByRole("button", { name: action, exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("status").filter({ hasText: /connect|error/ }),
+  ).toHaveCount(0);
+}
 
 test("production page connects and reconnects after reload", async ({
   page,

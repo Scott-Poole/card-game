@@ -1,12 +1,16 @@
+import { roster } from "../src/server/roster.ts";
 import {
   unmodelledAbilities,
-  destroyers,
   stageExcept,
   commitButton,
   test,
   expect,
 } from "./support.ts";
 import type { Page } from "@playwright/test";
+
+const destroyers = roster.filter(
+  ({ card }) => card.ability?.effect.kind === "destroy-weakest-enemy",
+);
 
 test("the Reveals first tag follows the view's seat and holds through playback", async ({
   page,
