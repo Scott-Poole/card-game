@@ -41,8 +41,6 @@ try {
   for (const path of [
     ".scratch/research/123.md",
     ".out-of-scope/rejected.md",
-    "to-questionnaire-topic.md",
-    "nested/to-questionnaire-topic.md",
   ]) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), "temporary findings");
