@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import {
   mkdir,
   mkdtemp,
@@ -32,10 +33,22 @@ export function findUploadDrift(workflow) {
   if (!/^\s+if:\s*failure\(\)\s*$/m.test(step)) {
     problems.push("the upload-artifact step must run `if: failure()`");
   }
+  // The `path: |` block, exactly: a prefixed or extra entry would upload nothing useful.
+  const block = step.match(/^(\s+)path:\s*\|\s*\n((?:\1\s+\S.*\n?)+)/m);
+  const uploaded = block
+    ? block[2]
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+    : [];
   for (const path of ["playwright-report/", "test-results/"]) {
-    if (!step.includes(path)) {
-      problems.push(`the upload-artifact step must upload ${path}`);
+    if (!uploaded.includes(path)) {
+      problems.push(`the upload-artifact step must upload exactly ${path}`);
     }
+  }
+  // An empty upload must be loud: `ignore` hides a wrong path.
+  if (/^\s+if-no-files-found:\s*ignore\s*$/m.test(step)) {
+    problems.push("the upload-artifact step must not ignore missing files");
   }
   return problems;
 }
@@ -69,6 +82,23 @@ assert.equal(
   findUploadDrift(workflow.replace("if: failure()", "if: always()")).length,
   1,
   "weakening the condition is caught",
+);
+assert.equal(
+  findUploadDrift(
+    workflow.replace(
+      /^(\s+)playwright-report\/$/m,
+      "$1missing/playwright-report/",
+    ),
+  ).length,
+  1,
+  "a wrong path prefix is caught",
+);
+assert.equal(
+  findUploadDrift(
+    workflow.replace("retention-days: 7", "if-no-files-found: ignore"),
+  ).length,
+  1,
+  "ignoring missing files is caught",
 );
 console.log("check.yml uploads Playwright evidence on failure");
 
@@ -109,30 +139,21 @@ try {
     `the failing fixture must fail:\n${output}`,
   );
   assert.doesNotMatch(output, /retry/i, "a failing test must not be retried");
-  const found = spawnSync(
+  // The workflow uploads these two directories (resolved against the run's cwd), so the
+  // evidence must be inside them, not merely somewhere under the fixture.
+  const traces = spawnSync(
     "find",
-    [
-      fixtureRoot,
-      "-name",
-      "trace.zip",
-      "-o",
-      "-name",
-      "index.html",
-      "-not",
-      "-path",
-      "*/node_modules/*",
-    ],
+    [join(fixtureRoot, "test-results"), "-name", "trace.zip"],
     { encoding: "utf8" },
   ).stdout;
   assert.match(
-    found,
+    traces,
     /trace\.zip/,
-    `a failed CI test must leave trace.zip:\n${found}\n${output}`,
+    `a failed CI test must leave trace.zip under test-results/:\n${traces}\n${output}`,
   );
-  assert.match(
-    found,
-    /playwright-report\/index\.html/,
-    `a failed CI test must leave playwright-report/index.html:\n${found}\n${output}`,
+  assert.ok(
+    existsSync(join(fixtureRoot, "playwright-report", "index.html")),
+    `a failed CI test must leave playwright-report/index.html:\n${output}`,
   );
   console.log("playwright: a failed CI test leaves trace.zip and index.html");
 } finally {
