@@ -236,7 +236,7 @@ cmd_next() {
 			and (.assignees | length) == 0
 			and ((.sub_issues_summary.total // 0) == 0)
 			and ((.issue_dependencies_summary.blocked_by // 0) == 0)
-			and (any(.labels[]; .name == \"$CLAIMED\" or .name == \"$TRIAGE\" or .name == \"grilling\") | not)
+			and (any(.labels[]; .name == \"$CLAIMED\" or .name == \"$TRIAGE\" or .name == \"grilling\" or .name == \"backlog\") | not)
 		)] | first // empty | \"\(.number) \(.title)\"")
 	if [[ -z $pick ]]; then
 		plan_next "$cfg" "$now" "$stale_hours"
@@ -352,7 +352,7 @@ cmd_plan_close() {
 cmd_claim() {
 	local n=$1 labels
 	labels=" $(labels_of "$n") "
-	if [[ $labels == *" $CLAIMED "* || $labels == *" $TRIAGE "* || $labels != *" $QUEUE "* ]]; then
+	if [[ $labels == *" $CLAIMED "* || $labels == *" $TRIAGE "* || $labels == *" backlog "* || $labels != *" $QUEUE "* ]]; then
 		log "refusing to claim #$n: labels are [$labels]"
 		exit 1
 	fi
@@ -528,6 +528,7 @@ cmd_escalate() {
 cmd_grill_start() {
 	local n=$1 labels count author allowed
 	labels=" $(labels_of "$n") "
+	[[ $labels != *" backlog "* ]] || { log "#$n is parked in backlog"; return 1; }
 	[[ $labels != *" grilling "* ]] || { log "already grilling #$n"; return 1; }
 	[[ $labels == *" $TRIAGE "* ]] || { log "#$n is not awaiting triage"; return 1; }
 	author=$(gh api "$API/issues/$n" --jq .user.login)

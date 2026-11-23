@@ -59,6 +59,33 @@ cat "$FIXTURE"
     "TRIAGE 1\n",
   );
   console.log("PASS trusted authors");
+  for (const labels of [
+    ["backlog"],
+    ["backlog", "needs-triage"],
+    ["backlog", "grilling"],
+  ]) {
+    const result = run([issue(10, "Scott-Poole", labels, "2020-01-01")]);
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, "");
+  }
+  console.log("PASS backlog excluded even with conflicting labels");
+  assert.equal(
+    run([issue(11, "Scott-Poole", ["enhancement"], "2020-01-01")]).stdout,
+    "TRIAGE 11\n",
+  );
+  for (const label of [
+    "ready-for-agent",
+    "in-progress",
+    "planning",
+    "research",
+    "wayfinder:spec",
+    "wontfix",
+  ]) {
+    assert.equal(
+      run([issue(11, "Scott-Poole", [label], "2020-01-01")]).stdout,
+      "",
+    );
+  }
   const pending = issue(
     3,
     "Scott-Poole",

@@ -108,6 +108,18 @@ setup "[$(issue 6 ready-for-agent,grilling),$(issue 7 ready-for-agent)]"
 run next
 check "open grilling thread excludes ticket from frontier" is "$OUT" "LAUNCH 7 Ticket 7"
 
+setup "[$(issue 6 backlog,needs-triage)]"
+run grill-start 6
+check "backlog grill refused" is "$CODE:$(comments 6)" "1:0"
+
+for parked in backlog backlog,ready-for-agent; do
+  setup "[$(issue 6 "$parked"),$(issue 7 ready-for-agent)]"
+  run next
+  check "backlog excluded from frontier ($parked)" is "$OUT" "LAUNCH 7 Ticket 7"
+  run claim 6
+  check "backlog direct claim refused ($parked)" is "$CODE:$(comments 6)" "1:0"
+done
+
 # --- completed parent specs --------------------------------------------------------------
 setup "[$(issue 3 ready-for-agent), $(issue 4 '' '{"state":"closed","parent_issue_url":"https://api.github.com/repos/Scott-Poole/card-game/issues/3"}')]"
 run parent-done 4

@@ -5,6 +5,14 @@ description: Resolve one ticket in a dedicated T3 grilling thread, or launch tha
 
 # Triage
 
+Tickets have three readiness states: ready-for-agent, needs-triage, and backlog.
+Backlog is parked on purpose: never settle, grill, claim, promote, or close it
+automatically, even with conflicting readiness labels. Only Scott or a thread
+he directs replaces backlog with needs-triage or ready-for-agent. There is no
+automatic expiry. Nightly reports only its count, without reading or summarising
+backlog tickets.
+
+
 For a nightly scheduled run, follow [nightly.md](nightly.md).
 
 ## Dedicated per-ticket thread

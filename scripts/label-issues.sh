@@ -9,11 +9,11 @@ number=$(jq -er '.issue.number | select(type == "number")' "$GITHUB_EVENT_PATH")
 issue=$(gh api "repos/$GITHUB_REPOSITORY/issues/$number")
 action=$(jq -r '.action' "$GITHUB_EVENT_PATH")
 if [[ "$action" == opened ]]; then
-  if jq -e '[.labels[].name | select(. == "ready-for-agent" or . == "needs-triage" or . == "in-progress" or . == "planning" or . == "research" or . == "wontfix" or startswith("wayfinder:"))] | length == 0' <<< "$issue" >/dev/null; then
+  if jq -e '[.labels[].name | select(. == "backlog" or . == "ready-for-agent" or . == "needs-triage" or . == "in-progress" or . == "planning" or . == "research" or . == "wontfix" or startswith("wayfinder:"))] | length == 0' <<< "$issue" >/dev/null; then
     gh api "repos/$GITHUB_REPOSITORY/issues/$number/labels" --method POST -f 'labels[]=needs-triage'
   fi
 elif [[ "$action" == labeled ]]; then
-  if jq -e 'any(.labels[]; .name == "ready-for-agent")' <<< "$issue" >/dev/null; then
+  if jq -e 'any(.labels[]; .name == "ready-for-agent" or .name == "backlog")' <<< "$issue" >/dev/null; then
     if jq -e 'any(.labels[]; .name == "needs-triage")' <<< "$issue" >/dev/null; then
       if ! gh api "repos/$GITHUB_REPOSITORY/issues/$number/labels/needs-triage" --method DELETE; then
         # Another actor may have removed it after the read. Propagate other errors.
