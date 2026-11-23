@@ -17,6 +17,7 @@ export const gates = [
   "test:working-markdown",
   "test:gates",
   "build-storybook",
+  "test:stories",
   "test:browser",
 ];
 
