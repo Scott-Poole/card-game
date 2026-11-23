@@ -53,7 +53,7 @@ GitHub Issues on `Scott-Poole/card-game` via `gh`. See `docs/agents/issue-tracke
 
 ### Triage labels
 
-Three readiness buckets (`needs-triage`, `ready-for-agent`, `backlog`) plus `wontfix`. `backlog` is parked on purpose: automation never touches it, and only Scott promotes it. See `docs/agents/triage-labels.md` for the full table.
+Three readiness buckets (`needs-triage`, `ready-for-agent`, `backlog`) plus `wontfix`. `backlog` is parked on purpose: automation never touches it, and only Scott or a thread he directs promotes it. See `docs/agents/triage-labels.md` for the full table.
 
 ### Domain docs
 
