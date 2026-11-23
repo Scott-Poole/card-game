@@ -7,7 +7,7 @@ const files = execFileSync(
   { cwd: root, encoding: "utf8" },
 ).split("\0");
 const pattern =
-  /\b(?:gpt-[\w.-]+|claude-(?!handoff\b|with-access\b|code\b)[\w.-]+|deepseek[\w./-]*|opencode\/[\w./-]+|(?:Opus|Sonnet|Haiku)\s+\d[\d.]*)/i;
+  /\b(?:gpt-[\w.-]+|claude-(?!with-access\b|code\b)[\w.-]+|deepseek[\w./-]*|opencode\/[\w./-]+|(?:Opus|Sonnet|Haiku)\s+\d[\d.]*)/i;
 const problems = [...new Set(files)]
   .filter(
     (file) =>

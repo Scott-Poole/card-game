@@ -78,7 +78,6 @@ cat "$FIXTURE"
     "in-progress",
     "planning",
     "research",
-    "wayfinder:spec",
     "wontfix",
   ]) {
     assert.equal(

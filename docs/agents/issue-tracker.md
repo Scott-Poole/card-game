@@ -38,19 +38,8 @@ Create a GitHub issue.
 
 Read it as in **Read an issue** above.
 
-## Wayfinding operations
-
-Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
-
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
-- **Child ticket**: an issue linked to the map as a GitHub sub-issue (see **Make an issue a sub-issue of a parent**). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
-- **Blocking**: see **Blocking** under Conventions.
-- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (see **Count open blockers**, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
-
 ## Where records live
 
-Repo markdown holds knowledge that changes with the code and is read at HEAD: `AGENTS.md`, skills, `GLOSSARY.md`, ADRs, and code docs. Records of what happened—status, claims, findings, verdicts, runs, resolutions, and dates—belong in GitHub comments, labels, and close reasons. Working markdown lives in gitignored `.scratch/` or the OS temp directory and is never committed. Before the work ends, post its complete useful content to the GitHub ticket it belongs to, mention the transfer in the resolution comment, and remove the scratch files. Retain scratch for retry when transfer fails. Rejected requests live in closing comments with `wontfix`, never in `.out-of-scope/`. The working-markdown check rejects tracked scratch directories and questionnaire files even after force-add. Durable knowledge listed above is exempt.
+Repo markdown holds knowledge that changes with the code and is read at HEAD: `AGENTS.md`, skills, `GLOSSARY.md`, ADRs, and code docs. Records of what happened—status, claims, findings, verdicts, runs, resolutions, and dates—belong in GitHub comments, labels, and close reasons. Working markdown lives in gitignored `.scratch/` or the OS temp directory and is never committed. Before the work ends, post its complete useful content to the GitHub ticket it belongs to, mention the transfer in the resolution comment, and remove the scratch files. Retain scratch for retry when transfer fails. Rejected requests live in closing comments with `wontfix`, never in `.out-of-scope/`. The working-markdown check rejects tracked scratch directories even after force-add. Durable knowledge listed above is exempt.
 
 Run metadata belongs in the verdict comment's marked `## Runs` table; see the `delegate` skill for its format and `/retro` query. For a ticket closed without a PR, comment the outcome and a pointer to the commit, PR, or follow-up issue before closing. For `wontfix`, close with `gh issue close <number> --reason "not planned"`.

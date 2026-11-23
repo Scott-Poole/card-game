@@ -8,11 +8,7 @@ if (result.status !== 0) {
 }
 const forbidden = result.stdout
   .split("\0")
-  .filter(
-    (path) =>
-      /(^|\/)(?:\.scratch|\.out-of-scope)\//.test(path) ||
-      /(^|\/)to-questionnaire-[^/]*\.md$/.test(path),
-  );
+  .filter((path) => /(^|\/)(?:\.scratch|\.out-of-scope)\//.test(path));
 if (forbidden.length) {
   console.error(
     "Working markdown must move to GitHub and leave the index:\n" +

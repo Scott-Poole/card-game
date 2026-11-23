@@ -42,7 +42,7 @@ Node 26.13.1 is the current LTS; uWebSockets.js v20.71.0 ships the Node 26 ABI 1
 
 - `.agents/skills/` is the one skill directory; `.claude/skills` symlinks to it, so Claude Code, Codex, and OpenCode share the same set.
 - `skills-lock.json` lists skills tracked from upstream (refresh with `npx skills update`). Once we tailor a skill, we remove it from the lock and it's ours.
-- Unsure which flow fits? `/ask-matt` maps them: grill → spec → tickets → implement (TDD) → review → retro.
+- The ticket flow is `tick` → `work-ticket` → `land`; `delegate` routes the work to models.
 
 ## Agent skills
 

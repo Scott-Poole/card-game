@@ -47,7 +47,7 @@ run_case labeled stranger '["backlog","needs-triage"]' backlog ''
 run_case opened stranger '[]' '' ''
 run_case labeled Scott-Poole '["needs-triage","ready-for-agent"]' ready-for-agent 'api repos/test/repo/issues/42/labels/needs-triage --method DELETE'
 run_case labeled stranger '["needs-triage","ready-for-agent"]' ready-for-agent ''
-for label in needs-triage in-progress research wontfix wayfinder:spec; do
+for label in needs-triage in-progress research wontfix; do
   run_case opened Scott-Poole "[\"$label\"]" '' ''
 done
 run_case labeled Scott-Poole '["needs-triage"]' enhancement ''

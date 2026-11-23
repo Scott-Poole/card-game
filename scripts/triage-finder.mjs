@@ -56,17 +56,16 @@ for (const issue of issues
       throw new Error(`Unverified grilling ticket #${issue.number}`);
   } else if (
     issue.labels.some((label) => label.name === "needs-triage") ||
-    !issue.labels.some(
-      ({ name }) =>
-        [
-          "ready-for-agent",
-          "backlog",
-          "grilling",
-          "in-progress",
-          "planning",
-          "research",
-          "wontfix",
-        ].includes(name) || name.startsWith("wayfinder:"),
+    !issue.labels.some(({ name }) =>
+      [
+        "ready-for-agent",
+        "backlog",
+        "grilling",
+        "in-progress",
+        "planning",
+        "research",
+        "wontfix",
+      ].includes(name),
     )
   )
     output.push(`TRIAGE ${issue.number}`);
