@@ -111,3 +111,8 @@ allow|git push -n origin main
 allow|cat <<'EOF2' | grep bash\ngit reset --hard\nEOF2
 block|(git reset --hard)
 block|true&&(git clean -f)
+
+# Proven-merge housekeeping is the sanctioned force-delete path.
+allow|bash .agents/skills/tick/worktrees.sh prune-branches
+block|git update-ref -d refs/heads/old
+block|git update-ref --delete refs/heads/old
