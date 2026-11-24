@@ -141,6 +141,7 @@ export default function Lane({
           <p
             className={css({
               fontSize: "small",
+              fontFamily: "display",
               fontWeight: "strong",
               lineHeight: "heading",
               lineClamp: 1,

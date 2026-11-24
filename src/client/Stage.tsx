@@ -61,7 +61,6 @@ export default function Stage({
           height: "stageHeight",
           flexShrink: 0,
           transformOrigin: "center",
-          bg: "surface",
         })}
       >
         {children}

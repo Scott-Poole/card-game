@@ -26,8 +26,15 @@ test("production page connects and reconnects after reload", async ({
   await expectConnected(page, "Find match");
   await expect(page.locator("body")).toHaveCSS(
     "background-color",
-    "rgb(21, 23, 25)",
+    "rgb(12, 16, 43)",
   );
+  await expect(page.locator("body")).toHaveCSS(
+    "font-family",
+    '"Alegreya Sans", sans-serif',
+  );
+  await expect(
+    page.getByRole("heading", { name: "Home", exact: true }),
+  ).toHaveCSS("font-family", "Cinzel, serif");
   await page.keyboard.press("Tab");
   const join = page.getByRole("button", { name: "Find match", exact: true });
   await expect(join).toBeFocused();
