@@ -20,7 +20,7 @@ Owned by this repo. Scott's policy: **trivial** PRs merge without review and pro
 gh pr view <n> --json number,state,isDraft,isCrossRepository,author,title,body,headRefName,headRefOid,baseRefName,files,additions,deletions
 ```
 
-Stop if it's closed or a draft. **Land handles only PRs whose branch lives in this repo** (`isCrossRepository` false). A fork PR comes from outside: add `needs-triage`, comment that it goes through `/triage`, and stop. Agents never merge outside code on their own consensus.
+Stop if it's a draft or closed unmerged. If `state` is `MERGED`, take [Resume after merge](#resume-after-merge) instead of continuing here: it files what is pending, or stops when nothing is. **Land handles only PRs whose branch lives in this repo** (`isCrossRepository` false). A fork PR comes from outside: add `needs-triage`, comment that it goes through `/triage`, and stop. Agents never merge outside code on their own consensus.
 
 Record `PIN=<headRefOid>` and `BASE=origin/<baseRefName>`, then `git fetch origin <baseRefName> <headRefName>`. Find the **PR checkout** (call its path `WT`):
 
@@ -80,10 +80,25 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
    gh api -X PUT repos/Scott-Poole/card-game/pulls/<n>/merge -f merge_method=squash -f sha=$PIN
    ```
    (`gh pr merge` can hit the Projects-classic GraphQL bug noted in `AGENTS.md`; REST avoids it.)
-4. **Follow-ups**: land alone owns filing. After merge, reconcile accepted follow-ups using [cross-review's disposition rule](../cross-review/SKILL.md#disposition), against the merged code. File eligible tickets with the PR and squash commit links; retain notes for findings superseded by fixes, without full criteria, or beyond the cap. Update the cumulative verdict and PR totals. Before merge, and on escalation or abandonment, retain notes only: they are not dispatchable tickets yet.
+4. **Follow-ups**: land alone owns filing. After merge, reconcile accepted follow-ups using [cross-review's disposition rule](../cross-review/SKILL.md#disposition), against the merged code. File eligible tickets with the PR and squash commit links; retain notes for findings superseded by fixes, without full criteria, or beyond the cap. Update the cumulative verdict and PR totals, setting the totals `<state>` to `merged; filing complete` once every accepted follow-up is a ticket link or carries a permanent reason. Before merge, and on escalation or abandonment, retain notes only: they are not dispatchable tickets yet. Record each one in `## Follow-ups` as `pending: file after merge`, with the reviewer's acceptance criteria, `file:line` and scenario verbatim, so a resumed run can file it from the verdict alone.
 5. **Clean up**: `git fetch origin main` (never pull in Scott's primary checkout; it is his to update). Run `bash .agents/skills/tick/worktrees.sh prune-branches` to delete local branches proven merged at their exact tip; checked-out branches are retained for a later sweep. It reports remote branches and leaves them intact. On a nonzero exit, record the partial failure and continue the remaining cleanup; failed proof never permits deletion. Last, if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it, since your shell may be standing in it; if `WT` is another session's worktree, leave it.
 
 Done when `origin/main` contains the squash commit and step 4.5 is done.
+
+## Resume after merge
+
+A crash after the merge but before step 4.4 finishes leaves accepted follow-ups unfiled. Land resumes there, and only there: **filing and cleanup**. No tick wakes a merged PR whose ticket is closed, so a person reruns `land <n>` on it.
+
+A follow-up in the cumulative verdict's `## Follow-ups` is **settled** when it has a ticket link or a permanent reason (superseded by a fix, no full criteria, beyond the cap, ticket creation failed), and **pending** otherwise, including `pending: file after merge`. Links live in `## Follow-ups`; the `PR totals` row (per `delegate`) holds counters and `<state>` only.
+
+1. Read the verdict (`delegate`'s per-PR lookup). No verdict: stop, nothing to file. Take the squash commit from `gh pr view <n> --json mergeCommit`. If the totals `<state>` is `merged; filing complete` and no follow-up is pending, stop. A missing totals row does not stop recovery: judge by `## Follow-ups`.
+2. Skip every settled follow-up. For each pending one, search open and closed issues (`gh issue list --state all --search <terms>`) for a ticket naming **that** follow-up's finding or `file:line`, per cross-review's disposition rule; link what you find instead of filing again. A ticket that merely references the PR or squash commit proves nothing about any other follow-up.
+3. File each remaining pending follow-up that carries reviewer criteria as step 4.4 says (PR and squash commit links; the cumulative new-ticket cap). Without criteria, record it with a permanent reason. Update the verdict and `PR totals`, ending at `merged; filing complete`.
+4. Clean up (step 4.5).
+
+**Never push, review, or merge on this path.** It runs no `cross-review` and no fix rounds, and it creates no PR checkout or branch. The squash commit is the evidence; a defect found now is a new follow-up, not a fix to this PR.
+
+Done when no follow-up is pending, the totals `<state>` is `merged; filing complete`, and step 4.5 is done.
 
 ## 5. Escalate
 
