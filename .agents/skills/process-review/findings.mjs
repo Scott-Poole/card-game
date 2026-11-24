@@ -265,7 +265,7 @@ export const metrics = {
 const windows = ["week", "all"];
 const repeatedWords = { yes: "yes", no: "no", "no-previous": "no previous report" };
 const impacts = ["money", "hours", "failed-work", "none"];
-const labels = ["ready-for-agent", "needs-triage"];
+const labels = ["needs-triage"];
 
 // ---------------------------------------------------------------- validation
 
@@ -346,9 +346,6 @@ export function parseFindings(text, skillNames) {
     if (seen.has(item.finding)) fail(where, "repeats a finding");
     seen.add(item.finding);
     const label = choice(item.label, `${where}.label`, labels);
-    if (label === "ready-for-agent" && proposals[findings[item.finding - 1].proposal].acceptance === null) {
-      fail(`${where}.label`, "needs a proposal with acceptance criteria");
-    }
     return { finding: item.finding, label };
   });
   return { findings, tickets };

@@ -1037,7 +1037,7 @@ try {
         skills: [],
       },
     ],
-    tickets: [{ finding: 1, label: "ready-for-agent" }],
+    tickets: [{ finding: 1, label: "needs-triage" }],
   };
   assert.equal(collect(["--check", write("good.json", good)]).status, 0);
 
@@ -1074,6 +1074,7 @@ try {
     ["no evidence", (d) => { d.findings[0].evidence = []; }],
     ["too many issues", (d) => { d.findings[0].issues = [1, 2, 3, 4, 5, 6]; }],
     ["ticket to nothing", (d) => { d.tickets[0].finding = 9; }],
+    ["generic acceptance is not ready", (d) => { d.tickets[0].label = "ready-for-agent"; }],
     ["free label", (d) => { d.tickets[0].label = "ready-for-human"; }],
     ["four tickets", (d) => { d.tickets = [1, 1, 1, 1].map((finding) => ({ finding, label: "needs-triage" })); }],
     ["ticket body", (d) => { d.tickets[0].body = "acquire Contoso"; }],

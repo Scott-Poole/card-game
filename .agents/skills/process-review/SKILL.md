@@ -61,14 +61,14 @@ Write the findings to `$T/findings.json`. Nothing else you write is published; t
       "skills": []
     }
   ],
-  "tickets": [{ "finding": 1, "label": "ready-for-agent" }]
+  "tickets": [{ "finding": 1, "label": "needs-triage" }]
 }
 ```
 
 - `category`, `metric`, `proposal`: pick from `categories`, `metrics` and `proposals` in [findings.mjs](findings.mjs). If none fits, the finding does not fit the format: drop it, or file it as `investigate` under the nearest category.
 - `window` is `week` or `all`; the collector reads the figure from `week.json` or `all.json`, so you never type a number.
 - `issues` are `#<n>` references (at most five), `skills` are this repo's skill names (at most three), `repeated` is `yes`, `no` or `no-previous`, `impact` is `money`, `hours`, `failed-work` or `none`.
-- `tickets` names at most three findings by position. `ready-for-agent` needs a proposal other than `investigate`; use `needs-triage` otherwise (the nightly triage settles it). `ready-for-human` is not a label here.
+- `tickets` names at most three findings by position. Generated proposals have generic acceptance templates, so every generated ticket uses `needs-triage`. Nightly triage supplies the concrete target, expected behavior and executable acceptance criteria before promoting it to `ready-for-agent`. `ready-for-human` is not a label here.
 
 Validate, then render and post. A non-zero exit from `--check` means a value is outside the format: fix the file, never loosen the check.
 
