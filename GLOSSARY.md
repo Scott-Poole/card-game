@@ -35,6 +35,9 @@ _Avoid_: Game (when referring to a particular contest)
 **Phase**:
 The match's status, either planning, when uncommitted players may stage and commit plays, or ended, when the **Result** is final.
 
+**Queue**:
+The server's holding place for a **Player** who has joined but has no **Seat**. It holds one waiting player at a time. A `join` from an unseated player, when nobody is waiting, places them in the queue and the server answers `waiting`; a `join` while someone is waiting instead pairs the waiting player with the joiner into a **Match**, seating the waiting player first and the joiner second, and neither is answered `waiting`. A `join` from a player who is already queued, or who is seated in a match that has not ended, is an error; a `join` after the player's match has ended frees their old **Seat** and then joins as an unseated player would, queuing them or pairing them at once. A queued player who disconnects simply leaves the queue, which is not a **Forfeit**.
+
 **Resolution**:
 The step after both players commit that reveals staged cards, ends the turn and either starts the next turn or ends the match.
 
