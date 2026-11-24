@@ -165,18 +165,20 @@ const originals = [
   },
 ];
 
-test("ships twenty-four valid mythic figures, four per cost and two per tradition", () => {
-  expect(roster).toHaveLength(24);
+test("ships thirty valid mythic figures with evenly split traditions", () => {
+  expect(roster).toHaveLength(30);
   // Clean also means ids and names are unique, names case-insensitively.
   expect(validateRoster(roster)).toEqual([]);
   for (const cost of [1, 2, 3, 4, 5, 6]) {
     const tier = roster.filter((entry) => entry.card.cost === cost);
-    expect(tier).toHaveLength(4);
+    expect(tier).toHaveLength(cost <= 3 ? 6 : 4);
     for (const tradition of ["greek", "roman"])
-      expect(tier.filter((e) => e.tradition === tradition)).toHaveLength(2);
+      expect(tier.filter((e) => e.tradition === tradition)).toHaveLength(
+        cost <= 3 ? 3 : 2,
+      );
   }
   expect(new Set(roster.map((entry) => entry.figure.toLowerCase())).size).toBe(
-    24,
+    30,
   );
 });
 
@@ -191,15 +193,18 @@ test("the original roster identities and authored stats match", () => {
 
 test("the new cards spread power around each cost's mean", () => {
   const added = roster.filter((entry) => !originalIds.has(entry.card.id));
-  expect(added).toHaveLength(12);
+  expect(added).toHaveLength(18);
   for (const cost of [1, 2, 3, 4, 5, 6]) {
     const pair = added.filter((entry) => entry.card.cost === cost);
     expect(pair.map((entry) => entry.tradition).sort()).toEqual([
-      "greek",
-      "roman",
+      ...(cost <= 3
+        ? ["greek", "greek", "roman", "roman"]
+        : ["greek", "roman"]),
     ]);
     expect(pair.map((entry) => entry.card.power).sort((x, y) => x - y)).toEqual(
-      [2 * cost - 1, 2 * cost + 1],
+      cost <= 3
+        ? [2 * cost - 1, 2 * cost - 1, 2 * cost + 1, 2 * cost + 1]
+        : [2 * cost - 1, 2 * cost + 1],
     );
   }
 });
@@ -271,7 +276,7 @@ test("a cost whose cards share an id cannot draw a deck", () => {
 
 test("half the roster has distinct ability text across every cost and effect", () => {
   const abilities = roster.filter(({ card }) => card.ability);
-  expect(abilities).toHaveLength(12);
+  expect(abilities).toHaveLength(15);
   expect(new Set(abilities.map(({ card }) => card.cost))).toEqual(
     new Set([1, 2, 3, 4, 5, 6]),
   );
@@ -286,8 +291,17 @@ test("half the roster has distinct ability text across every cost and effect", (
     ]),
   );
   expect(new Set(abilities.map(({ card }) => card.ability?.text)).size).toBe(
-    12,
+    15,
   );
+  for (const kind of [
+    "boost-self",
+    "boost-lane-allies",
+    "weaken-lane-enemies",
+    "destroy-weakest-enemy",
+  ])
+    expect(
+      abilities.filter(({ card }) => card.ability?.effect.kind === kind).length,
+    ).toBeGreaterThanOrEqual(3);
   for (const { card } of abilities) {
     const ability = card.ability;
     if (!ability) throw new Error("Expected an ability card");

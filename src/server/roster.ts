@@ -320,6 +320,92 @@ export const roster: readonly RosterEntry[] = [
     tradition: "roman",
     flavor: "Her drums begin in the next valley and finish in your chest.",
   },
+  {
+    card: {
+      id: "echo-hushcollector",
+      name: "Echo, Collector of Mountain Hush",
+      cost: 1,
+      power: 1,
+      ability: {
+        text: "On reveal, lower each enemy already revealed in this lane by 1 power, never below 0.",
+        effect: {
+          kind: "weaken-lane-enemies",
+          amount: 1,
+        },
+      },
+    },
+    figure: "Echo",
+    tradition: "greek",
+    flavor: "She folds the last sound of a quarrel into a sleeping stone.",
+  },
+  {
+    card: {
+      id: "vertumnus-leafturner",
+      name: "Vertumnus, Turner of Copper Leaves",
+      cost: 1,
+      power: 3,
+    },
+    figure: "Vertumnus",
+    tradition: "roman",
+    flavor: "His pockets hold a different season for every locked garden.",
+  },
+  {
+    card: {
+      id: "atalanta-milekeeper",
+      name: "Atalanta, Keeper of Uncounted Miles",
+      cost: 2,
+      power: 3,
+      ability: {
+        text: "On reveal, gain 2 power for this card.",
+        effect: {
+          kind: "boost-self",
+          amount: 2,
+        },
+      },
+    },
+    figure: "Atalanta",
+    tradition: "greek",
+    flavor: "She measures the road by the promises she has outrun.",
+  },
+  {
+    card: {
+      id: "carmenta-cradlelistener",
+      name: "Carmenta, Listener at Empty Cradles",
+      cost: 2,
+      power: 5,
+    },
+    figure: "Carmenta",
+    tradition: "roman",
+    flavor: "She hears a future name in the creak of every cradle.",
+  },
+  {
+    card: {
+      id: "theseus-doorfinder",
+      name: "Theseus, Finder of Buried Doors",
+      cost: 3,
+      power: 5,
+      ability: {
+        text: "On reveal, destroy 1 card: the weakest enemy already revealed in this lane.",
+        effect: {
+          kind: "destroy-weakest-enemy",
+        },
+      },
+    },
+    figure: "Theseus",
+    tradition: "greek",
+    flavor: "He knocks where the mountain insists there has never been a door.",
+  },
+  {
+    card: {
+      id: "quirinus-roofwarden",
+      name: "Quirinus, Warden of Gathered Roofs",
+      cost: 3,
+      power: 7,
+    },
+    figure: "Quirinus",
+    tradition: "roman",
+    flavor: "Under his watch, scattered roofs learn to shelter one city.",
+  },
 ];
 
 /** Draws a deck: DECK_CARDS_PER_COST distinct cards at each cost from 1 to
