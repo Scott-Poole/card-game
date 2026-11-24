@@ -8,6 +8,7 @@ export const gates = [
   "test:guardrail",
   "test:queue",
   "test:routing",
+  "test:process-review",
   "test:label-issues",
   "test:pinned-node",
   "test:triage-finder",
