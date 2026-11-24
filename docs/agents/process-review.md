@@ -1,6 +1,6 @@
 # Process review
 
-A weekly T3 task reviews how agent work went. It runs the collector in [`.agents/skills/process-review/`](../../.agents/skills/process-review/SKILL.md), files one `research` issue holding the dated tables and findings, and files at most three follow-up tickets. It never edits a skill, `AGENTS.md` or code. The collector is the only reader of past sessions; the model interprets its tables.
+A weekly T3 task reviews how agent work went. It runs the collector in [`.agents/skills/process-review/`](../../.agents/skills/process-review/SKILL.md), files one `research` issue holding the dated tables and findings, and files at most three follow-up tickets, all from a structured findings file the collector validates and renders. It never edits a skill, `AGENTS.md` or code. The collector is the only reader of past sessions and the only writer of published text; the model chooses findings from closed lists.
 
 ## Schedule
 
@@ -28,13 +28,17 @@ Windows: runs by request time, commands and skill loads by their own time, threa
 | Claude cost         | Claude `cost-state` records                                         | USD per role and model                                                                                                                                                                  |
 | Codex limit samples | Codex rate-limit samples                                            | samples, samples at 100%, days at the limit                                                                                                                                             |
 | Hygiene             | `git worktree` and branch lists, T3 threads, database size          | leftover worktrees and local branches (merged, dirty), unarchived threads, database size                                                                                                |
-| Scheduled tasks     | T3 scheduled tasks                                                  | schedule kind, mode, enabled, run count and last status, for factual drift                                                                                                              |
+| Scheduled tasks     | T3 scheduled tasks                                                  | purpose (`tick`, `triage`, `process-review` or `other`, read from the prompt), schedule kind, weekdays, time of day, mode, enabled, run count and last status, for factual drift        |
 
 A role comes from a thread's first message and creator, reduced to a label inside the reader; the text is never kept. Roles are a heuristic: threads that match none count as `other` and are reported.
 
 ## Privacy
 
-The repository is public, so output is aggregate by construction. Readers reduce source text to closed vocabularies (providers, statuses, roles, the repo's own skill names, integer PR numbers, short tokens such as failure classes and model ids; anything else becomes `other`). The renderer then rejects any string that is long, multi-line or matches a path, URL, e-mail, UUID, long hex id, `.sqlite`/`.jsonl` name or non-ASCII text, and exits non-zero without printing. `collect.mjs --check FILE` applies the same rules to text the review writes itself. `test-collect.mjs` plants source text, paths and titles in fixtures and asserts none reaches the output, and that the source database is unchanged.
+The repository is public, so output is aggregate by construction, and the model publishes no free text.
+
+- **Tables.** Readers reduce source text to closed vocabularies (providers, statuses, roles, scheduled-task purposes, the repo's own skill names, integer PR numbers, weekdays 0 to 6, `HH:MM` times, short tokens such as failure classes and model ids; anything else becomes `other` or is dropped). The renderer then rejects any string that is long, multi-line or matches a path, URL, e-mail, UUID, long hex id, `.sqlite`/`.jsonl` name or non-ASCII text, and exits non-zero without printing. A measure whose source could not be read renders as `unavailable (<reason>)`, never as zero.
+- **Findings.** The review writes a JSON findings file, not prose. Each finding picks a `category`, one to four `evidence` metrics (a metric id and a `week` or `all` window), up to five issue numbers, `repeated`, `impact`, a `proposal` and up to three repo skill names, all from closed lists in [`findings.mjs`](../../.agents/skills/process-review/findings.mjs); up to three `tickets` pick a finding and a label. `collect.mjs --check FILE` exits 1 unless the file is exactly that shape, so ordinary sentences, extra keys and unknown names all fail without being echoed. `--render-findings` and `--render-ticket` then write every sentence from fixed templates and read every figure from the collector's own JSON reports, so a model cannot choose a number either.
+- **Tests.** `test-collect.mjs` plants source text, paths, titles and ordinary private prose in fixtures and in findings files, and asserts none reaches the output, and that the source database is unchanged.
 
 ## Regression suite
 

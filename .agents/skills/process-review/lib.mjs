@@ -131,6 +131,33 @@ export function classifyRole({ firstMessage, createdBy, skills }) {
   return "other";
 }
 
+const purposePatterns = [
+  ["process-review", /process[ -]review/i],
+  ["triage", /\btriage\b/i],
+  ["tick", /\btick\b/i],
+];
+
+// Reduces a scheduled task's prompt to a purpose label. The prompt is read here and never stored.
+export function classifyPurpose(prompt) {
+  const text = typeof prompt === "string" ? prompt : "";
+  for (const [purpose, pattern] of purposePatterns) {
+    if (pattern.test(text)) return purpose;
+  }
+  return "other";
+}
+
+// Weekdays as sorted unique integers 0 to 6; everything else is dropped.
+export function safeWeekdays(value) {
+  if (!Array.isArray(value)) return [];
+  const days = value.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
+  return [...new Set(days)].sort((a, b) => a - b);
+}
+
+// A clock time of the shape HH:MM, or null.
+export function safeTimeOfDay(value) {
+  return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
+}
+
 const publishRules = [
   ["absolute path", /(?:^|[\s("'`=])\/[A-Za-z0-9._~-]+\/[A-Za-z0-9._~-]|(?:^|[\s("'`=])~\//],
   ["windows path", /[A-Za-z]:\\/],

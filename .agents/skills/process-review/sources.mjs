@@ -16,10 +16,13 @@ import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import {
+  classifyPurpose,
   classifyRole,
   isGateCommand,
   mentionsGate,
+  safeTimeOfDay,
   safeToken,
+  safeWeekdays,
   skillsFromCommand,
   skillsFromPath,
 } from "./lib.mjs";
@@ -294,19 +297,24 @@ export function readT3({ dbPath, repoName }) {
       thread.firstMessage = "";
     }
 
+    // A scheduler that cannot be queried is unavailable, never an empty list.
     let tasks = [];
+    let tasksReason = null;
     try {
       tasks = db
         .prepare(
-          `SELECT enabled, schedule_json, thread_mode, run_count, last_run_status
+          `SELECT enabled, schedule_json, prompt, thread_mode, run_count, last_run_status
            FROM scheduled_tasks WHERE project_id IN (${marks})`,
         )
         .all(...projects)
         .map((row) => {
           const schedule = parseJson(row.schedule_json) ?? {};
           return {
+            purpose: classifyPurpose(row.prompt),
             kind: safeToken(schedule.type),
             everyHours: Number.isFinite(schedule.everyMs) ? schedule.everyMs / 3600000 : null,
+            weekdays: safeWeekdays(schedule.weekdays),
+            timeOfDay: safeTimeOfDay(schedule.timeOfDay),
             threadMode: safeToken(row.thread_mode),
             enabled: row.enabled === 1,
             runCount: Number.isFinite(row.run_count) ? row.run_count : 0,
@@ -315,6 +323,7 @@ export function readT3({ dbPath, repoName }) {
         });
     } catch {
       tasks = [];
+      tasksReason = "schema";
     }
 
     const size = (suffix) => {
@@ -328,6 +337,7 @@ export function readT3({ dbPath, repoName }) {
       available: true,
       threads: [...threads.values()],
       tasks,
+      tasksReason,
       dbBytes: size(""),
       walBytes: size("-wal"),
     };

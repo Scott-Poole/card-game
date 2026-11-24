@@ -31,6 +31,11 @@ function unavailable(reason) {
   return { available: false, reason };
 }
 
+// The availability fields of a part that needs a source: either available, or the reason it is not.
+function needs(ok, reason) {
+  return ok ? { available: true } : unavailable(reason);
+}
+
 export function buildReport({ now, days, all, t3, claude, codex, skills, hygiene, target }) {
   const until = Date.parse(now);
   const since = all ? null : until - days * 86400000;
@@ -152,6 +157,7 @@ export function buildReport({ now, days, all, t3, claude, codex, skills, hygiene
   const implementClaude = implementThreads.filter((thread) => thread.provider === "claudeAgent").length;
   const implementCodex = implementThreads.filter((thread) => thread.provider === "codex").length;
   const mix = {
+    ...needs(t3.available, t3.reason),
     rows: mixRows,
     claudeShare: {
       target,
@@ -227,14 +233,14 @@ export function buildReport({ now, days, all, t3, claude, codex, skills, hygiene
   }));
   prRows.sort((a, b) => b.threads - a.threads || a.pr - b.pr);
   const reviews = {
-    available: t3.available,
+    ...needs(t3.available, t3.reason),
     prs: prRows.length,
     threadsPerPr: rounded(summarize(prRows.map((row) => row.threads))),
     reviewThreadsPerPr: rounded(summarize(prRows.map((row) => row.reviewThreads))),
     top: prRows.slice(0, 5),
   };
   const gate = {
-    available: t3.available || claude.available,
+    ...needs(t3.available || claude.available, t3.reason),
     runs: everyGate.length,
     passed,
     failed: failedGates,
@@ -276,7 +282,7 @@ export function buildReport({ now, days, all, t3, claude, codex, skills, hygiene
   const tickNoop = tickRuns.filter((run) => !run.launched).length;
   const tickMinutes = tickRuns.filter((run) => run.durationMs !== null).map((run) => minutes(run.durationMs));
   const context = {
-    available: t3.available,
+    ...needs(t3.available || claude.available, t3.reason),
     peakTokens,
     atLeast200kTokens: threads.filter((thread) => thread.peakTokens !== null && thread.peakTokens >= 200000).length,
     atLeastHalfWindow: threads.filter(
@@ -284,11 +290,13 @@ export function buildReport({ now, days, all, t3, claude, codex, skills, hygiene
         thread.peakTokens !== null && thread.peakWindow !== null && thread.peakTokens >= thread.peakWindow / 2,
     ).length,
     implement: {
+      ...needs(t3.available, t3.reason),
       threads: implementThreads.length,
       runsPerThread: rounded(summarize(implementRuns)),
       turnsPerThread: rounded(summarize(implementTurns)),
     },
     tick: {
+      ...needs(t3.available, t3.reason),
       threads: tickThreads.length,
       runs: tickRuns.length,
       noopRuns: tickNoop,
@@ -369,21 +377,25 @@ export function buildReport({ now, days, all, t3, claude, codex, skills, hygiene
   };
 
   const tasks = t3.available ? t3.tasks : [];
-  const schedule = t3.available
-    ? {
-        available: true,
-        tasks: tasks.length,
-        enabled: tasks.filter((task) => task.enabled).length,
-        rows: tasks.map((task) => ({
-          kind: safeToken(task.kind),
-          everyHours: round(task.everyHours),
-          threadMode: task.threadMode,
-          enabled: task.enabled,
-          runCount: task.runCount,
-          lastStatus: task.lastStatus,
-        })),
-      }
-    : unavailable(t3.reason);
+  const schedule =
+    t3.available && t3.tasksReason === null
+      ? {
+          available: true,
+          tasks: tasks.length,
+          enabled: tasks.filter((task) => task.enabled).length,
+          rows: tasks.map((task) => ({
+            purpose: task.purpose,
+            kind: safeToken(task.kind),
+            everyHours: round(task.everyHours),
+            weekdays: task.weekdays,
+            timeOfDay: task.timeOfDay,
+            threadMode: task.threadMode,
+            enabled: task.enabled,
+            runCount: task.runCount,
+            lastStatus: task.lastStatus,
+          })),
+        }
+      : unavailable(t3.available ? t3.tasksReason : t3.reason);
 
   return {
     window: {

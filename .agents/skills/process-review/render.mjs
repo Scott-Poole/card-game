@@ -96,11 +96,13 @@ export function renderMarkdown(report) {
   out.push(
     section(
       "Mix by role and provider",
-      table(
-        ["role", "provider", "threads", "runs", "run minutes"],
-        report.mix.rows.map((row) => [row.role, row.provider, row.threads, row.runs, row.runMinutes]),
-      ) +
-        `\nclaudeShare achieved ${percent(report.mix.claudeShare.achieved)} against target ${cell(report.mix.claudeShare.target)} (${report.mix.claudeShare.implementClaudeThreads} Claude and ${report.mix.claudeShare.implementCodexThreads} Codex implement threads). Threads with no recognised role: ${report.mix.unclassifiedThreads}.\n`,
+      report.mix.available === false
+        ? off(report.mix)
+        : table(
+            ["role", "provider", "threads", "runs", "run minutes"],
+            report.mix.rows.map((row) => [row.role, row.provider, row.threads, row.runs, row.runMinutes]),
+          ) +
+            `\nclaudeShare achieved ${percent(report.mix.claudeShare.achieved)} against target ${cell(report.mix.claudeShare.target)} (${report.mix.claudeShare.implementClaudeThreads} Claude and ${report.mix.claudeShare.implementCodexThreads} Codex implement threads). Threads with no recognised role: ${report.mix.unclassifiedThreads}.\n`,
     ),
   );
 
@@ -125,7 +127,9 @@ export function renderMarkdown(report) {
   out.push(
     section(
       "Review rounds per PR",
-      `${reviews.prs} PRs. Threads per PR: mean ${cell(reviews.threadsPerPr.mean)}, median ${cell(reviews.threadsPerPr.median)}, p90 ${cell(reviews.threadsPerPr.p90)}, max ${cell(reviews.threadsPerPr.max)}. Review threads per PR: mean ${cell(reviews.reviewThreadsPerPr.mean)}, max ${cell(reviews.reviewThreadsPerPr.max)}.\n\n` +
+      reviews.available === false
+        ? off(reviews)
+        : `${reviews.prs} PRs. Threads per PR: mean ${cell(reviews.threadsPerPr.mean)}, median ${cell(reviews.threadsPerPr.median)}, p90 ${cell(reviews.threadsPerPr.p90)}, max ${cell(reviews.threadsPerPr.max)}. Review threads per PR: mean ${cell(reviews.reviewThreadsPerPr.mean)}, max ${cell(reviews.reviewThreadsPerPr.max)}.\n\n` +
         table(["PR", "threads", "review threads", "gate runs"], reviews.top.map((row) => [`#${row.pr}`, row.threads, row.reviewThreads, row.gateRuns])),
     ),
   );
@@ -134,7 +138,9 @@ export function renderMarkdown(report) {
   out.push(
     section(
       "Gate cost (pnpm check)",
-      `${gate.runs} runs (${gate.passed} passed, ${gate.failed} failed, ${gate.other} other), failure share ${percent(gate.failedShare)}, wall clock ${cell(gate.wallMinutes / 60)} h (${cell(gate.wallMinutes)} min). Commands mentioning pnpm check anywhere: ${gate.mentionRuns} (${gate.mentionFailed} failed). Per run: median ${cell(gate.duration.median)} min, p90 ${cell(gate.duration.p90)} min. Runs per PR: mean ${cell(gate.perPr.mean)}, max ${cell(gate.perPr.max)}. Outside T3: ${gate.outsideT3Runs} runs.\n`,
+      gate.available === false
+        ? off(gate)
+        : `${gate.runs} runs (${gate.passed} passed, ${gate.failed} failed, ${gate.other} other), failure share ${percent(gate.failedShare)}, wall clock ${cell(gate.wallMinutes / 60)} h (${cell(gate.wallMinutes)} min). Commands mentioning pnpm check anywhere: ${gate.mentionRuns} (${gate.mentionFailed} failed). Per run: median ${cell(gate.duration.median)} min, p90 ${cell(gate.duration.p90)} min. Runs per PR: mean ${cell(gate.perPr.mean)}, max ${cell(gate.perPr.max)}. Outside T3: ${gate.outsideT3Runs} runs.\n`,
     ),
   );
 
@@ -142,11 +148,20 @@ export function renderMarkdown(report) {
   out.push(
     section(
       "Context and turns",
-      table(
-        ["provider", "threads with usage", "median tokens", "p90 tokens", "max tokens", "outside T3 max"],
-        context.peakTokens.map((row) => [row.provider, row.threads, row.median, row.p90, row.max, row.outsideT3Max]),
-      ) +
-        `\nThreads peaking at 200k tokens or more: ${context.atLeast200kTokens}; at half their context window or more: ${context.atLeastHalfWindow}.\n\nImplement threads (${context.implement.threads}): runs per thread median ${cell(context.implement.runsPerThread.median)}, p90 ${cell(context.implement.runsPerThread.p90)}, max ${cell(context.implement.runsPerThread.max)}; provider turns per thread median ${cell(context.implement.turnsPerThread.median)}, p90 ${cell(context.implement.turnsPerThread.p90)}.\n\nTick: ${context.tick.threads} threads, ${context.tick.runs} runs, ${context.tick.noopRuns} launched nothing (${percent(context.tick.noopShare)}), run minutes median ${cell(context.tick.runMinutes.median)}, Claude cost ${cell(context.tick.usd)} USD (${cell(context.tick.usdPerRun)} per run).\n`,
+      context.available === false
+        ? off(context)
+        : table(
+            ["provider", "threads with usage", "median tokens", "p90 tokens", "max tokens", "outside T3 max"],
+            context.peakTokens.map((row) => [row.provider, row.threads, row.median, row.p90, row.max, row.outsideT3Max]),
+          ) +
+            `\nThreads peaking at 200k tokens or more: ${context.atLeast200kTokens}; at half their context window or more: ${context.atLeastHalfWindow}.\n\n` +
+            (context.implement.available === false
+              ? `Implement threads: ${off(context.implement)}`
+              : `Implement threads (${context.implement.threads}): runs per thread median ${cell(context.implement.runsPerThread.median)}, p90 ${cell(context.implement.runsPerThread.p90)}, max ${cell(context.implement.runsPerThread.max)}; provider turns per thread median ${cell(context.implement.turnsPerThread.median)}, p90 ${cell(context.implement.turnsPerThread.p90)}.\n`) +
+            "\n" +
+            (context.tick.available === false
+              ? `Tick: ${off(context.tick)}`
+              : `Tick: ${context.tick.threads} threads, ${context.tick.runs} runs, ${context.tick.noopRuns} launched nothing (${percent(context.tick.noopShare)}), run minutes median ${cell(context.tick.runMinutes.median)}, Claude cost ${cell(context.tick.usd)} USD (${cell(context.tick.usdPerRun)} per run).\n`),
     ),
   );
 
@@ -208,8 +223,18 @@ export function renderMarkdown(report) {
         ? off(schedule)
         : `${schedule.tasks} tasks, ${schedule.enabled} enabled.\n\n` +
             table(
-              ["schedule", "every hours", "thread mode", "enabled", "runs", "last status"],
-              schedule.rows.map((row) => [row.kind, row.everyHours, row.threadMode, row.enabled, row.runCount, row.lastStatus]),
+              ["purpose", "schedule", "every hours", "weekdays", "time of day", "thread mode", "enabled", "runs", "last status"],
+              schedule.rows.map((row) => [
+                row.purpose,
+                row.kind,
+                row.everyHours,
+                row.weekdays.length === 0 ? dash : row.weekdays.join(","),
+                row.timeOfDay,
+                row.threadMode,
+                row.enabled,
+                row.runCount,
+                row.lastStatus,
+              ]),
             ),
     ),
   );

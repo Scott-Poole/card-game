@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   mkdirSync,
   mkdtempSync,
   realpathSync,
@@ -509,6 +510,41 @@ function buildDatabase() {
     run_count: 1,
     last_run_status: "succeeded",
   });
+  const more = (id, enabled, schedule, prompt) =>
+    insert("scheduled_tasks", {
+      task_id: id,
+      title: `${SECRET} ${id}`,
+      prompt,
+      enabled,
+      schedule_json: JSON.stringify(schedule),
+      project_id: "p1",
+      thread_mode: "fresh_session",
+      run_count: 2,
+      last_run_status: "succeeded",
+    });
+  more("task-tick", 0, { type: "interval", everyMs: 3600000 }, `Run the tick for ${SECRET}.`);
+  more(
+    "task-triage",
+    1,
+    { type: "fixed_time", weekdays: [0, 1, 2, 3, 4, 5, 6], timeOfDay: "02:00" },
+    `Run nightly ticket triage for ${SECRET}. Load read-main.`,
+  );
+  more(
+    "task-review",
+    1,
+    { type: "fixed_time", weekdays: [1], timeOfDay: "06:00" },
+    `Run the weekly process review for ${SECRET}.`,
+  );
+  more(
+    "task-hostile",
+    0,
+    {
+      type: "fixed_time",
+      weekdays: ["Private prompt: acquire Contoso", 9, 3, 3],
+      timeOfDay: "Private prompt: acquire Contoso before Friday",
+    },
+    "Private prompt: acquire Contoso before Friday.",
+  );
   db.close();
 }
 
@@ -785,8 +821,24 @@ try {
   assert.equal(week.hygiene.threads.total, 9);
   assert.equal(week.hygiene.threads.unarchived, 8);
   assert.ok(week.hygiene.db.megabytes >= 0);
-  assert.equal(week.schedule.tasks, 2);
-  assert.equal(week.schedule.enabled, 1);
+  assert.equal(week.schedule.available, true);
+  assert.equal(week.schedule.tasks, 6);
+  assert.equal(week.schedule.enabled, 3);
+  const taskRow = (purpose) => week.schedule.rows.find((row) => row.purpose === purpose);
+  assert.deepEqual(
+    week.schedule.rows.map((row) => row.purpose).sort(),
+    ["other", "other", "other", "process-review", "tick", "triage"],
+  );
+  // The same fixed_time kind tells triage and process review apart by purpose and cadence.
+  assert.deepEqual(taskRow("triage").weekdays, [0, 1, 2, 3, 4, 5, 6]);
+  assert.equal(taskRow("triage").timeOfDay, "02:00");
+  assert.deepEqual(taskRow("process-review").weekdays, [1]);
+  assert.equal(taskRow("process-review").timeOfDay, "06:00");
+  assert.equal(taskRow("process-review").enabled, true);
+  assert.equal(taskRow("tick").enabled, false);
+  // A schedule that carries prose or out-of-range days yields only the safe parts.
+  const hostile = week.schedule.rows.find((row) => row.timeOfDay === null && row.kind === "fixed_time");
+  assert.deepEqual(hostile.weekdays, [3]);
 
   // ------------------------------------------------------------ all time
   const all = JSON.parse(collect(["--format", "json", "--all"]).stdout);
@@ -820,6 +872,8 @@ try {
       "statev2",
       "other-project",
       "https://",
+      "Contoso",
+      "task-triage",
     ]) {
       assert.equal(text.includes(leak), false, `output leaks ${leak}`);
     }
@@ -873,26 +927,233 @@ try {
   assert.equal(degraded.coverage.codex.available, false);
   assert.equal(degraded.runs.available, false);
   assert.equal(degraded.cost.available, false);
+  // Sections that cannot be measured say so; a zero would read as a measurement.
+  for (const part of ["mix", "reviews", "gate", "context", "schedule", "runs", "cost"]) {
+    assert.equal(degraded[part].available, false, `${part} should be unavailable`);
+  }
+  const degradedText = spawnSync(
+    process.execPath,
+    [
+      collector,
+      "--repo",
+      repo,
+      "--t3-db",
+      join(root, "missing.sqlite"),
+      "--projects-dir",
+      join(root, "missing-claude"),
+      "--sessions-dir",
+      join(root, "missing-codex"),
+      "--now",
+      NOW,
+    ],
+    { encoding: "utf8" },
+  ).stdout;
+  for (const title of [
+    "Mix by role and provider",
+    "Review rounds per PR",
+    "Gate cost (pnpm check)",
+    "Context and turns",
+    "Scheduled tasks",
+  ]) {
+    const body = degradedText.split("### ").find((part) => part.startsWith(title));
+    assert.ok(body, `${title} section present`);
+    assert.match(body, /unavailable \(/, `${title} reads unavailable`);
+    assert.doesNotMatch(body, /claudeShare achieved|\b0 runs|mean 0|0\.0%/, `${title} shows no fake zero`);
+  }
   assert.equal(degraded.skills.inventory.total, 6);
   assert.equal(degraded.hygiene.worktrees.total, 2);
   assert.equal(noDb.stdout.includes("missing.sqlite"), false);
+
+  // A missing scheduler table is unavailable, not an empty task list; the rest still reads.
+  const noTable = join(root, "no-scheduler.sqlite");
+  copyFileSync(dbPath, noTable);
+  const broken = new DatabaseSync(noTable);
+  broken.exec("DROP TABLE scheduled_tasks");
+  broken.close();
+  const noScheduler = spawnSync(
+    process.execPath,
+    [
+      collector,
+      "--repo",
+      repo,
+      "--t3-db",
+      noTable,
+      "--projects-dir",
+      claudeDir,
+      "--sessions-dir",
+      codexDir,
+      "--now",
+      NOW,
+      "--format",
+      "json",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(noScheduler.status, 0, noScheduler.stderr);
+  const noSchedulerReport = JSON.parse(noScheduler.stdout);
+  assert.equal(noSchedulerReport.schedule.available, false);
+  assert.equal(noSchedulerReport.schedule.reason, "schema");
+  assert.equal(noSchedulerReport.coverage.t3.available, true);
+  assert.equal(noSchedulerReport.mix.available, true);
+  assert.equal(noSchedulerReport.hygiene.threads.available, true);
 
   // The collector reads, never writes: the source database is byte-identical afterwards.
   const before = execFileSync("sha256sum", [dbPath], { encoding: "utf8" });
   collect(["--format", "json"]);
   assert.equal(execFileSync("sha256sum", [dbPath], { encoding: "utf8" }), before);
 
-  // --check holds model-written findings to the same publish rules.
-  const clean = join(root, "findings-clean.md");
-  const dirty = join(root, "findings-dirty.md");
-  writeFileSync(clean, "Gate runs fell 12% against last week (tables above).\n");
-  writeFileSync(dirty, "Look at /home/someone/private/notes for the cause.\n");
-  assert.equal(collect(["--check", clean]).status, 0);
-  const refused = collect(["--check", dirty]);
-  assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /publish/i);
-  assert.equal(refused.stderr.includes("someone"), false);
-  assert.equal(collect(["--check", join(root, "absent.md")]).status, 2);
+  // Findings are a closed structured format: the model picks categories, metrics and
+  // numbers, and the collector renders every word. Arbitrary prose cannot be published.
+  const weekJson = join(root, "week.json");
+  const allJson = join(root, "all.json");
+  writeFileSync(weekJson, collect(["--format", "json"]).stdout);
+  writeFileSync(allJson, collect(["--format", "json", "--all"]).stdout);
+  const write = (name, value) => {
+    const path = join(root, name);
+    writeFileSync(path, typeof value === "string" ? value : JSON.stringify(value));
+    return path;
+  };
+  const good = {
+    findings: [
+      {
+        category: "review-churn",
+        evidence: [
+          { metric: "review-threads-per-pr-max", window: "week" },
+          { metric: "gate-failed-share", window: "all" },
+        ],
+        issues: [134],
+        repeated: "yes",
+        impact: "hours",
+        proposal: "add-script-check",
+        skills: ["alpha"],
+      },
+      {
+        category: "skill-unused",
+        evidence: [{ metric: "skills-zero-use", window: "week" }],
+        issues: [],
+        repeated: "no-previous",
+        impact: "none",
+        proposal: "prune-skill",
+        skills: [],
+      },
+    ],
+    tickets: [{ finding: 1, label: "ready-for-agent" }],
+  };
+  assert.equal(collect(["--check", write("good.json", good)]).status, 0);
+
+  // Ordinary prose that no keyword blacklist would catch is refused, without echo.
+  for (const prose of [
+    "Private prompt: acquire Contoso before Friday.",
+    "Thread title: investigate payroll discrepancy",
+    "Gate runs fell 12% against last week (tables above).\n",
+    "",
+  ]) {
+    const refused = collect(["--check", write("prose.md", prose)]);
+    assert.equal(refused.status, 1, prose);
+    assert.match(refused.stderr, /findings/i);
+    assert.equal(/Contoso|payroll|Friday/.test(refused.stderr + refused.stdout), false);
+  }
+  // Free text hidden inside otherwise valid JSON is refused as well.
+  const mutate = (change) => {
+    const copy = JSON.parse(JSON.stringify(good));
+    change(copy);
+    return write("mutated.json", copy);
+  };
+  for (const [name, change] of [
+    ["extra finding key", (d) => { d.findings[0].note = "acquire Contoso"; }],
+    ["extra top key", (d) => { d.summary = "acquire Contoso"; }],
+    ["free category", (d) => { d.findings[0].category = "acquire Contoso"; }],
+    ["free metric", (d) => { d.findings[0].evidence[0].metric = "payroll"; }],
+    ["free window", (d) => { d.findings[0].evidence[0].window = "Friday"; }],
+    ["free proposal", (d) => { d.findings[0].proposal = "buy Contoso"; }],
+    ["free repeated", (d) => { d.findings[0].repeated = "probably"; }],
+    ["free impact", (d) => { d.findings[0].impact = "payroll"; }],
+    ["unknown skill", (d) => { d.findings[0].skills = ["contoso"]; }],
+    ["text issue", (d) => { d.findings[0].issues = ["payroll"]; }],
+    ["fractional issue", (d) => { d.findings[0].issues = [1.5]; }],
+    ["no evidence", (d) => { d.findings[0].evidence = []; }],
+    ["too many issues", (d) => { d.findings[0].issues = [1, 2, 3, 4, 5, 6]; }],
+    ["ticket to nothing", (d) => { d.tickets[0].finding = 9; }],
+    ["free label", (d) => { d.tickets[0].label = "ready-for-human"; }],
+    ["four tickets", (d) => { d.tickets = [1, 1, 1, 1].map((finding) => ({ finding, label: "needs-triage" })); }],
+    ["ticket body", (d) => { d.tickets[0].body = "acquire Contoso"; }],
+  ]) {
+    const refused = collect(["--check", mutate(change)]);
+    assert.equal(refused.status, 1, name);
+    assert.equal(/Contoso|payroll|Friday|probably/.test(refused.stderr + refused.stdout), false, name);
+  }
+  assert.equal(collect(["--check", join(root, "absent.json")]).status, 2);
+
+  // Rendering is deterministic, takes numbers from the collector's own reports, and says
+  // unavailable rather than zero.
+  const render = (file, extra = []) =>
+    collect(["--render-findings", file, "--week-report", weekJson, "--all-report", allJson, ...extra]);
+  const rendered = render(write("good.json", good));
+  assert.equal(rendered.status, 0, rendered.stderr);
+  assert.equal(render(write("good.json", good)).stdout, rendered.stdout);
+  assert.match(rendered.stdout, /^### Findings/m);
+  assert.match(rendered.stdout, /Review churn/);
+  assert.match(rendered.stdout, /most threads on one PR \(week\): 3/i);
+  assert.match(rendered.stdout, /gate failure share \(all\): 40%/i);
+  assert.match(rendered.stdout, /#134/);
+  assert.match(rendered.stdout, /`alpha`/);
+  assert.match(rendered.stdout, /Tickets: 1 of 3/);
+  assert.doesNotThrow(() => assertPublishable(rendered.stdout));
+
+  const degradedWeek = join(root, "degraded.json");
+  writeFileSync(degradedWeek, noDb.stdout);
+  const unavailableRender = collect([
+    "--render-findings",
+    write("unavail.json", {
+      findings: [
+        {
+          category: "gate-cost",
+          evidence: [{ metric: "gate-failed-share", window: "week" }],
+          issues: [],
+          repeated: "no",
+          impact: "failed-work",
+          proposal: "add-gate",
+          skills: [],
+        },
+      ],
+      tickets: [],
+    }),
+    "--week-report",
+    degradedWeek,
+    "--all-report",
+    degradedWeek,
+  ]);
+  assert.equal(unavailableRender.status, 0, unavailableRender.stderr);
+  assert.match(unavailableRender.stdout, /gate failure share \(week\): unavailable/i);
+  assert.equal(/Gate failure share[^\n]*: (?:0|-)/.test(unavailableRender.stdout), false);
+
+  // Tickets render title and body from the finding alone; the research issue is a number.
+  const ticketArgs = (n, part) => [
+    "--render-ticket",
+    write("good.json", good),
+    "--ticket",
+    String(n),
+    "--research",
+    "300",
+    "--part",
+    part,
+    "--week-report",
+    weekJson,
+    "--all-report",
+    allJson,
+  ];
+  const title = collect(ticketArgs(1, "title"));
+  assert.equal(title.status, 0, title.stderr);
+  assert.match(title.stdout, /^process review: review churn\n$/i);
+  const body = collect(ticketArgs(1, "body"));
+  assert.equal(body.status, 0, body.stderr);
+  assert.match(body.stdout, /Refs #300/);
+  assert.match(body.stdout, /most threads on one PR/i);
+  assert.match(body.stdout, /pnpm check|command/i);
+  assert.doesNotThrow(() => assertPublishable(body.stdout));
+  assert.equal(collect(ticketArgs(2, "title")).status, 1);
+  assert.equal(collect(["--render-ticket", write("good.json", good), "--ticket", "1", "--research", "x", "--part", "body", "--week-report", weekJson, "--all-report", allJson]).status, 2);
+  assert.equal(render(write("prose.md", "Private prompt: acquire Contoso")).status, 1);
 
   const bad = collect(["--bogus"]);
   assert.equal(bad.status, 2);
