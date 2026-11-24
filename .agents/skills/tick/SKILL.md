@@ -144,28 +144,8 @@ Done when the planning issue is open with the thread link. Then end the run (onl
 
 ## Sweep
 
-Once per run, as the last step before your reply, remove the worktrees of tick-launched threads whose owner never did (`AGENTS.md`). A worktree is **finished** when its branch is `ticket/<n>-*` or `plan/<n>-*`, issue `#<n>` has been closed for over an hour (a merge, `plan-done`, `plan-abort` or the tick's own reclaim closes it, and a ticket worth resuming is never closed), it is clean, and nothing is open on the branch. A ticket branch also needs a merged PR whose head is the worktree's `HEAD`, so commits made after the merge keep it. Every `gh` call must succeed; a failed query skips the worktree. Interactive threads, the primary checkout, `main-view` and the worktree you stand in never match.
+Once per run, last before replying, run `bash .agents/skills/tick/worktrees.sh report`. Output is tab-separated: kind, path or branch, class, action, reason. The script owns classification and protection rules; report is read-only.
 
-A closed issue does not prove its thread stopped (a reclaimed planner can still be running), so the script only lists candidates:
+For each worktree marked `remove`, identify its owner from the ticket/plan branch number or `pr-<n>` path (for a PR, use `gh pr view <n> --json closingIssuesReferences` to resolve its closing ticket; also search `t3_thread_list` for the PR number and worktree path, including ticketless PRs). Read `t3_thread_list` with `titleContains` `#<n> ` (planners use `(#<n>)`). Require a positive ownership match (including archived threads); zero matches or an incomplete read skips the path. A closed issue alone does not prove a reclaimed planner stopped. Skip when any matching thread is `running`, `queued`, `starting`, `preparing` or `waiting`, or when the read fails or ownership cannot be resolved. Pass only confirmed non-live paths to `bash .agents/skills/tick/worktrees.sh remove <path>...`; it re-verifies removal safety.
 
-```sh
-here=$(git rev-parse --show-toplevel) root=$(realpath -m "$HOME/.t3/worktrees/card-game")
-while read -r path branch; do
-	case $path in "$root"/*) ;; *) continue ;; esac
-	[[ $branch =~ ^(ticket|plan)/([0-9]+)- ]] || continue
-	kind=${BASH_REMATCH[1]} n=${BASH_REMATCH[2]}
-	[ "$path" != "$here" ] && [ -z "$(git -C "$path" status --porcelain)" ] || continue
-	closed=$(gh issue view "$n" --json state,closedAt --jq 'select(.state == "CLOSED") | .closedAt' </dev/null) || continue
-	[ -n "$closed" ] && [ "$(date -d "$closed" +%s)" -lt "$(date -d '1 hour ago' +%s)" ] || continue
-	open=$(gh pr list --head "$branch" --state open --json number --jq length </dev/null) || continue
-	[ "$open" = 0 ] || continue
-	if [ "$kind" = ticket ]; then
-		head=$(git -C "$path" rev-parse HEAD)
-		merged=$(gh pr list --head "$branch" --state merged --json headRefOid --jq "map(select(.headRefOid == \"$head\")) | length" </dev/null) || continue
-		[ "$merged" -gt 0 ] || continue
-	fi
-	echo "$n $path"
-done < <(git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch /{print p, substr($2, 12)}')
-```
-
-For each `<n> <path>` it prints, `t3_thread_list` with `titleContains` `#<n> ` (a planner's title ends `(#<n>)`; search `(#<n>)` for it). Skip the worktree when any matching thread is `running`, `queued`, `starting`, `preparing` or `waiting`; otherwise `git worktree remove <path>`. A thread read that errors skips that worktree. Name the removed paths in the reply.
+Then run `bash .agents/skills/tick/worktrees.sh prune-branches`. A nonzero cleanup exit means a partial failure: include its report lines and continue remaining cleanup. Name removed paths and deleted branches in the reply, and include all `report` lines. Interactive worktrees remain until Scott says they are done.

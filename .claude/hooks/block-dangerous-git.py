@@ -6,6 +6,10 @@ runs inside Claude Code (Codex and OpenCode children never pass through it) and 
 caller can always obfuscate around it. The authoritative protection for `main` belongs on the
 server (GitHub branch protection), when the plan allows it.
 
+The sanctioned force-delete path is bash .agents/skills/tick/worktrees.sh prune-branches:
+it proves the PR merged at the local tip before deleting. Typed branch -D and update-ref
+deletions stay blocked; the hook sees typed commands, not script internals.
+
 Feature-branch pushes stay allowed (agents open PRs); commands that rewrite or discard history,
 or land on main without a PR, are blocked. A small quote-aware scanner strips comments and
 literal heredoc bodies, and pulls out code that will run anyway ($(...), backticks, heredocs fed
@@ -292,6 +296,9 @@ def check_git(argv: list[str], cwds: list[str]) -> None:
     elif sub == "branch" and ("D" in flags or (
             (has(args, "--delete") or "d" in flags) and (has(args, "--force") or "f" in flags))):
         raise Blocked("force-deleting a branch drops unmerged commits")
+    elif sub == "update-ref" and ("d" in flags or has(args, "--delete")) \
+            and any(a.startswith("refs/heads/") for a in args):
+        raise Blocked("deleting a local branch ref; use the proven-merge sweep")
     elif sub == "checkout" and (paths_all or has(args, "--force") or "f" in flags):
         raise Blocked("checkout that discards working-tree changes")
     elif sub == "switch" and (has(args, "--discard-changes", "--force") or "f" in flags):
