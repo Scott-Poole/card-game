@@ -3,6 +3,7 @@ import {
   TURN_LIMIT,
   MAX_LOCATION_TEXT,
   isEffect,
+  type EffectKind,
 } from "../rules/index.ts";
 import type { CardDefinition } from "./index.ts";
 
@@ -30,9 +31,31 @@ export type RosterIssue =
         | "flavor"
         | "ability-text"
         | "effect-text"
+        | "duplicate-ability-text"
+        | "duplicate-flavor"
         | "effect";
       readonly index: number;
     };
+
+const ALLIES = /\b(?:ally|allies)\b/i;
+const ENEMIES = /\b(?:enemy|enemies)\b/i;
+const FLOOR_OF_ZERO = /(?<![\d.])0(?!\d|\.\d)/;
+
+/** Whether `text` describes what an effect of this kind does to whom. */
+function describesKind(kind: EffectKind, text: string): boolean {
+  switch (kind) {
+    case "boost-lane-allies":
+      return ALLIES.test(text);
+    case "weaken-lane-enemies":
+      return ENEMIES.test(text) && FLOOR_OF_ZERO.test(text);
+    case "boost-self":
+      return !ALLIES.test(text) && !ENEMIES.test(text);
+    case "destroy-weakest-enemy":
+      return /destroy.*weakest.*enemy/i.test(text);
+  }
+}
+
+const normalize = (text: string) => text.trim().toLowerCase();
 
 /**
  * Validates authored content, without changing the roster or throwing.
@@ -87,11 +110,7 @@ export function validateRoster(
       const { text, effect } = card.ability;
       if (!text.trim() || text.length > MAX_LOCATION_TEXT) add("ability-text");
       if (!isEffect(effect)) add("effect");
-      else if (
-        effect.kind === "destroy-weakest-enemy" &&
-        !/destroy.*weakest.*enemy/i.test(text)
-      )
-        add("effect-text");
+      else if (!describesKind(effect.kind, text)) add("effect-text");
       else if (
         "amount" in effect &&
         typeof effect.amount === "number" &&
@@ -111,6 +130,25 @@ export function validateRoster(
     )
       add("name-figure");
     if (!entry.flavor.trim() || entry.flavor.length > 120) add("flavor");
+    const abilityText = card.ability && normalize(card.ability.text);
+    if (
+      abilityText &&
+      entries.some(
+        (other, i) =>
+          i !== index &&
+          other.card.ability &&
+          normalize(other.card.ability.text) === abilityText,
+      )
+    )
+      add("duplicate-ability-text");
+    const flavor = normalize(entry.flavor);
+    if (
+      flavor &&
+      entries.some(
+        (other, i) => i !== index && normalize(other.flavor) === flavor,
+      )
+    )
+      add("duplicate-flavor");
   });
   for (let cost = 1; cost <= TURN_LIMIT; cost++) {
     const tier = entries.filter((entry) => entry.card.cost === cost);
