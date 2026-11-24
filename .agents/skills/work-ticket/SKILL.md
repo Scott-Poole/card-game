@@ -57,6 +57,8 @@ Run [`land`](../land/SKILL.md) on your own PR. You are the **author**, which cha
 
 CI may still be running when review ends: land step 4.2 says how to wait for it.
 
+Before finishing, confirm land reconciled its `## Follow-ups` after merge: land alone links duplicates, files only reviewer-supplied full acceptance criteria as `ready-for-agent` (maximum 5 new tickets per PR), and retains the rest as unfiled verdict notes per [cross-review's disposition rule](../cross-review/SKILL.md#disposition). Confirm the cumulative Runs table records fix rounds and follow-up count. Follow-ups do not hold this ticket open; land's three-fix-round limit applies across resumes.
+
 Immediately before land's merge, re-read the ticket labels and paginated comments. Merge only if it is still `in-progress`, carries neither `needs-triage` nor `backlog`, and has no trusted `## Needs you` newer than its last claim. Otherwise comment the PR state on the ticket and stop; a handoff, released claim, or closed ticket supersedes this run.
 
 ## 5. Finish
