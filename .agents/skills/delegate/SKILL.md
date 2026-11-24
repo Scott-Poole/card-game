@@ -68,7 +68,7 @@ The child gets **only** the brief: no conversation, and non-Claude children get 
 4. **Done when**: the exact command(s) that must pass (`pnpm test …`, `pnpm typecheck`, `pnpm lint`).
 5. **Report back**: its checkout path, base SHA and head SHA (if it committed), the done-when output, and anything out of scope it noticed (noted, not fixed).
 
-For review and re-check briefs, include the original scope and threat model (explicit failure injections for process PRs), the current fix-round count, and the full text of [cross-review's disposition rule](../cross-review/SKILL.md#disposition), plus the acceptance criteria. Instruct the child to read any context pointers needed to apply them. Re-checks receive previous findings, rejected findings with reasons, and the fix range. Land allows three cumulative fix rounds; follow-ups become tickets or verdict notes, not fix rounds.
+For review and re-check briefs, include the original scope and threat model (explicit failure injections for executable process changes, or workflow scenarios for prose-only ones), the current fix-round count, and the full text of [cross-review's disposition rule](../cross-review/SKILL.md#disposition), plus the acceptance criteria. Instruct the child to read any context pointers needed to apply them. Re-checks receive previous findings, rejected findings with reasons, and the fix range. Land allows three cumulative fix rounds; follow-ups become tickets or verdict notes, not fix rounds.
 
 ## 4. Verify the artifact
 
