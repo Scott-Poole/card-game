@@ -19,7 +19,7 @@ const valid = Array.from(
       },
       figure: `Figure ${String(index)}`,
       tradition: "greek",
-      flavor: "A road remembers every footstep.",
+      flavor: `A road remembers footstep ${String(index)}.`,
     }) satisfies RosterEntry,
 );
 
@@ -169,7 +169,7 @@ test.each(["greek", "roman"])(
     const entries = valid.map((entry, index) => ({
       ...entry,
       tradition,
-      flavor: index % 2 ? "x".repeat(120) : "x",
+      flavor: index % 2 ? String(index).padEnd(120, "x") : String(index),
       card: {
         ...entry.card,
         power: index % 2 ? 3 * entry.card.cost : entry.card.cost,
@@ -193,6 +193,7 @@ test("accepts more than two cards at a cost", () => {
       ...valid,
       {
         ...first,
+        flavor: "An extra road.",
         card: { ...first.card, id: "extra-card", name: "Figure 0, Extra" },
       },
     ]),
@@ -206,6 +207,7 @@ test.each([2, 3, 4, 5, 6])("rejects power below cost %i", (cost) => {
       ...valid,
       {
         ...first,
+        flavor: "A weak road.",
         card: {
           id: "weak-card",
           name: "Figure 0, Weak",
@@ -308,10 +310,10 @@ test("reports a missing ability effect and overlong text", () => {
 });
 
 test.each([
-  ["Share 1 power.", 1, false],
-  ["Share 2 power.", 2, false],
-  ["Share 1 power.", 2, true],
-  ["Share 12 power.", 2, true],
+  ["Share 1 power with each ally.", 1, false],
+  ["Share 2 power with each ally.", 2, false],
+  ["Share 1 power with each ally.", 2, true],
+  ["Share 12 power with each ally.", 2, true],
 ])("lane boost text %s matches amount %i", (text, amount, invalid) => {
   const issues = validateRoster([
     {
@@ -329,10 +331,10 @@ test.each([
 });
 
 test.each([
-  ["Drain 1 power.", 1, false],
-  ["Drain 2 power.", 2, false],
-  ["Drain 1 power.", 2, true],
-  ["Drain 12 power.", 2, true],
+  ["Drain 1 power from each enemy, stopping at 0.", 1, false],
+  ["Drain 2 power from each enemy, stopping at 0.", 2, false],
+  ["Drain 1 power from each enemy, stopping at 0.", 2, true],
+  ["Drain 12 power from each enemy, stopping at 0.", 2, true],
 ])("lane weakening text %s matches amount %i", (text, amount, invalid) => {
   const issues = validateRoster([
     {
@@ -390,3 +392,70 @@ test("reports arbitrary extra effect keys as effect issues", () => {
     ]),
   ).toEqual([{ code: "effect", index: 0 }]);
 });
+
+function withAbilities(
+  abilities: readonly ({ text: string; effect: unknown } | undefined)[],
+) {
+  return valid.map((entry, index) => {
+    const ability = abilities[index];
+    return ability ? { ...entry, card: { ...entry.card, ability } } : entry;
+  });
+}
+
+test.each([
+  ["boost-self", "On reveal, gather 2 power.", true],
+  ["boost-self", "On reveal, gather 2 power for each ally.", false],
+  ["boost-self", "On reveal, take 2 power from every enemy.", false],
+  ["boost-self", "On reveal, gather 2 power from your allies.", false],
+  ["boost-lane-allies", "Grant 2 power to each other ally in this lane.", true],
+  ["boost-lane-allies", "Grant 2 power to each other ally.", true],
+  ["boost-lane-allies", "Grant 2 power to everyone in this lane.", false],
+  ["boost-lane-allies", "Grant 2 power to each allied card.", false],
+  ["weaken-lane-enemies", "Each enemy loses 2 power, never below 0.", true],
+  ["weaken-lane-enemies", "Each enemy loses 2 power.", false],
+  ["weaken-lane-enemies", "Everything loses 2 power, never below 0.", false],
+  ["weaken-lane-enemies", "Each enemy loses 2 power, never below 10.", false],
+  ["weaken-lane-enemies", "All enemies lose 2 power, stopping at 0.", true],
+  ["destroy-weakest-enemy", "Destroy the weakest enemy in this lane.", true],
+  ["destroy-weakest-enemy", "Gain power.", false],
+] as const)("wording: %s text %j is accepted: %s", (kind, text, accepted) => {
+  const effect =
+    kind === "destroy-weakest-enemy" ? { kind } : { kind, amount: 2 };
+  const issues = validateRoster(withAbilities([{ text, effect }]));
+  expect(issues.filter((issue) => issue.code === "effect-text")).toEqual(
+    accepted ? [] : [{ code: "effect-text", index: 0 }],
+  );
+});
+
+test.each([
+  ["duplicate-ability-text", "ability"],
+  ["duplicate-flavor", "flavor"],
+] as const)(
+  "%s reports both cards, ignoring case and padding",
+  (code, field) => {
+    const text = "On reveal, gather 2 power.";
+    const flavor = "A shared line.";
+    const ability = (value: string) => ({
+      text: value,
+      effect: { kind: "boost-self", amount: 2 },
+    });
+    const make = (first: string, second: string) =>
+      valid.map((entry, index) => {
+        if (index > 1) return entry;
+        const value = index === 0 ? first : second;
+        return field === "ability"
+          ? { ...entry, card: { ...entry.card, ability: ability(value) } }
+          : { ...entry, flavor: value };
+      });
+    const base = field === "ability" ? text : flavor;
+    const expected = [
+      { code, index: 0 },
+      { code, index: 1 },
+    ];
+    expect(validateRoster(make(base, base))).toEqual(expected);
+    expect(validateRoster(make(base, `  ${base.toUpperCase()}\n `))).toEqual(
+      expected,
+    );
+    expect(validateRoster(make(base, `${base} More.`))).toEqual([]);
+  },
+);
