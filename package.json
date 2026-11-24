@@ -37,6 +37,7 @@
     "test:label-issues": "bash scripts/test-label-issues.sh",
     "test:pinned-node": "bash scripts/test-pinned-node.sh",
     "test:triage-finder": "node scripts/test-triage-finder.mjs",
+    "test:process-review": "node .agents/skills/process-review/test-collect.mjs",
     "test:routing": "node .agents/skills/delegate/test-usage.mjs && node .agents/skills/delegate/test-route.mjs && node scripts/test-model-ids.mjs && node scripts/check-model-ids.mjs"
   },
   "devDependencies": {
