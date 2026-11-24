@@ -4,7 +4,6 @@ Output is tab-separated: kind, path/branch, class, action, reason.
 """
 import datetime
 import json
-import os
 from pathlib import Path
 import re
 import subprocess
@@ -69,12 +68,16 @@ def classify(row, primary):
         return 'interactive', 'keep', 'interactive or unmanaged branch'
     if git('-C', str(path), 'status', '--porcelain'):
         return kind, 'report', 'dirty'
+    if not branch:
+        return kind, 'report', 'detached checkout; no branch proof'
     history = prs(branch)
     if any(pr['state'] == 'OPEN' for pr in history):
         return kind, 'keep', 'open PR'
     if not history and kind != 'plan':
         age = time.time() - int(git('-C', str(path), 'show', '-s', '--format=%ct', 'HEAD'))
         return kind, 'report' if age > 3 * 86400 else 'keep', 'abandoned: no PR' if age > 3 * 86400 else 'no PR, recent commit'
+    if any(pr['state'] == 'CLOSED' for pr in history) and not any(pr['state'] == 'MERGED' for pr in history):
+        return kind, 'report', 'PR closed without merging'
     if kind == 'pr':
         issue = gh('pr', 'view', number, '--repo', 'Scott-Poole/card-game', '--json', 'state,closedAt')
     else:
@@ -102,6 +105,16 @@ def emit(kind, name, classification, action, reason):
 
 def branches(rows, prune):
     checked = {row.get('branch') for row in rows}
+    failed = False
+    # Query actual remote heads, not potentially stale tracking refs.
+    remote_heads = {}
+    remote_error = None
+    try:
+        for remote in git('remote').splitlines():
+            remote_heads[remote] = {line.split()[1].removeprefix('refs/heads/')
+                                    for line in git('ls-remote', '--heads', remote).splitlines()}
+    except (subprocess.CalledProcessError, OSError) as error:
+        remote_error = str(error)
     for line in git('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads/').splitlines():
         ref, tip = line.split()
         branch = ref.removeprefix('refs/heads/')
@@ -113,20 +126,28 @@ def branches(rows, prune):
             if any(pr['state'] == 'OPEN' for pr in history):
                 emit('branch', branch, 'open', 'keep', 'open PR')
             elif any(pr['state'] == 'MERGED' and pr['headRefOid'] == tip for pr in history):
-                remotes = git('for-each-ref', '--format=%(refname:short)', 'refs/remotes/').splitlines()
-                remote = ', '.join(r for r in remotes if r.partition('/')[2] == branch)
+                if remote_error:
+                    raise ValueError('remote query failed: ' + remote_error)
+                remote = ', '.join(name + '/' + branch for name, heads in remote_heads.items() if branch in heads)
                 if prune:
                     # Recheck checked-out state and compare-and-swap the proven tip.
                     # update-ref is atomic; branch -D could delete a concurrently advanced tip.
                     if ref in {row.get('branch') for row in worktrees()}:
                         raise ValueError('branch became checked out')
                     git('update-ref', '-d', ref, tip)
+                    # Match branch -D's config cleanup after the atomic ref deletion.
+                    config = subprocess.run(['git', 'config', '--remove-section', 'branch.' + branch],
+                                            capture_output=True, text=True)
+                    if config.returncode not in (0, 128):
+                        raise ValueError('branch deleted, config cleanup failed: ' + config.stderr)
                 emit('branch', branch, 'merged', 'remove', ('deleted; ' if prune else '') +
                      'merged head equals tip' + ('; remote retained: ' + remote if remote else ''))
             else:
                 emit('branch', branch, 'unproven', 'report', 'no merged PR at local tip')
         except (subprocess.CalledProcessError, ValueError, KeyError, OSError) as error:
+            failed = True
             emit('branch', branch, 'unknown', 'report', str(error))
+    return failed
 
 
 def main():
@@ -152,9 +173,9 @@ def main():
     elif mode == 'report':
         for row in rows:
             emit('worktree', row['worktree'], *safe_classify(row, primary))
-        branches(rows, False)
+        failed = branches(rows, False)
     else:
-        branches(rows, True)
+        failed = branches(rows, True)
     return int(failed)
 
 
