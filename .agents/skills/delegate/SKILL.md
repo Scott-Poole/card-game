@@ -68,6 +68,8 @@ The child gets **only** the brief: no conversation, and non-Claude children get 
 4. **Done when**: the exact command(s) that must pass (`pnpm test …`, `pnpm typecheck`, `pnpm lint`).
 5. **Report back**: its checkout path, base SHA and head SHA (if it committed), the done-when output, and anything out of scope it noticed (noted, not fixed).
 
+For review and re-check briefs, include the original scope and threat model (explicit failure injections for process PRs), the current fix-round count, and [cross-review's disposition rule](../cross-review/SKILL.md#disposition). Re-checks receive previous findings, rejected findings with reasons, and the fix range. Land allows three cumulative fix rounds; follow-ups become tickets or verdict notes, not fix rounds.
+
 ## 4. Verify the artifact
 
 Trust artifacts, never self-reports. Verify **in the child's checkout, over the child's range**:
@@ -88,12 +90,12 @@ After verifying, the orchestrator (never the child) adds the run to the `## Runs
 
 <!-- delegation-runs -->
 
-| Tier   | Provider / model / effort       | Role   | Outcome   | Rounds   |
-| ------ | ------------------------------- | ------ | --------- | -------- |
-| <tier> | <provider> / <model> / <effort> | <role> | <outcome> | <rounds> |
+| Tier   | Provider / model / effort       | Role   | Outcome   | Rounds   | Follow-ups |
+| ------ | ------------------------------- | ------ | --------- | -------- | ---------- |
+| <tier> | <provider> / <model> / <effort> | <role> | <outcome> | <rounds> | <follow-ups> |
 ```
 
-**Outcome**: `pass` (passed verification first try), `fixed` (orchestrator patched it), `retried` (re-briefed at the same tier), `escalated` (moved up a tier), `failed`. **Rounds**: review or retry rounds before landing.
+**Outcome**: `pass` (passed verification first try), `fixed` (orchestrator patched it), `retried` (re-briefed at the same tier), `escalated` (moved up a tier), `failed`. **Rounds**: cumulative fix rounds for PR reviews (initial review = 0; maximum 3), or retry rounds for other tasks. **Follow-ups**: cumulative distinct accepted follow-up count, filed and unfiled; use 0 when none. Include a summary row with PR totals and number of newly created tickets; retain totals and links across updates and resumes. Historical five-column tables remain readable as historical records.
 
 For routing retrospectives, read trusted marked comments to retune the tier table above; routing.json is the only place concrete model settings change. Run this paginated REST query (PR comments share the issues endpoint) for PR verdicts, related issue runs, and the historical baseline on #67:
 

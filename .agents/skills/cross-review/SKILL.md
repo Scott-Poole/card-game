@@ -25,13 +25,15 @@ Fix the diff range. When the caller passes explicit base and head SHAs and a che
 | 50–200 lines, 3–5 files | Skeptic, Architect             |
 | 200+ lines or 5+ files  | Skeptic, Architect, Minimalist |
 
+Compare the changed files with the ticket's named scope before review: explain each extra file in the PR body or split it out. Each brief must state the threat model. For process PRs, name the failure injection in scope before launching (for example, one failed GitHub request); explicitly exclude deeper failure combinations unless the ticket requires them. Preserve that boundary for re-checks.
+
 ## 2. Spawn reviewers
 
 Use the `delegate` skill's **review** policy and select its author-specific `review.*` router tier: the family that did _not_ write the code (its table also names the fallback when Codex is out of usage). Launch all reviewers in parallel with `delegate_task`, `role: "review"`, `isolation: "shared"`.
 
 Each brief contains: the intent, the checkout path, the exact `git diff <base>...<head>` command to run, the full text of its one lens from LENSES.md, and this instruction:
 
-> You are an adversarial reviewer. Find real problems; do not validate the work. Read-only: change no files. Cite file:line and a concrete failure scenario for each finding. Rate each: **high** (blocks merge), **medium** (should fix), **low** (worth noting). Reply with a numbered markdown list as your final message.
+> You are an adversarial reviewer. Find real problems; do not validate the work. Read-only: change no files. Cite file:line and a concrete failure scenario for each finding. Rate each: **high**, **medium**, **low**. Also classify each as **blocking** or **follow-up** using the disposition rule below; give the broken acceptance criterion or correctness invariant and reproduction for blockers, and full acceptance criteria for ticket-ready follow-ups. Reply with a numbered markdown list as your final message.
 
 Done when every reviewer has returned, or you've recorded that it failed. A missing reviewer goes in the verdict; never skip it silently.
 
@@ -42,7 +44,8 @@ Deduplicate overlapping findings, then write:
 ```
 ## Intent
 ## Verdict: PASS | CONTESTED | REJECT — <one line>
-## Findings          (high → low; each: severity, file:line, lens, recommendation)
+## Findings          (high → low; each: severity, disposition, file:line, lens, scenario, recommendation)
+## Follow-ups        (each: ticket link or unfiled reason)
 ## What went well    (1–3 items)
 ## Lead judgment     (each finding: accept / reject + one-line reason)
 ## Runs
@@ -50,7 +53,15 @@ Deduplicate overlapping findings, then write:
 <table per delegate, populated only with actual runs>
 ```
 
-- **PASS**: no high-severity findings. **CONTESTED**: high findings that reviewers disagree on. **REJECT**: high findings with consensus.
+- **PASS**: no blocking findings. **CONTESTED**: disputed blocking findings. **REJECT**: confirmed blocking findings. Severity alone does not determine disposition.
 - Lead judgment is yours (the judge tier): reviewers are adversarial by design, so call out false positives, overreach, and style mistaken for substance.
 
 When called by `land`, return the verdict and run rows to land, which owns the cumulative comment per `delegate`. Otherwise, when the diff is a PR, post the verdict on it: `gh pr comment <n> --body-file <file>`. Include each reviewer run in its `## Runs` table per the `delegate` skill.
+
+## Disposition
+
+**Blocking**: reproducible within the brief's threat model and breaks an acceptance criterion or the change's own correctness. **Follow-up**: hardening beyond that model, failure edge cases outside the ticket, style, naming, or nice-to-have tests. **Medium** findings are follow-ups by default; they block only when they break an acceptance criterion. Record the criterion and reproduction when making that exception. A high rating does not pull an excluded scenario into scope.
+
+For each accepted follow-up, search open issues with `gh issue list --state open --search <terms>` and read likely matches before creating anything. Link an existing issue instead of duplicating it. Create at most **5 new follow-up tickets per PR**, cumulative across rounds and resumes, and only when the reviewer supplied full acceptance criteria. Use `gh issue create --label ready-for-agent --title <title> --body-file <file>`; include the finding, `file:line`, failure scenario, PR link, and those acceptance criteria. Never file review follow-ups as `needs-triage` or `ready-for-human`. Findings without full criteria, beyond the cap, or with failed ticket creation stay in `## Follow-ups` with the reason; retain them when updating the verdict. Include duplicate links there too. Count distinct accepted follow-ups (filed or unfiled) in Runs, and track newly created tickets separately so the five-ticket cap survives resumes.
+
+Land owns the fix loop: at most three fix rounds for every PR, with the original threat model retained. Return the disposition and follow-up records with the verdict so land can file tickets and update its cumulative comment before merge or escalation.
