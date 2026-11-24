@@ -35,7 +35,6 @@ function Shell() {
     <main
       className={css({
         minH: "[100dvh]",
-        bg: "surface",
         color: "text",
         pt: "[max(env(safe-area-inset-top), {spacing.lg})]",
         pb: "[max(env(safe-area-inset-bottom), {spacing.lg})]",

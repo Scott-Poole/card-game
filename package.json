@@ -65,6 +65,8 @@
   },
   "dependencies": {
     "@dnd-kit/react": "0.5.3",
+    "@fontsource/alegreya-sans": "5.3.0",
+    "@fontsource/cinzel": "5.3.0",
     "@reduxjs/toolkit": "^2.14.0",
     "motion": "^14.14.0",
     "react": "^19.3.1",
