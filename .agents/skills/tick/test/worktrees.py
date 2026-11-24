@@ -41,7 +41,7 @@ a=sys.argv
 if os.environ.get('FAIL_GH'):
     sys.exit(1)
 if a[1:3] in (['issue','view'], ['pr','view']):
-    print(json.dumps(dict(state='CLOSED', closedAt='2020-01-01T00:00:00Z')))
+    print(json.dumps(dict(state='OPEN' if os.environ.get('ISSUE_OPEN') else 'CLOSED', closedAt='2999-01-01T00:00:00Z' if os.environ.get('RECENT') else '2020-01-01T00:00:00Z')))
 else:
     branch=a[a.index('--head')+1]
     state='OPEN' if 'open' in branch else 'CLOSED' if 'closed' in branch else 'MERGED'
@@ -63,6 +63,18 @@ else:
                 self.assertIn(str(path)+'\t', cli().stdout)
                 row = next(row for row in cli().stdout.splitlines() if str(path)+'\t' in row)
                 self.assertIn('\t'+action+'\t', row)
+            # main-view is protected even when it has a removable automation branch.
+            main_view = root / 'main-view'
+            git('worktree', 'add', '-b', 'ticket/8-view', str(main_view))
+            self.assertNotEqual(cli('remove', str(main_view), check=False).returncode, 0)
+            # PWD protection includes subdirectories, not only the checkout root.
+            nested = paths['pr-3'] / 'nested'
+            nested.mkdir()
+            self.assertNotEqual(cli('remove', str(paths['pr-3']), cwd=nested, check=False).returncode, 0)
+            nested.rmdir()
+            self.assertNotEqual(cli('remove', str(paths['pr-3']), extra={'RECENT':'1'}, check=False).returncode, 0)
+            self.assertNotEqual(cli('remove', str(paths['pr-3']), extra={'FAIL_GH':'1'}, check=False).returncode, 0)
+            self.assertTrue(paths['pr-3'].exists())
             dirty = paths['ticket/1-merged'] / 'dirty'
             dirty.write_text('work')
             self.assertIn('dirty', cli().stdout)
@@ -79,16 +91,39 @@ else:
             cli('remove', str(paths['ticket/1-merged']))
             self.assertFalse(paths['ticket/1-merged'].exists())
             git('branch', 'proven', tip)
-            git('branch', 'unproven', tip)
             git('branch', 'mismatch', git('-C', str(paths['ticket/6-none']), 'rev-parse', 'HEAD'))
             # No-PR branch is retained, merged head mismatch is retained.
             git('branch', 'none', tip)
-            cli('prune-branches')
+            # Checked-out merged branches, open PR branches, failed queries and mismatched tips survive.
+            git('branch', 'open', tip)
+            git('config', 'branch.proven.remote', 'origin')
+            git('config', 'branch.proven.merge', 'refs/heads/proven')
+            before = git('branch', '--format=%(refname:short)')
+            self.assertNotEqual(cli('prune-branches', extra={'FAIL_GH':'1'}, check=False).returncode, 0)
+            self.assertEqual(before, git('branch', '--format=%(refname:short)'))
+            self.assertIn('PR closed without merging', cli(extra={'ISSUE_OPEN':'1'}).stdout)
+            advanced = paths['ticket/6-none']
+            mismatch = root / 'mismatch-tree'
+            git('worktree', 'add', '-b', 'ticket/7-mismatch', str(mismatch), git('-C', str(advanced), 'rev-parse', 'HEAD'))
+            row = next(row for row in cli().stdout.splitlines() if str(mismatch)+'\t' in row)
+            self.assertIn('\treport\t', row)
+            # A live remote is retained and named accurately.
+            git('push', 'origin', 'proven')
+            output = cli('prune-branches').stdout
+            self.assertIn('remote retained: origin/proven', output)
+            self.assertEqual(git('ls-remote', '--heads', 'origin', 'proven').split()[0], tip)
+            self.assertEqual(subprocess.run(['git', '-C', str(repo), 'config', '--get', 'branch.proven.remote'],
+                                           capture_output=True).returncode, 1)
             names = git('branch', '--format=%(refname:short)').splitlines()
             self.assertNotIn('proven', names)
             self.assertIn('none', names)
             self.assertIn('mismatch', names)
             self.assertIn('main', names)
+            self.assertIn('open', names)
+            self.assertIn('plan/2-done', names)
+            self.assertIn('pr-3', names)
+            self.assertIn('ticket/4-closed', names)
+            self.assertIn('ticket/8-view', names)
 
 if __name__ == '__main__':
     unittest.main()
