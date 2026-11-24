@@ -117,11 +117,23 @@ def emit(kind, name, classification, action, reason):
 def checked_branches(rows):
     checked = {row.get('branch') for row in rows}
     for row in rows:
-        directory = Path(git('-C', row['worktree'], 'rev-parse', '--absolute-git-dir'))
+        try:
+            directory = Path(git('-C', row['worktree'], 'rev-parse', '--absolute-git-dir'))
+        except (subprocess.SubprocessError, OSError):
+            if row.get('branch'):
+                # A missing named checkout is already protected by its registration.
+                continue
+            # Missing detached checkout: its rebase/bisect owner is unknown.
+            checked.add('*')
+            continue
         for marker in ('rebase-merge/head-name', 'rebase-apply/head-name', 'BISECT_START'):
             file = directory / marker
             if file.exists():
-                name = file.read_text().strip()
+                try:
+                    name = file.read_text().strip()
+                except OSError:
+                    checked.add('*')
+                    continue
                 checked.add(name if name.startswith('refs/heads/') else 'refs/heads/' + name)
                 # BISECT_START can also contain an object id.
                 for line in git('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads/').splitlines():
@@ -146,6 +158,10 @@ def branches(rows, prune):
     for line in git('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads/').splitlines():
         ref, tip = line.split()
         branch = ref.removeprefix('refs/heads/')
+        if '*' in checked:
+            failed = True
+            emit('branch', branch, 'unknown', 'report', 'detached worktree ownership unavailable')
+            continue
         if ref in checked or branch in ('main', 'master'):
             emit('branch', branch, 'protected', 'keep', 'checked out or protected branch')
             continue
@@ -160,7 +176,7 @@ def branches(rows, prune):
                 if prune:
                     # Recheck checked-out state and compare-and-swap the proven tip.
                     # update-ref is atomic; branch -D could delete a concurrently advanced tip.
-                    if ref in checked_branches(worktrees()):
+                    if checked_branches(worktrees()).intersection((ref, '*')):
                         raise ValueError('branch became checked out')
                     git('update-ref', '-d', ref, tip)
                     # Match branch -D's config cleanup after the atomic ref deletion.

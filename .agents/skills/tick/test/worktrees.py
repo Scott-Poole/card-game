@@ -1,5 +1,6 @@
 """Exercise the sweep CLI against real disposable git repositories."""
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -130,6 +131,10 @@ else:
             detached_dir = Path(git('-C', str(detached), 'rev-parse', '--absolute-git-dir'))
             (detached_dir / 'rebase-merge').mkdir()
             (detached_dir / 'rebase-merge' / 'head-name').write_text('refs/heads/rebasing')
+            vanished = t3root / 'vanished'
+            git('worktree', 'add', '-b', 'vanished', str(vanished))
+            shutil.rmtree(vanished)
+            # A vanished named checkout retains its branch and must not crash pruning.
             # A live remote is retained and named accurately.
             git('push', 'origin', 'proven')
             output = cli('prune-branches').stdout
@@ -141,6 +146,7 @@ else:
             self.assertNotIn('proven', names)
             self.assertIn('none', names)
             self.assertIn('mismatch', names)
+            self.assertIn('vanished', names)
             self.assertIn('rebasing', names)
             self.assertIn('main', names)
             self.assertIn('open', names)
@@ -148,6 +154,12 @@ else:
             self.assertIn('pr-3', names)
             self.assertIn('ticket/4-closed', names)
             self.assertIn('ticket/8-view', names)
+            shutil.rmtree(detached)
+            result = cli('prune-branches', check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn('Traceback', result.stderr)
+            self.assertIn('detached worktree ownership unavailable', result.stdout)
+            self.assertEqual(names, git('branch', '--format=%(refname:short)').splitlines())
 
 if __name__ == '__main__':
     unittest.main()
