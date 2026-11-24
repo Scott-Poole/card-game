@@ -20,7 +20,7 @@ Owned by this repo. Scott's policy: **trivial** PRs merge without review and pro
 gh pr view <n> --json number,state,isDraft,isCrossRepository,author,title,body,headRefName,headRefOid,baseRefName,files,additions,deletions
 ```
 
-Stop if it's closed or a draft. **Land handles only PRs whose branch lives in this repo** (`isCrossRepository` false). A fork PR comes from outside: add `needs-triage`, comment that it goes through `/triage`, and stop. Agents never merge outside code on their own consensus.
+Stop if it's a draft. A closed PR stops too, unless it is **merged** with incomplete filing totals: then take [Resume after merge](#resume-after-merge) instead of continuing here. **Land handles only PRs whose branch lives in this repo** (`isCrossRepository` false). A fork PR comes from outside: add `needs-triage`, comment that it goes through `/triage`, and stop. Agents never merge outside code on their own consensus.
 
 Record `PIN=<headRefOid>` and `BASE=origin/<baseRefName>`, then `git fetch origin <baseRefName> <headRefName>`. Find the **PR checkout** (call its path `WT`):
 
@@ -84,6 +84,19 @@ A review **counts** only if **every** reviewer it called for (each lens, or the 
 5. **Clean up**: `git fetch origin main` (never pull in Scott's primary checkout; it is his to update). Run `bash .agents/skills/tick/worktrees.sh prune-branches` to delete local branches proven merged at their exact tip; checked-out branches are retained for a later sweep. It reports remote branches and leaves them intact. On a nonzero exit, record the partial failure and continue the remaining cleanup; failed proof never permits deletion. Last, if you created `$HOME/.t3/worktrees/card-game/pr-<n>`, `git worktree remove` it, since your shell may be standing in it; if `WT` is another session's worktree, leave it.
 
 Done when `origin/main` contains the squash commit and step 4.5 is done.
+
+## Resume after merge
+
+A crash after the merge but before step 4.4 leaves a merged PR whose accepted follow-ups were never filed. Land resumes there, and only there: **filing and cleanup**.
+
+Enter only when `state` is `MERGED` and the cumulative verdict's `PR totals` row (per `delegate`) shows fewer filed or linked follow-ups than accepted ones, or the verdict's `## Follow-ups` still has an accepted entry that is neither a ticket link nor an unfiled reason. Any other merged or closed PR: stop.
+
+1. Read the verdict comment and its `PR totals` row (`delegate`'s per-PR lookup). The row's counters and links are authoritative; do not recount from per-run rows.
+2. Skip every follow-up already linked in the verdict or the totals row. Before creating anything, search open issues per cross-review's disposition rule: a match that references the PR or squash commit counts as filed, so a crash between `gh issue create` and the verdict update never files a duplicate.
+3. File the remaining eligible ones against the merged code, within the cumulative five-new-ticket cap, and update the verdict and `PR totals` (step 4.4).
+4. Clean up (step 4.5).
+
+**Never push, review, or merge on this path.** It runs no `cross-review` and no fix rounds, and it creates no PR checkout or branch. The squash commit is the evidence; a defect found now is a new follow-up, not a fix to this PR. A closed-unmerged PR is not this path.
 
 ## 5. Escalate
 
